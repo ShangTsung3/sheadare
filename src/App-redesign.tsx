@@ -283,7 +283,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
       </div>
 
       {/* Categories */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5">
         {[
           { name: 'ყველა', emoji: '🛒' },
           { name: 'რძე', emoji: '🥛' },
@@ -300,13 +300,13 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           <button
             key={cat.name}
             onClick={() => setSelectedCategory(cat.name)}
-            className={`px-3.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0 ${
               selectedCategory === cat.name
                 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
             }`}
           >
-            <span className="text-sm">{cat.emoji}</span>
+            <span className="text-xs">{cat.emoji}</span>
             {cat.name}
           </button>
         ))}
@@ -368,18 +368,19 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
                     {/* Store prices - clean inline */}
                     <div className="flex items-center gap-3 mt-1.5">
                       {priceEntries.map(([store, price], i) => (
-                        <span key={store} className={`text-[12px] ${i === 0 ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-400'}`}>
-                          {STORE_CONFIG[store]?.letter} {(price as number).toFixed(2)}₾
+                        <span key={store} className={`inline-flex items-center gap-1 text-[12px] ${i === 0 ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-400'}`}>
+                          <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-4 h-4 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          {(price as number).toFixed(2)}₾
                         </span>
                       ))}
-                      {/* Inline save badge */}
-                      {priceEntries.length >= 2 && savePct >= 5 && (
+                      {/* Inline save badge - show savings in GEL */}
+                      {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
                         <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                          savePct >= 25 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
-                          savePct >= 10 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
+                          (worstPrice - bestPrice) >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
+                          (worstPrice - bestPrice) >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
                           'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                         }`}>
-                          -{savePct}%
+                          დაზოგე {(worstPrice - bestPrice).toFixed(2)}₾
                         </span>
                       )}
                     </div>
