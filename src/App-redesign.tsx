@@ -229,7 +229,15 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     return () => controller.abort();
   }, [debouncedQuery, selectedCategory]);
 
-  const filteredProducts = products;
+  // Deduplicate products with same name - keep the one with most stores
+  const filteredProducts = products.filter((product, idx, arr) => {
+    const sameName = arr.findIndex(p => p.name === product.name);
+    if (sameName === idx) return true;
+    // Keep if this one has more stores than the earlier one
+    const thisStores = Object.keys(product.prices).length;
+    const otherStores = Object.keys(arr[sameName].prices).length;
+    return thisStores > otherStores;
+  });
   const [toastProduct, setToastProduct] = useState<string | null>(null);
 
   const toggleBasket = (e: React.MouseEvent, product: Product) => {
