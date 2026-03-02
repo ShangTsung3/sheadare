@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Georgian:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --font-sans: "Inter", "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
+  --color-cobalt: #3B82F6;
+  --color-emerald: #10B981;
+  --color-ink: #0F172A;
+  --color-dark-bg: #020617;
+  --color-dark-card: #0F172A;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-ink font-sans antialiased transition-colors duration-300;
+  }
+  .dark body {
+    @apply bg-dark-bg text-slate-100;
+  }
+}
+
+/* Glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dark .glass {
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Glass header */
+.glass-header {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+.dark .glass-header {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+/* Shadow system */
+.shadow-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 6px 16px -2px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+.shadow-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 12px 28px -4px rgba(0, 0, 0, 0.1);
+}
+.shadow-card:active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.dark .shadow-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 6px 20px -2px rgba(0, 0, 0, 0.3);
+}
+.dark .shadow-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 12px 32px -4px rgba(0, 0, 0, 0.4);
+}
+
+.shadow-elevated {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15), 0 20px 40px -8px rgba(59, 130, 246, 0.2);
+}
+
+.dark .shadow-elevated {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1), 0 20px 40px -8px rgba(59, 130, 246, 0.15);
+}
+
+.compact-shadow {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .compact-shadow {
+  box-shadow: 0 4px 30px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Gradient borders */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, #3B82F6, #10B981);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Shimmer for skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}

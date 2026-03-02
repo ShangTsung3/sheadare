@@ -1,0 +1,48 @@
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { PORT } from './config.js';
+import { initDb } from './db/schema.js';
+import searchRouter from './routes/search.js';
+import productsRouter from './routes/products.js';
+import imagesRouter from './routes/images.js';
+import compareRouter from './routes/compare.js';
+import historyRouter from './routes/history.js';
+import basketRouter from './routes/basket.js';
+import alertsRouter from './routes/alerts.js';
+import storesRouter from './routes/stores.js';
+import { startScheduler } from './jobs/scheduler.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+app.use(express.json());
+
+// Init database
+initDb();
+
+// Routes
+app.use('/api/search', searchRouter);
+app.use('/api/product', productsRouter);
+app.use('/api/compare', compareRouter);
+app.use('/api/basket', basketRouter);
+app.use('/api/alerts', alertsRouter);
+app.use('/api/history', historyRouter);
+app.use('/api/images', imagesRouter);
+app.use('/api/stores', storesRouter);
+
+// Health check
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Serve frontend in production
+const distPath = path.resolve(__dirname, '../dist');
+app.use(express.static(distPath));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`SHEADARE running on http://localhost:${PORT}`);
+  startScheduler();
+});

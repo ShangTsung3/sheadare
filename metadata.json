@@ -1,0 +1,5 @@
+{
+  "name": "PriceMap - Georgian Grocery Price Comparison",
+  "description": "A premium mobile app prototype for comparing grocery prices across Georgian supermarkets like SPAR, Nikora, and Goodwill.",
+  "requestFramePermissions": ["geolocation"]
+}
