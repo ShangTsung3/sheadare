@@ -159,9 +159,10 @@ const mergeTransaction = db.transaction(() => {
       // Size must match (if both have sizes)
       if (myData.size && candData.size && myData.size !== candData.size) continue;
 
-      // Token similarity
+      // Token similarity - require high threshold (0.85) to avoid false merges
+      // Size MUST match if both have sizes
       const sim = tokenSimilarity(myData.tokens, candData.tokens);
-      if (sim >= 0.6 && (!bestMatch || sim > bestMatch.score)) {
+      if (sim >= 0.85 && (!bestMatch || sim > bestMatch.score)) {
         bestMatch = { id: candidate.id, score: sim };
       }
     }

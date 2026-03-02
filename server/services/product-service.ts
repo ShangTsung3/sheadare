@@ -80,9 +80,14 @@ export function searchProducts(query: string, category?: string, page = 1, limit
 
   const products = db.prepare(`
     SELECT p.*,
-      (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as store_count
+      (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as store_count,
+      (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as max_price,
+      (SELECT MIN(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as min_price
     FROM products p ${where}
-    ORDER BY store_count DESC, p.id
+    ORDER BY
+      store_count DESC,
+      CASE WHEN max_price > 0 THEN ((max_price - min_price) * 100.0 / max_price) ELSE 0 END DESC,
+      p.id
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset) as ProductRow[];
 
