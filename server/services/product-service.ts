@@ -52,6 +52,7 @@ export function searchProducts(query: string, category?: string, page = 1, limit
   let where = 'WHERE 1=1';
   const params: unknown[] = [];
 
+  let relevanceExpr = '0';
   if (query) {
     // Split query into words and trim Georgian suffixes (last 1 char) for fuzzy matching
     // e.g. "ლუდი ეფესი" → stems ["ლუდ", "ეფეს"] → matches both "ეფესი" and "ეფეს"
@@ -64,6 +65,15 @@ export function searchProducts(query: string, category?: string, page = 1, limit
       const q = `%${stem}%`;
       params.push(q, q);
     }
+
+    // Relevance: word-start match scores higher than mid-word match
+    // "ფქვილი" at word start > "დაფქვილი" mid-word
+    const relevanceParts = stems.map(stem => {
+      const wordStart = `% ${stem}%`;
+      const nameStart = `${stem}%`;
+      return `(CASE WHEN p.name LIKE '${nameStart.replace(/'/g, "''")}' OR p.name LIKE '${wordStart.replace(/'/g, "''")}' THEN 10 ELSE 0 END)`;
+    });
+    relevanceExpr = relevanceParts.join(' + ');
   }
 
   if (category) {
@@ -82,9 +92,11 @@ export function searchProducts(query: string, category?: string, page = 1, limit
     SELECT p.*,
       (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as store_count,
       (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as max_price,
-      (SELECT MIN(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as min_price
+      (SELECT MIN(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as min_price,
+      (${relevanceExpr}) as relevance
     FROM products p ${where}
     ORDER BY
+      relevance DESC,
       store_count DESC,
       CASE WHEN max_price > 0 THEN ((max_price - min_price) * 100.0 / max_price) ELSE 0 END DESC,
       p.id
