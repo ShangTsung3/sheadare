@@ -116,6 +116,7 @@ export class GoodwillScraper extends BaseScraper {
           let newInPage = 0;
           for (const p of products) {
             if (seen.has(p.id)) continue;
+            if (p.price <= 0) continue; // Skip products with no price
             seen.add(p.id);
             newInPage++;
 
@@ -128,7 +129,7 @@ export class GoodwillScraper extends BaseScraper {
               image_url: p.imageUrl || undefined,
               barcode: p.barCode || undefined,
               url: `${GOODWILL_SITE}/ka/products/${p.id}`,
-              in_stock: p.storageQuantity > 0,
+              in_stock: p.storageQuantity > 0 && p.price > 0,
             });
           }
 
@@ -154,7 +155,7 @@ export class GoodwillScraper extends BaseScraper {
       const data = await this.apiGet<{ products: GoodwillProduct[] }>(
         `/v1/Products/v3?ShopId=${SHOP_ID}&Name=${encodeURIComponent(query)}&Page=1&Limit=30`
       );
-      return (data.products || []).map((p) => ({
+      return (data.products || []).filter((p) => p.price > 0).map((p) => ({
         external_id: `goodwill-${p.id}`,
         name: p.name,
         price: p.price,
@@ -162,7 +163,7 @@ export class GoodwillScraper extends BaseScraper {
         image_url: p.imageUrl || undefined,
         barcode: p.barCode || undefined,
         url: `${GOODWILL_SITE}/ka/products/${p.id}`,
-        in_stock: p.storageQuantity > 0,
+        in_stock: p.storageQuantity > 0 && p.price > 0,
       }));
     } catch {
       return [];

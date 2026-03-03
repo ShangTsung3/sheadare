@@ -67,12 +67,28 @@ export function searchProducts(query: string, category?: string, page = 1, limit
       params.push(q, q);
     }
 
-    // Relevance: word-start match scores higher than mid-word match
-    // "ფქვილი" at word start > "დაფქვილი" mid-word
-    const relevanceParts = stems.map(stem => {
-      const wordStart = `% ${stem}%`;
-      const nameStart = `${stem}%`;
-      return `(CASE WHEN p.name LIKE '${nameStart.replace(/'/g, "''")}' OR p.name LIKE '${wordStart.replace(/'/g, "''")}' THEN 10 ELSE 0 END)`;
+    // Relevance scoring:
+    // +30: exact word match (ზეთი as standalone word → "მზესუმზირის ზეთი")
+    // +10: word-start match (ზეთ at start of word → "ზეთისხილი")
+    // +0:  mid-word match (default)
+    const relevanceParts = stems.map((stem, i) => {
+      const word = words[i]; // original word before stemming
+      const esc = (s: string) => s.replace(/'/g, "''");
+
+      // Exact word patterns - original word surrounded by delimiters (space, /, start, end)
+      const exactChecks = [
+        `p.name LIKE '% ${esc(word)} %'`,
+        `p.name LIKE '% ${esc(word)}/%'`,
+        `p.name LIKE '%/${esc(word)} %'`,
+        `p.name LIKE '${esc(word)} %'`,
+        `p.name LIKE '${esc(word)}/%'`,
+        `p.name LIKE '% ${esc(word)}'`,
+      ].join(' OR ');
+
+      // Word-start patterns (existing)
+      const startChecks = `p.name LIKE '${esc(stem)}%' OR p.name LIKE '% ${esc(stem)}%'`;
+
+      return `(CASE WHEN ${exactChecks} THEN 30 WHEN ${startChecks} THEN 10 ELSE 0 END)`;
     });
     relevanceExpr = relevanceParts.join(' + ');
   }
@@ -159,6 +175,18 @@ export function getTopSavings(limit = 7): ProductDTO[] {
     if (trend) dto.priceTrend = trend;
     return dto;
   });
+}
+
+export function searchByBarcode(barcode: string): ProductDTO | null {
+  const db = getDb();
+  const product = db.prepare('SELECT * FROM products WHERE barcode = ? LIMIT 1').get(barcode) as ProductRow | undefined;
+  if (!product) return null;
+
+  const offers = db.prepare('SELECT store, price, in_stock, url FROM store_offers WHERE product_id = ?').all(product.id) as StoreOfferRow[];
+  const dto = toDTO(product, offers);
+  const trend = getProductTrend(product.id);
+  if (trend) dto.priceTrend = trend;
+  return dto;
 }
 
 export function getProductById(id: number): ProductDTO | null {

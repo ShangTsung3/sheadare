@@ -3,6 +3,7 @@ import { RateLimiter } from '../scrapers/rate-limiter.js';
 import { SparScraper } from '../scrapers/spar-scraper.js';
 import { NabijiScraper } from '../scrapers/nabiji-scraper.js';
 import { GoodwillScraper } from '../scrapers/goodwill-scraper.js';
+import { EuroproductScraper } from '../scrapers/europroduct-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 import { SCRAPER_RATE_LIMIT_MS } from '../config.js';
 import { BaseScraper, ScrapedProduct } from '../scrapers/base-scraper.js';
@@ -17,6 +18,7 @@ const STORES: StoreConfig[] = [
   { name: 'SPAR', source: 'spar', createScraper: (rl) => new SparScraper(rl) },
   { name: '2 Nabiji', source: 'nabiji', createScraper: (rl) => new NabijiScraper(rl) },
   { name: 'Goodwill', source: 'goodwill', createScraper: (rl) => new GoodwillScraper(rl) },
+  { name: 'Europroduct', source: 'europroduct', createScraper: (rl) => new EuroproductScraper(rl) },
 ];
 
 export async function runDiscoverJob(): Promise<void> {

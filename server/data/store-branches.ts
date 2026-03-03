@@ -1021,4 +1021,10 @@ export const STORE_BRANCHES: StoreBranch[] = [
   { store: '2 Nabiji', name: '2 ნაბიჯი - დიდი დიღომი', lat: 41.78744, lng: 44.74285, address: '#059 თბილისი, დიდი დიღმის მე-3 მ/რ, კორპუსი №15' },
   { store: '2 Nabiji', name: '2 ნაბიჯი - თამარაშვილი', lat: 41.722322, lng: 44.746088, address: '#005 თბილისი, თამარაშვილის ქ. №15' },
   { store: '2 Nabiji', name: '2 ნაბიჯი - ვაკე', lat: 41.71378, lng: 44.751057, address: '#003 თბილისი, წყნეთის ქ. №2' },
+  // Europroduct: 5 branches in Tbilisi
+  { store: 'Europroduct', name: 'Europroduct - ვაკე-ვერა', lat: 41.7088, lng: 44.7620, address: 'ვაკე-ვერა, თბილისი' },
+  { store: 'Europroduct', name: 'Europroduct - დიდუბე', lat: 41.7310, lng: 44.7830, address: 'დიდუბე, თბილისი' },
+  { store: 'Europroduct', name: 'Europroduct - ორთაჭალა', lat: 41.6930, lng: 44.8120, address: 'ორთაჭალა, თბილისი' },
+  { store: 'Europroduct', name: 'Europroduct - დიდი დიღომი', lat: 41.7870, lng: 44.7380, address: 'დიდი დიღომი, თბილისი' },
+  { store: 'Europroduct', name: 'Europroduct - საბურთალო', lat: 41.7260, lng: 44.7530, address: 'საბურთალო, თბილისი' },
 ];

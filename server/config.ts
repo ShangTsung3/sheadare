@@ -1,4 +1,4 @@
-export const PORT = Number(process.env.PORT) || 3001;
+export const PORT = Number(process.env.PORT) || 3002;
 export const DB_PATH = 'data/pricemap.db';
 
 export const STORES = ['SPAR', '2 Nabiji', 'Goodwill'] as const;

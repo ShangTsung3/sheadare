@@ -4,6 +4,7 @@ import { RateLimiter } from '../scrapers/rate-limiter.js';
 import { SparScraper } from '../scrapers/spar-scraper.js';
 import { NabijiScraper } from '../scrapers/nabiji-scraper.js';
 import { GoodwillScraper } from '../scrapers/goodwill-scraper.js';
+import { EuroproductScraper } from '../scrapers/europroduct-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -88,6 +89,31 @@ async function main() {
     });
     upsertAll();
     console.log(`Goodwill done. ${products.length} products saved.`);
+  }
+
+  if (store === 'europroduct' || store === 'all') {
+    console.log('Running full Europroduct scrape...');
+    const scraper = new EuroproductScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Europroduct] ${msg}`));
+
+    console.log(`Upserting ${products.length} Europroduct products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          barcode: p.barcode,
+          source: 'europroduct',
+        });
+        upsertOffer(productId, 'Europroduct', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Europroduct done. ${products.length} products saved.`);
   }
 
   closeDb();

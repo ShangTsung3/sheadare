@@ -27,8 +27,12 @@ import {
   TrendingUp,
   Share2,
   RefreshCw,
+  Heart,
+  ScanLine,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, type PanInfo } from 'motion/react';
+import QRCode from 'qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Screen, StorePrice, Product } from './types';
 
 // --- Image Assets ---
@@ -36,6 +40,7 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'SPAR': { color: 'bg-[#00703C]', letter: 'S', filename: '1.spar', logo: 'https://static.spargeorgia.com/Spar_files/d019aa0c-1a0e-45f2-ae4c-cd8734e69f59_Thumb.png' },
   '2 Nabiji': { color: 'bg-[#EE3124]', letter: '2', filename: '2. 2 nabiji', logo: 'https://2nabiji.ge/2-nabiji-logo.png' },
   'Goodwill': { color: 'bg-[#0054A6]', letter: 'G', filename: '3. Goodwill', logo: 'https://static.goodwill.ge/Goodwill_files/28402b34-5b3f-4e50-825a-d9827094769c_Thumb.png' },
+  'Europroduct': { color: 'bg-[#E30613]', letter: 'E', filename: '4. Europroduct', logo: 'https://europroduct.ge/Content/Images/logo.svg' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string }) => {
@@ -66,6 +71,155 @@ const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, i
 };
 
 // --- Components ---
+
+const SplashScreen = () => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center"
+  >
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className="text-center"
+    >
+      <h1 className="text-4xl font-light tracking-[0.5em] text-white uppercase" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
+        SHEADARE
+      </h1>
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className="text-slate-400 text-sm mt-3 tracking-wide"
+      >
+        შეადარე ფასები
+      </motion.p>
+    </motion.div>
+  </motion.div>
+);
+
+const ONBOARDING_SLIDES = [
+  { title: 'შეადარე ფასები', desc: 'ნახე სად ღირს ყველაზე იაფად', emoji: '🔍' },
+  { title: 'შეინახე კალათაში', desc: 'დაამატე პროდუქტები და ნახე ჯამი', emoji: '🛒' },
+  { title: 'იპოვე მაღაზია', desc: 'რუკაზე ნახე უახლოესი ფილიალი', emoji: '📍' },
+];
+
+const OnboardingScreen = ({ onComplete }: { onComplete: () => void }) => {
+  const [current, setCurrent] = useState(0);
+
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    if (info.offset.x < -50 && current < ONBOARDING_SLIDES.length - 1) {
+      setCurrent(current + 1);
+    } else if (info.offset.x > 50 && current > 0) {
+      setCurrent(current - 1);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-white dark:bg-slate-950 flex flex-col">
+      <div className="flex-1 flex items-center justify-center overflow-hidden">
+        <motion.div
+          key={current}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          onDragEnd={handleDragEnd}
+          initial={{ opacity: 0, x: 80 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -80 }}
+          transition={{ duration: 0.3 }}
+          className="text-center px-10 select-none"
+        >
+          <div className="text-7xl mb-8">{ONBOARDING_SLIDES[current].emoji}</div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+            {ONBOARDING_SLIDES[current].title}
+          </h2>
+          <p className="text-slate-400 text-base">
+            {ONBOARDING_SLIDES[current].desc}
+          </p>
+        </motion.div>
+      </div>
+
+      <div className="pb-16 px-8">
+        {/* Dot indicators */}
+        <div className="flex justify-center gap-2 mb-8">
+          {ONBOARDING_SLIDES.map((_, i) => (
+            <div
+              key={i}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === current ? 'w-8 bg-slate-900 dark:bg-white' : 'w-2 bg-slate-200 dark:bg-slate-700'
+              }`}
+            />
+          ))}
+        </div>
+
+        <button
+          onClick={() => {
+            if (current < ONBOARDING_SLIDES.length - 1) {
+              setCurrent(current + 1);
+            } else {
+              localStorage.setItem('pasebi-onboarded', 'true');
+              onComplete();
+            }
+          }}
+          className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-semibold text-base active:scale-[0.98] transition-transform"
+        >
+          {current < ONBOARDING_SLIDES.length - 1 ? 'შემდეგი' : 'დაწყება'}
+        </button>
+
+        {current < ONBOARDING_SLIDES.length - 1 && (
+          <button
+            onClick={() => { localStorage.setItem('pasebi-onboarded', 'true'); onComplete(); }}
+            className="w-full text-slate-400 py-3 text-sm font-medium mt-2"
+          >
+            გამოტოვება
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SwipeableProductCard = ({ product, children, onSwipeLeft, onSwipeRight }: {
+  product: Product;
+  children: React.ReactNode;
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+}) => {
+  const [dragX, setDragX] = useState(0);
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl">
+      {/* Background layers */}
+      <div className="absolute inset-0 flex">
+        <div className={`flex-1 flex items-center justify-start pl-5 transition-opacity ${dragX > 30 ? 'opacity-100' : 'opacity-0'}`}
+          style={{ background: 'linear-gradient(90deg, #fce4ec, transparent)' }}>
+          <Heart size={22} className="text-pink-500" />
+        </div>
+        <div className={`flex-1 flex items-center justify-end pr-5 transition-opacity ${dragX < -30 ? 'opacity-100' : 'opacity-0'}`}
+          style={{ background: 'linear-gradient(-90deg, #e8f5e9, transparent)' }}>
+          <ShoppingBasket size={22} className="text-emerald-600" />
+        </div>
+      </div>
+      {/* Draggable card */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.4}
+        onDrag={(_, info) => setDragX(info.offset.x)}
+        onDragEnd={(_, info) => {
+          setDragX(0);
+          if (info.offset.x < -80) onSwipeLeft();
+          else if (info.offset.x > 80) onSwipeRight();
+        }}
+        className="relative z-10"
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+};
 
 const BottomNav = ({ active, setScreen, onMapTap, basketCount }: { active: Screen, setScreen: (s: Screen) => void, onMapTap?: () => void, basketCount: number }) => {
   const navItems = [
@@ -148,7 +302,7 @@ const BasketToast = ({ productName }: { productName: string }) => (
   </motion.div>
 );
 
-const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, basket, setBasket, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void }) => {
+const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, basket, setBasket, favorites, setFavorites, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, favorites: Product[], setFavorites: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void }) => {
   const [selectedCategory, setSelectedCategory] = useState('ყველა');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -275,6 +429,24 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     return thisStores > otherStores;
   });
   const [toastProduct, setToastProduct] = useState<string | null>(null);
+  const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
+  const [swipeHintShown] = useState(() => !!localStorage.getItem('pasebi-swipe-hint'));
+
+  const addToFavorites = (product: Product) => {
+    if (!favorites.find(f => f.id === product.id)) {
+      setFavorites(prev => [...prev, product]);
+      setFavoriteToast(product.name);
+      setTimeout(() => setFavoriteToast(null), 1500);
+    }
+  };
+
+  const addToBasketSwipe = (product: Product) => {
+    if (!basket.find(item => item.id === product.id)) {
+      setBasket(prev => [...prev, product]);
+      setToastProduct(product.name);
+      setTimeout(() => setToastProduct(null), 1500);
+    }
+  };
 
   const toggleBasket = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
@@ -290,6 +462,19 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   return (
     <div ref={containerRef} className="pb-24 pt-14 px-5 min-h-screen overflow-auto" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
+      <AnimatePresence>
+        {favoriteToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-pink-500 text-white px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2"
+          >
+            <Heart size={14} strokeWidth={2.5} />
+            <span className="text-xs font-semibold">ფავორიტებში დაემატა</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Pull to refresh indicator */}
       {(pullDist > 0 || refreshing) && (
@@ -388,6 +573,13 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
             </div>
           )}
         </div>
+        <button
+          onClick={() => setScreen('scanner')}
+          className="w-12 h-12 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center shrink-0"
+          aria-label="ბარკოდის სკანერი"
+        >
+          <ScanLine size={20} className="text-white dark:text-slate-900" />
+        </button>
       </div>
 
       {/* Categories */}
@@ -440,6 +632,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           ))}
           {filteredProducts.map((product, idx) => {
             const isInBasket = basket.find(item => item.id === product.id);
+            const isFavorite = favorites.find(f => f.id === product.id);
             const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
             if (priceEntries.length === 0) return null;
             const bestPrice = priceEntries[0][1] as number;
@@ -449,63 +642,76 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.03 }}
-                onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-transform border border-slate-100 dark:border-slate-800"
+                animate={!swipeHintShown && idx === 0 ? { opacity: 1, y: 0, x: [0, -30, 30, 0] } : { opacity: 1, y: 0 }}
+                transition={!swipeHintShown && idx === 0 ? { delay: 0.5, x: { delay: 1, duration: 0.8 } } : { delay: idx * 0.03 }}
+                onAnimationComplete={() => { if (idx === 0 && !swipeHintShown) localStorage.setItem('pasebi-swipe-hint', 'true'); }}
               >
-                <div className="flex items-start gap-3.5">
-                  {/* Product image */}
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 flex-shrink-0">
-                    <SmartImage
-                      filename=""
-                      imageUrl={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-contain p-1"
-                      fallbackLetter={product.name[0]}
-                    />
-                  </div>
-
-                  {/* Name + prices */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-[15px] leading-snug mb-0.5">{product.name}</h3>
-                    {product.size && <span className="text-slate-400 text-[12px]">{product.size}</span>}
-                    {/* Store prices - with store names */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
-                      {priceEntries.map(([store, price], i) => (
-                        <span key={store} className={`inline-flex items-center gap-1.5 text-[14px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-500 dark:text-slate-400'}`}>
-                          <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-4.5 h-4.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                          <span className={`text-[11px] ${i === 0 ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store}</span>
-                          {(price as number).toFixed(2)}₾
-                        </span>
-                      ))}
-                    </div>
-                    {/* Savings badge */}
-                    {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
-                      <div className="mt-2">
-                        <span className={`text-[12px] font-bold px-2 py-1 rounded-lg inline-block ${
-                          (worstPrice - bestPrice) >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
-                          (worstPrice - bestPrice) >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
-                          'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                        }`}>
-                          დაზოგე {(worstPrice - bestPrice).toFixed(2)}₾
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Add to basket */}
-                  <button
-                    onClick={(e) => toggleBasket(e, product)}
-                    className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
-                      isInBasket
-                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'
-                    }`}
+                <SwipeableProductCard
+                  product={product}
+                  onSwipeLeft={() => addToBasketSwipe(product)}
+                  onSwipeRight={() => addToFavorites(product)}
+                >
+                  <div
+                    onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
+                    className="bg-white dark:bg-slate-900 rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-transform border border-slate-100 dark:border-slate-800"
                   >
-                    <ShoppingBasket size={18} strokeWidth={isInBasket ? 2.5 : 1.8} />
-                  </button>
-                </div>
+                    <div className="flex items-start gap-3.5">
+                      {/* Product image */}
+                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 flex-shrink-0">
+                        <SmartImage
+                          filename=""
+                          imageUrl={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-contain p-1"
+                          fallbackLetter={product.name[0]}
+                        />
+                      </div>
+
+                      {/* Name + prices */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-bold text-slate-900 dark:text-white text-[15px] leading-snug mb-0.5">{product.name}</h3>
+                          {isFavorite && <Heart size={12} className="text-pink-500 fill-pink-500 flex-shrink-0" />}
+                        </div>
+                        {product.size && <span className="text-slate-400 text-[12px]">{product.size}</span>}
+                        {/* Store prices - with store names */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+                          {priceEntries.map(([store, price], i) => (
+                            <span key={store} className={`inline-flex items-center gap-1.5 text-[14px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-500 dark:text-slate-400'}`}>
+                              <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-4.5 h-4.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                              <span className={`text-[11px] ${i === 0 ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store}</span>
+                              {(price as number).toFixed(2)}₾
+                            </span>
+                          ))}
+                        </div>
+                        {/* Savings badge */}
+                        {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
+                          <div className="mt-2">
+                            <span className={`text-[12px] font-bold px-2 py-1 rounded-lg inline-block ${
+                              (worstPrice - bestPrice) >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
+                              (worstPrice - bestPrice) >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
+                              'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                            }`}>
+                              დაზოგე {(worstPrice - bestPrice).toFixed(2)}₾
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Add to basket */}
+                      <button
+                        onClick={(e) => toggleBasket(e, product)}
+                        className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
+                          isInBasket
+                            ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        <ShoppingBasket size={18} strokeWidth={isInBasket ? 2.5 : 1.8} />
+                      </button>
+                    </div>
+                  </div>
+                </SwipeableProductCard>
               </motion.div>
             );
           })}
@@ -522,11 +728,122 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   );
 };
 
+const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void }) => {
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [scanning, setScanning] = useState(true);
+
+  useEffect(() => {
+    const scanner = new Html5Qrcode('barcode-reader');
+    scannerRef.current = scanner;
+
+    scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 280, height: 150 } },
+      (decodedText) => {
+        scanner.stop().catch(() => {});
+        setScanning(false);
+        fetch(`/api/search/barcode/${encodeURIComponent(decodedText)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.product) {
+              setSelectedProduct(data.product);
+              setScreen('compare');
+            } else {
+              setNotFound(true);
+            }
+          })
+          .catch(() => setNotFound(true));
+      },
+      () => {},
+    ).catch(() => {
+      setError('კამერაზე წვდომა ვერ მოხერხდა');
+    });
+
+    return () => { scanner.stop().catch(() => {}); };
+  }, []);
+
+  const retry = () => {
+    setNotFound(false);
+    setScanning(true);
+    const scanner = scannerRef.current;
+    if (scanner) {
+      scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 280, height: 150 } },
+        (decodedText) => {
+          scanner.stop().catch(() => {});
+          setScanning(false);
+          fetch(`/api/search/barcode/${encodeURIComponent(decodedText)}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.product) {
+                setSelectedProduct(data.product);
+                setScreen('compare');
+              } else {
+                setNotFound(true);
+              }
+            })
+            .catch(() => setNotFound(true));
+        },
+        () => {},
+      ).catch(() => setError('კამერაზე წვდომა ვერ მოხერხდა'));
+    }
+  };
+
+  return (
+    <div className="pb-24 pt-14 px-5 min-h-screen">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={() => setScreen('home')} className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+          <ArrowLeft size={20} className="text-slate-700 dark:text-slate-300" />
+        </button>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white">ბარკოდის სკანერი</h1>
+      </div>
+
+      <div className="rounded-2xl overflow-hidden bg-black relative">
+        <div id="barcode-reader" className="w-full" />
+        {scanning && !error && (
+          <div className="absolute bottom-4 left-0 right-0 text-center">
+            <span className="bg-black/60 text-white text-xs px-4 py-2 rounded-full">
+              მიმართე კამერა ბარკოდისკენ
+            </span>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="mt-6 text-center">
+          <p className="text-red-500 font-medium mb-3">{error}</p>
+          <button onClick={() => setScreen('home')} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm">
+            უკან დაბრუნება
+          </button>
+        </div>
+      )}
+
+      {notFound && (
+        <div className="mt-6 text-center">
+          <p className="text-slate-500 dark:text-slate-400 font-medium mb-3">პროდუქტი ვერ მოიძებნა</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={retry} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm">
+              თავიდან სკანირება
+            </button>
+            <button onClick={() => setScreen('home')} className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-semibold text-sm">
+              უკან
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, basket, setBasket, setTargetStore }: { selectedProduct: Product | null, setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [targetPrice, setTargetPrice] = useState('2.20');
   const [compareData, setCompareData] = useState<{ stores: StorePrice[]; priceTrend?: 'up' | 'down' } | null>(null);
   const [priceHistory, setPriceHistory] = useState<{ store: string; price: number; date: string }[]>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const product = selectedProduct || FALLBACK_PRODUCTS[0];
   const isInBasket = basket.find(item => item.id === product.id);
@@ -568,6 +885,16 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
     .sort((a, b) => (a.price || 0) - (b.price || 0));
 
   const bestPrice = storeComparison[0];
+  const worstPriceCompare = storeComparison.length >= 2 ? storeComparison[storeComparison.length - 1] : null;
+  const totalSavings = worstPriceCompare && bestPrice ? (worstPriceCompare.price || 0) - (bestPrice.price || 0) : 0;
+
+  useEffect(() => {
+    if (totalSavings >= 5) {
+      setShowConfetti(true);
+      const timer = setTimeout(() => setShowConfetti(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [totalSavings]);
 
   const [toastProduct, setToastProduct] = useState<string | null>(null);
   const toggleBasket = () => {
@@ -583,6 +910,33 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
   return (
     <div className="pb-24 pt-14 px-5 min-h-screen">
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
+
+      {/* Confetti animation for big savings */}
+      {showConfetti && (
+        <>
+          <style>{`
+            @keyframes confetti-fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+            @keyframes confetti-spin { 0% { transform: rotateX(0) rotateY(0); } 100% { transform: rotateX(360deg) rotateY(180deg); } }
+            .confetti-piece { position: fixed; top: -10px; z-index: 100; width: 10px; height: 10px; border-radius: 2px; animation: confetti-fall 3s ease-in forwards; pointer-events: none; }
+            .confetti-piece::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: inherit; animation: confetti-spin 2s linear infinite; }
+          `}</style>
+          {Array.from({ length: 15 }).map((_, i) => (
+            <div
+              key={i}
+              className="confetti-piece"
+              style={{
+                left: `${Math.random() * 100}%`,
+                background: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'][i % 6],
+                animationDelay: `${Math.random() * 1.5}s`,
+                animationDuration: `${2 + Math.random() * 2}s`,
+                width: `${6 + Math.random() * 8}px`,
+                height: `${6 + Math.random() * 8}px`,
+              }}
+            />
+          ))}
+        </>
+      )}
+
       <Header title="შედარება" showBack onBack={() => setScreen('home')} darkMode={darkMode} setDarkMode={setDarkMode} />
 
       {/* Product card - clean */}
@@ -1009,6 +1363,18 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode }: { setScreen: (s: Sc
 
 const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setTargetStore }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
   const [viewStore, setViewStore] = useState<string | null>(null);
+  const [showQR, setShowQR] = useState(false);
+  const [qrImage, setQrImage] = useState<string | null>(null);
+
+  const generateQR = async () => {
+    const ids = basket.map(item => item.id).join(',');
+    const url = `${window.location.origin}?basket=${ids}`;
+    try {
+      const dataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2, color: { dark: '#0f172a', light: '#ffffff' } });
+      setQrImage(dataUrl);
+      setShowQR(true);
+    } catch { /* ignore */ }
+  };
 
   const storeSet = new Set<string>();
   for (const item of basket) {
@@ -1169,10 +1535,73 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
               >
                 <Share2 size={16} />
               </button>
+              <button
+                onClick={generateQR}
+                className="w-12 bg-slate-700 dark:bg-slate-700 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center active:scale-[0.98] transition-transform"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" />
+                  <path d="M14 14h2v2h-2zM20 14h2v2h-2zM14 20h2v2h-2zM20 20h2v2h-2zM17 17h2v2h-2z" />
+                </svg>
+              </button>
             </div>
           </div>
         </>
       )}
+
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {showQR && qrImage && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowQR(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 w-full max-w-xs"
+            >
+              <button onClick={() => setShowQR(false)} className="absolute top-3 right-3 p-1 text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 text-center">QR კოდი</h3>
+              <p className="text-xs text-slate-400 text-center mb-5">დაასკანერე კალათის გასაზიარებლად</p>
+              <div className="flex justify-center mb-5">
+                <img src={qrImage} alt="QR Code" className="w-48 h-48 rounded-xl" />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const ids = basket.map(item => item.id).join(',');
+                    const url = `${window.location.origin}?basket=${ids}`;
+                    navigator.clipboard.writeText(url).then(() => alert('ლინკი დაკოპირდა!'));
+                  }}
+                  className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-medium text-sm active:scale-[0.98] transition-transform"
+                >
+                  ლინკის კოპირება
+                </button>
+                <button
+                  onClick={() => {
+                    const ids = basket.map(item => item.id).join(',');
+                    const url = `${window.location.origin}?basket=${ids}`;
+                    if (navigator.share) {
+                      navigator.share({ title: 'SHEADARE კალათა', url }).catch(() => {});
+                    }
+                  }}
+                  className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
+                >
+                  გაზიარება
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -1355,6 +1784,15 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [targetStore, setTargetStore] = useState<string | null>(null);
 
+  // Splash & onboarding
+  const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('pasebi-onboarded'));
+
+  // Favorites
+  const [favorites, setFavorites] = useState<Product[]>(() => {
+    try { const saved = localStorage.getItem('pasebi-favorites'); return saved ? JSON.parse(saved) : []; } catch { return []; }
+  });
+
   // Global voice state
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceToast, setVoiceToast] = useState<{ text: string; type: 'command' | 'listening' | 'error' } | null>(null);
@@ -1363,7 +1801,39 @@ export default function App() {
   const [voiceCategory, setVoiceCategory] = useState<string | null>(null);
   const [voiceProducts, setVoiceProducts] = useState<Product[]>([]);
 
+  // Splash auto-dismiss
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // URL basket restore
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const basketParam = params.get('basket');
+    if (basketParam) {
+      const ids = basketParam.split(',').filter(Boolean);
+      if (ids.length > 0) {
+        Promise.all(ids.map(id =>
+          fetch(`/api/compare/${id}`).then(r => r.json()).then(data => {
+            if (data.product) return data.product as Product;
+            return null;
+          }).catch(() => null)
+        )).then(products => {
+          const valid = products.filter(Boolean) as Product[];
+          if (valid.length > 0) {
+            setBasket(valid);
+            setScreen('basket');
+          }
+        });
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, []);
+
   useEffect(() => { localStorage.setItem('pasebi-basket', JSON.stringify(basket)); }, [basket]);
+  useEffect(() => { localStorage.setItem('pasebi-favorites', JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
@@ -1418,51 +1888,68 @@ export default function App() {
 
   const renderScreen = () => {
     const props = { setScreen, darkMode, setDarkMode, basket, setBasket };
+    const homeProps = { ...props, favorites, setFavorites, setSelectedProduct, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded: setVoiceProducts };
     switch (currentScreen) {
-      case 'home': return <HomeScreen {...props} setSelectedProduct={setSelectedProduct} voiceSearchQuery={voiceSearchQuery} setVoiceSearchQuery={setVoiceSearchQuery} voiceCategory={voiceCategory} setVoiceCategory={setVoiceCategory} onProductsLoaded={setVoiceProducts} />;
+      case 'home': return <HomeScreen {...homeProps} />;
       case 'compare': return <CompareScreen {...props} selectedProduct={selectedProduct} setTargetStore={setTargetStore} />;
       case 'map': return <MapScreen {...props} targetStore={targetStore} setTargetStore={setTargetStore} selectedProduct={selectedProduct} />;
       case 'profile': return <ProfileScreen {...props} />;
       case 'basket': return <BasketScreen {...props} setTargetStore={setTargetStore} />;
       case 'alerts': return <AlertsScreen {...props} />;
-      default: return <HomeScreen {...props} setSelectedProduct={setSelectedProduct} voiceSearchQuery={voiceSearchQuery} setVoiceSearchQuery={setVoiceSearchQuery} voiceCategory={voiceCategory} setVoiceCategory={setVoiceCategory} onProductsLoaded={setVoiceProducts} />;
+      case 'scanner': return <BarcodeScannerScreen setScreen={setScreen} setSelectedProduct={setSelectedProduct} />;
+      default: return <HomeScreen {...homeProps} />;
     }
   };
 
   return (
     <div className="max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen relative">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentScreen}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-        >
-          {renderScreen()}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Voice toast */}
+      {/* Splash Screen */}
       <AnimatePresence>
-        {voiceToast && <VoiceToast text={voiceToast.text} type={voiceToast.type} />}
+        {showSplash && <SplashScreen />}
       </AnimatePresence>
 
-      {/* Global floating mic button */}
-      {currentScreen !== 'map' && (
-        <button
-          onClick={startVoiceCommand}
-          className={`fixed bottom-[5.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
-            voiceListening
-              ? 'bg-red-500 text-white animate-pulse'
-              : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-          }`}
-        >
-          <Mic size={20} />
-        </button>
+      {/* Onboarding - shown after splash, only on first launch */}
+      {!showSplash && showOnboarding && (
+        <OnboardingScreen onComplete={() => setShowOnboarding(false)} />
       )}
 
-      <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} />
+      {/* Main App */}
+      {!showSplash && !showOnboarding && (
+        <>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentScreen}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              {renderScreen()}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Voice toast */}
+          <AnimatePresence>
+            {voiceToast && <VoiceToast text={voiceToast.text} type={voiceToast.type} />}
+          </AnimatePresence>
+
+          {/* Global floating mic button */}
+          {currentScreen !== 'map' && (
+            <button
+              onClick={startVoiceCommand}
+              className={`fixed bottom-[5.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+                voiceListening
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+              }`}
+            >
+              <Mic size={20} />
+            </button>
+          )}
+
+          <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} />
+        </>
+      )}
     </div>
   );
 }

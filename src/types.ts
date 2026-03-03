@@ -1,12 +1,13 @@
-export type Screen = 
-  | 'home' 
-  | 'search_results' 
-  | 'compare' 
-  | 'map' 
-  | 'deals' 
-  | 'basket' 
-  | 'alerts' 
-  | 'profile';
+export type Screen =
+  | 'home'
+  | 'search_results'
+  | 'compare'
+  | 'map'
+  | 'deals'
+  | 'basket'
+  | 'alerts'
+  | 'profile'
+  | 'scanner';
 
 export interface Product {
   id: string;

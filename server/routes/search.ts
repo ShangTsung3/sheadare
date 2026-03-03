@@ -1,11 +1,18 @@
 import { Router, Request, Response } from 'express';
-import { searchProducts, getTopSavings } from '../services/product-service.js';
+import { searchProducts, getTopSavings, searchByBarcode } from '../services/product-service.js';
 
 const router = Router();
 
 router.get('/top-savings', (_req: Request, res: Response) => {
   const results = getTopSavings(7);
   res.json({ results });
+});
+
+router.get('/barcode/:code', (req: Request, res: Response) => {
+  const code = String(req.params.code).replace(/\D/g, '');
+  if (!code) { res.json({ product: null }); return; }
+  const product = searchByBarcode(code);
+  res.json({ product });
 });
 
 router.get('/', (req: Request, res: Response) => {

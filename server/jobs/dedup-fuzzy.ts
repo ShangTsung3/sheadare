@@ -156,6 +156,9 @@ const mergeTransaction = db.transaction(() => {
 
       const candData = normCache.get(candidate.id)!;
 
+      // Never merge products with different barcodes - they are different products
+      if (product.barcode && candidate.barcode && product.barcode !== candidate.barcode) continue;
+
       // Size must match (if both have sizes)
       if (myData.size && candData.size && myData.size !== candData.size) continue;
 
