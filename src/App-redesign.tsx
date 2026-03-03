@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Home,
   Tag,
@@ -24,6 +24,9 @@ import {
   Car,
   Footprints,
   Minus,
+  TrendingUp,
+  Share2,
+  RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Screen, StorePrice, Product } from './types';
@@ -73,24 +76,24 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount }: { active: Scree
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 pt-2.5 pb-5 flex justify-between items-center z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 pt-3 pb-6 flex justify-between items-center z-50">
       {navItems.map((item) => {
         const isActive = active === item.id || (active === 'compare' && item.id === 'home');
         return (
           <button
             key={item.id}
             onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
-            className={`transition-colors relative flex flex-col items-center gap-1 min-w-[3.5rem] ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-600'}`}
+            className={`transition-colors relative flex flex-col items-center gap-1.5 min-w-[4rem] py-1 ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-600'}`}
           >
             <div className="relative">
-              <item.icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
+              <item.icon size={24} strokeWidth={isActive ? 2.2 : 1.6} />
               {item.id === 'basket' && basketCount > 0 && (
-                <div className="absolute -top-1 -right-2 min-w-[16px] h-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[9px] font-bold rounded-full flex items-center justify-center px-1">
+                <div className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
                   {basketCount}
                 </div>
               )}
             </div>
-            <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+            <span className={`text-[12px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
           </button>
         );
       })}
@@ -155,6 +158,39 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try { const saved = localStorage.getItem('pasebi-search-history'); return saved ? JSON.parse(saved) : []; } catch { return []; }
   });
+  const [topSavings, setTopSavings] = useState<Product[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pullDist, setPullDist] = useState(0);
+  const pullStartY = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const fetchTopSavings = useCallback(() => {
+    fetch('/api/search/top-savings')
+      .then(r => r.json())
+      .then(data => { if (data.results) setTopSavings(data.results); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { fetchTopSavings(); }, [refreshKey]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    pullStartY.current = e.touches[0].clientY;
+  }, []);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (containerRef.current && containerRef.current.scrollTop <= 0) {
+      const diff = e.touches[0].clientY - pullStartY.current;
+      if (diff > 0) setPullDist(Math.min(diff * 0.4, 70));
+    }
+  }, []);
+  const handleTouchEnd = useCallback(() => {
+    if (pullDist > 40) {
+      setRefreshing(true);
+      setRefreshKey(k => k + 1);
+      setTimeout(() => setRefreshing(false), 800);
+    }
+    setPullDist(0);
+  }, [pullDist]);
 
   // Listen for voice search queries from App
   useEffect(() => {
@@ -227,7 +263,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [debouncedQuery, selectedCategory]);
+  }, [debouncedQuery, selectedCategory, refreshKey]);
 
   // Deduplicate products with same name - keep the one with most stores
   const filteredProducts = products.filter((product, idx, arr) => {
@@ -252,14 +288,78 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   };
 
   return (
-    <div className="pb-24 pt-14 px-5 min-h-screen">
+    <div ref={containerRef} className="pb-24 pt-14 px-5 min-h-screen overflow-auto" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
+
+      {/* Pull to refresh indicator */}
+      {(pullDist > 0 || refreshing) && (
+        <div className="flex justify-center items-center mb-2 -mt-2" style={{ height: pullDist > 0 ? pullDist : 30 }}>
+          <RefreshCw size={18} className={`text-slate-400 transition-transform ${refreshing ? 'animate-spin' : ''}`} style={{ transform: `rotate(${pullDist * 3}deg)` }} />
+        </div>
+      )}
+
       <Header title="შეადარე" darkMode={darkMode} setDarkMode={setDarkMode} />
+
+      {/* Top Savings */}
+      {topSavings.length > 0 && !debouncedQuery && (
+        <section className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingDown size={16} className="text-emerald-500" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">ამ კვირის დანაზოგი</h2>
+          </div>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+            {topSavings.map((product) => {
+              const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
+              if (priceEntries.length < 2) return null;
+              const bestPrice = priceEntries[0][1] as number;
+              const worstPrice = priceEntries[priceEntries.length - 1][1] as number;
+              const savings = worstPrice - bestPrice;
+              if (savings < 0.1) return null;
+              return (
+                <motion.div
+                  key={product.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
+                  className="flex-shrink-0 w-[155px] bg-white dark:bg-slate-900 rounded-xl p-3 cursor-pointer active:scale-[0.97] transition-transform border border-slate-100 dark:border-slate-800"
+                >
+                  <div className="relative w-full h-20 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800 mb-2">
+                    <SmartImage filename="" imageUrl={product.image} alt={product.name} className="w-full h-full object-contain p-1" fallbackLetter={product.name[0]} />
+                    {product.priceTrend && (
+                      <div className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center ${product.priceTrend === 'down' ? 'bg-emerald-500' : 'bg-red-400'}`}>
+                        {product.priceTrend === 'down' ? <TrendingDown size={11} className="text-white" /> : <TrendingUp size={11} className="text-white" />}
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white leading-tight line-clamp-2 mb-2" style={{ minHeight: '34px' }}>{product.name}</h3>
+                  <div className="flex flex-col gap-1">
+                    {priceEntries.map(([store, price], i) => (
+                      <span key={store} className={`inline-flex items-center gap-1.5 text-[12px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-400'}`}>
+                        <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-3.5 h-3.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        {(price as number).toFixed(2)}₾
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-2">
+                    <span className={`text-[11px] font-bold px-2 py-1 rounded ${
+                      savings >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
+                      savings >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
+                      'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                    }`}>
+                      დაზოგე {savings.toFixed(2)}₾
+                    </span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Search */}
       <div className="relative mb-5 flex gap-2.5">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={1.8} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} strokeWidth={1.8} />
           <input
             type="text"
             placeholder="მოძებნე პროდუქტი..."
@@ -267,7 +367,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-            className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl py-3 pl-11 pr-4 text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:bg-white dark:focus:bg-slate-900 transition-all border-0"
+            className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-[15px] font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:bg-white dark:focus:bg-slate-900 transition-all border-0"
           />
           {searchFocused && !searchQuery && searchHistory.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg z-20 overflow-hidden">
@@ -291,7 +391,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
       </div>
 
       {/* Categories */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5">
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-5">
         {[
           { name: 'ყველა', emoji: '🛒' },
           { name: 'რძე', emoji: '🥛' },
@@ -308,13 +408,13 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           <button
             key={cat.name}
             onClick={() => setSelectedCategory(cat.name)}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0 ${
+            className={`px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0 ${
               selectedCategory === cat.name
                 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
             }`}
           >
-            <span className="text-xs">{cat.emoji}</span>
+            <span className="text-base">{cat.emoji}</span>
             {cat.name}
           </button>
         ))}
@@ -323,18 +423,18 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
       {/* Products */}
       <section>
         <div className="flex justify-between items-center mb-3">
-          <h2 className="text-xs font-semibold text-slate-400">
+          <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400">
             {selectedCategory === 'ყველა' ? 'პოპულარული' : selectedCategory}
           </h2>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {loading && filteredProducts.length === 0 && [1,2,3,4,5].map(i => (
-            <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl skeleton flex-shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3.5 skeleton rounded w-3/4" />
-                <div className="h-3 skeleton rounded w-1/2" />
+            <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-4 flex items-center gap-3.5">
+              <div className="w-14 h-14 rounded-xl skeleton flex-shrink-0" />
+              <div className="flex-1 space-y-2.5">
+                <div className="h-4 skeleton rounded w-3/4" />
+                <div className="h-3.5 skeleton rounded w-1/2" />
               </div>
             </div>
           ))}
@@ -344,7 +444,6 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
             if (priceEntries.length === 0) return null;
             const bestPrice = priceEntries[0][1] as number;
             const worstPrice = priceEntries.length >= 2 ? priceEntries[priceEntries.length - 1][1] as number : bestPrice;
-            const savePct = worstPrice > 0 ? Math.round(((worstPrice - bestPrice) / worstPrice) * 100) : 0;
 
             return (
               <motion.div
@@ -353,11 +452,11 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
                 onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 cursor-pointer active:scale-[0.98] transition-transform border border-slate-100 dark:border-slate-800"
+                className="bg-white dark:bg-slate-900 rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-transform border border-slate-100 dark:border-slate-800"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3.5">
                   {/* Product image */}
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 flex-shrink-0">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 flex-shrink-0">
                     <SmartImage
                       filename=""
                       imageUrl={product.image}
@@ -367,43 +466,44 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
                     />
                   </div>
 
-                  {/* Name + badge */}
+                  {/* Name + prices */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-900 dark:text-white text-[13px] truncate">{product.name}</h3>
-                      {product.size && <span className="text-slate-400 text-[11px] flex-shrink-0">{product.size}</span>}
-                    </div>
-                    {/* Store prices - clean inline */}
-                    <div className="flex items-center gap-3 mt-1.5">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-[15px] leading-snug mb-0.5">{product.name}</h3>
+                    {product.size && <span className="text-slate-400 text-[12px]">{product.size}</span>}
+                    {/* Store prices - with store names */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
                       {priceEntries.map(([store, price], i) => (
-                        <span key={store} className={`inline-flex items-center gap-1 text-[12px] ${i === 0 ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-400'}`}>
-                          <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-4 h-4 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        <span key={store} className={`inline-flex items-center gap-1.5 text-[14px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-500 dark:text-slate-400'}`}>
+                          <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-4.5 h-4.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <span className={`text-[11px] ${i === 0 ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store}</span>
                           {(price as number).toFixed(2)}₾
                         </span>
                       ))}
-                      {/* Inline save badge - show savings in GEL */}
-                      {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                    </div>
+                    {/* Savings badge */}
+                    {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
+                      <div className="mt-2">
+                        <span className={`text-[12px] font-bold px-2 py-1 rounded-lg inline-block ${
                           (worstPrice - bestPrice) >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
                           (worstPrice - bestPrice) >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
                           'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                         }`}>
                           დაზოგე {(worstPrice - bestPrice).toFixed(2)}₾
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Add to basket */}
                   <button
                     onClick={(e) => toggleBasket(e, product)}
-                    className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                    className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
                       isInBasket
                         ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'
                     }`}
                   >
-                    <ShoppingBasket size={14} strokeWidth={isInBasket ? 2.5 : 1.8} />
+                    <ShoppingBasket size={18} strokeWidth={isInBasket ? 2.5 : 1.8} />
                   </button>
                 </div>
               </motion.div>
@@ -411,9 +511,9 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           })}
           {!loading && filteredProducts.length === 0 && (
             <div className="text-center py-16">
-              <Search size={32} className="text-slate-200 dark:text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-400 font-medium text-sm">პროდუქტები არ მოიძებნა</p>
-              <p className="text-slate-300 dark:text-slate-600 text-xs mt-1">სცადე სხვა საძიებო სიტყვა</p>
+              <Search size={36} className="text-slate-200 dark:text-slate-700 mx-auto mb-3" />
+              <p className="text-slate-400 font-semibold text-base">პროდუქტები არ მოიძებნა</p>
+              <p className="text-slate-300 dark:text-slate-600 text-sm mt-1">სცადე სხვა საძიებო სიტყვა</p>
             </div>
           )}
         </div>
@@ -425,7 +525,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
 const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, basket, setBasket, setTargetStore }: { selectedProduct: Product | null, setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [targetPrice, setTargetPrice] = useState('2.20');
-  const [compareData, setCompareData] = useState<{ stores: StorePrice[] } | null>(null);
+  const [compareData, setCompareData] = useState<{ stores: StorePrice[]; priceTrend?: 'up' | 'down' } | null>(null);
   const [priceHistory, setPriceHistory] = useState<{ store: string; price: number; date: string }[]>([]);
 
   const product = selectedProduct || FALLBACK_PRODUCTS[0];
@@ -442,6 +542,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
               price: s.inStock ? s.price : null,
               delta: s.delta || undefined,
             })),
+            priceTrend: data.product?.priceTrend,
           });
         }
       })
@@ -499,29 +600,42 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
           <div className="flex-1">
             <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{product.name}</h2>
             <p className="text-xs text-slate-400 mt-0.5">{product.size}</p>
-            <p className="text-lg font-bold text-slate-900 dark:text-white mt-2">
-              {bestPrice?.price?.toFixed(2) || '—'}₾
-              {bestPrice && <span className="text-xs text-slate-400 font-normal ml-1.5">საუკეთესო</span>}
-            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-lg font-bold text-slate-900 dark:text-white">
+                {bestPrice?.price?.toFixed(2) || '—'}₾
+              </p>
+              {bestPrice && <span className="text-xs text-slate-400 font-normal">საუკეთესო</span>}
+              {(compareData?.priceTrend || product.priceTrend) && (
+                <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  (compareData?.priceTrend || product.priceTrend) === 'down'
+                    ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400'
+                    : 'bg-red-50 text-red-500 dark:bg-red-950 dark:text-red-400'
+                }`}>
+                  {(compareData?.priceTrend || product.priceTrend) === 'down'
+                    ? <><TrendingDown size={10} /> გაიაფდა</>
+                    : <><TrendingUp size={10} /> გაძვირდა</>}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2.5 mt-4">
           <button
             onClick={() => setShowAlertModal(true)}
-            className="flex-1 flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800 px-4 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium bg-slate-50 dark:bg-slate-800 px-4 py-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
-            <Bell size={14} />
+            <Bell size={16} />
             ალერტი
           </button>
           <button
             onClick={toggleBasket}
-            className={`flex-1 flex items-center justify-center gap-2 text-xs font-medium px-4 py-2.5 rounded-xl transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 text-sm font-semibold px-4 py-3.5 rounded-xl transition-colors ${
               isInBasket
                 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
                 : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
             }`}
           >
-            <ShoppingBasket size={14} />
+            <ShoppingBasket size={16} />
             {isInBasket ? 'კალათაშია' : 'კალათაში'}
           </button>
         </div>
@@ -570,22 +684,22 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
       </AnimatePresence>
 
       {/* Store prices */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-semibold text-slate-400 mb-3">ფასები მაღაზიებში</h3>
+      <div className="space-y-2.5">
+        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-3">ფასები მაღაზიებში</h3>
         {storeComparison.map((item, idx) => (
           <motion.div
             key={idx}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: idx * 0.05 }}
-            className={`rounded-xl p-3.5 flex justify-between items-center border ${
+            className={`rounded-xl p-4 flex justify-between items-center border ${
               idx === 0
-                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30'
+                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30'
                 : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800">
                 <SmartImage
                   filename={STORE_CONFIG[item.store]?.filename || ''}
                   alt={item.store}
@@ -597,13 +711,13 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
                 />
               </div>
               <div>
-                <span className="font-semibold text-slate-900 dark:text-white text-sm">{item.store}</span>
-                {idx === 0 && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium block">ყველაზე იაფი</span>}
+                <span className="font-bold text-slate-900 dark:text-white text-[15px]">{item.store}</span>
+                {idx === 0 && <span className="text-[12px] text-emerald-600 dark:text-emerald-400 font-semibold block">ყველაზე იაფი</span>}
               </div>
             </div>
             <div className="text-right">
-              <p className={`font-bold text-sm ${idx === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}`}>{item.price?.toFixed(2)}₾</p>
-              {item.delta && item.delta > 0 && <p className="text-[10px] text-slate-400">+{item.delta.toFixed(2)}₾</p>}
+              <p className={`font-bold text-lg ${idx === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}`}>{item.price?.toFixed(2)}₾</p>
+              {item.delta && item.delta > 0 && <p className="text-[12px] text-slate-400 font-medium">+{item.delta.toFixed(2)}₾</p>}
             </div>
           </motion.div>
         ))}
@@ -650,13 +764,13 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
       <div className="mt-8 grid grid-cols-2 gap-3">
         <button
           onClick={() => { setTargetStore(bestPrice?.store || null); setScreen('map'); }}
-          className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+          className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         >
-          <MapIcon size={16} />
+          <MapIcon size={18} />
           რუკაზე ნახვა
         </button>
-        <button className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 py-3.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-          <ExternalLink size={16} />
+        <button className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+          <ExternalLink size={18} />
           საიტზე
         </button>
       </div>
@@ -1030,11 +1144,32 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
             {activeStoreData && !activeStoreData.hasAll && (
               <p className="text-xs text-slate-400 mb-3">{basket.length - activeStoreData.availableCount} ნივთი არ არის ამ მაღაზიაში</p>
             )}
-            <button onClick={() => { setTargetStore(activeStore); setScreen('map'); }}
-              className="w-full bg-white text-slate-900 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-              <Navigation size={16} />
-              მაჩვენე გზა
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => { setTargetStore(activeStore); setScreen('map'); }}
+                className="flex-1 bg-white text-slate-900 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+                <Navigation size={16} />
+                მაჩვენე გზა
+              </button>
+              <button
+                onClick={() => {
+                  const lines = basket.map(item => {
+                    const price = item.prices[activeStore];
+                    return `${item.name}${item.size ? ' ' + item.size : ''} — ${price > 0 ? price.toFixed(2) + '₾' : 'არ არის'}`;
+                  });
+                  const text = `🛒 საყიდლების სია (${activeStore})\n\n${lines.join('\n')}\n\nჯამი: ${activeStoreData?.total.toFixed(2)}₾\n\n— SHEADARE`;
+                  if (navigator.share) {
+                    navigator.share({ title: 'საყიდლების სია', text }).catch(() => {});
+                  } else {
+                    navigator.clipboard.writeText(text).then(() => {
+                      alert('სია დაკოპირდა!');
+                    });
+                  }
+                }}
+                className="w-12 bg-slate-700 dark:bg-slate-700 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center active:scale-[0.98] transition-transform"
+              >
+                <Share2 size={16} />
+              </button>
+            </div>
           </div>
         </>
       )}

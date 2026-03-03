@@ -26,6 +26,7 @@ export interface ProductDTO {
   category: string;
   prices: Record<string, number>;
   image?: string;
+  priceTrend?: 'up' | 'down';
 }
 
 function toDTO(product: ProductRow, offers: StoreOfferRow[]): ProductDTO {
@@ -111,13 +112,65 @@ export function searchProducts(query: string, category?: string, page = 1, limit
   return { results, total: countRow.total };
 }
 
+function getProductTrend(productId: number): 'up' | 'down' | undefined {
+  const db = getDb();
+  const prevDay = db.prepare(`
+    SELECT DISTINCT DATE(recorded_at) as d FROM price_history
+    WHERE product_id = ? ORDER BY d DESC LIMIT 1 OFFSET 1
+  `).get(productId) as { d: string } | undefined;
+  if (!prevDay) return undefined;
+
+  const currentMin = db.prepare(
+    'SELECT MIN(price) as p FROM store_offers WHERE product_id = ? AND in_stock = 1 AND price > 0'
+  ).get(productId) as { p: number } | undefined;
+  const prevMin = db.prepare(
+    'SELECT MIN(price) as p FROM price_history WHERE product_id = ? AND DATE(recorded_at) = ? AND price > 0'
+  ).get(productId, prevDay.d) as { p: number } | undefined;
+
+  if (!currentMin?.p || !prevMin?.p) return undefined;
+  if (currentMin.p < prevMin.p - 0.01) return 'down';
+  if (currentMin.p > prevMin.p + 0.01) return 'up';
+  return undefined;
+}
+
+export function getTopSavings(limit = 7): ProductDTO[] {
+  const db = getDb();
+  const products = db.prepare(`
+    SELECT p.*,
+      (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as store_count,
+      (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as max_price,
+      (SELECT MIN(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as min_price
+    FROM products p
+    WHERE (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) = 3
+      AND p.external_id NOT LIKE 'split-%' AND p.external_id NOT LIKE 'wrong-merge-%'
+      AND (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) <= 30
+      AND p.name NOT LIKE '%ვისკი%' AND p.name NOT LIKE '%კონიაკი%' AND p.name NOT LIKE '%ღვინო%'
+      AND p.name NOT LIKE '%შამპანური%' AND p.name NOT LIKE '%ლიქიორი%' AND p.name NOT LIKE '%ჯინი%'
+      AND p.name NOT LIKE '%არაყი%' AND p.name NOT LIKE '%ვოდკა%' AND p.name NOT LIKE '%ბრენდი%'
+      AND p.name NOT LIKE '%ტეკილა%' AND p.name NOT LIKE '%რომი%'
+    ORDER BY (max_price - min_price) DESC
+    LIMIT ?
+  `).all(limit) as ProductRow[];
+
+  return products.map((p) => {
+    const offers = db.prepare('SELECT store, price, in_stock, url FROM store_offers WHERE product_id = ?').all(p.id) as StoreOfferRow[];
+    const dto = toDTO(p, offers);
+    const trend = getProductTrend(p.id);
+    if (trend) dto.priceTrend = trend;
+    return dto;
+  });
+}
+
 export function getProductById(id: number): ProductDTO | null {
   const db = getDb();
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(id) as ProductRow | undefined;
   if (!product) return null;
 
   const offers = db.prepare('SELECT store, price, in_stock, url FROM store_offers WHERE product_id = ?').all(id) as StoreOfferRow[];
-  return toDTO(product, offers);
+  const dto = toDTO(product, offers);
+  const trend = getProductTrend(id);
+  if (trend) dto.priceTrend = trend;
+  return dto;
 }
 
 export function getProductWithStores(id: number) {
@@ -127,6 +180,9 @@ export function getProductWithStores(id: number) {
 
   const offers = db.prepare('SELECT store, price, in_stock, url FROM store_offers WHERE product_id = ?').all(id) as StoreOfferRow[];
   const dto = toDTO(product, offers);
+
+  const trend = getProductTrend(id);
+  if (trend) dto.priceTrend = trend;
 
   return {
     ...dto,

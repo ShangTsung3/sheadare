@@ -1,7 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { searchProducts } from '../services/product-service.js';
+import { searchProducts, getTopSavings } from '../services/product-service.js';
 
 const router = Router();
+
+router.get('/top-savings', (_req: Request, res: Response) => {
+  const results = getTopSavings(7);
+  res.json({ results });
+});
 
 router.get('/', (req: Request, res: Response) => {
   const q = String(req.query.q || '');
