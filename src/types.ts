@@ -7,7 +7,8 @@ export type Screen =
   | 'basket'
   | 'alerts'
   | 'profile'
-  | 'scanner';
+  | 'scanner'
+  | 'chat';
 
 export interface Product {
   id: string;
@@ -23,4 +24,20 @@ export interface StorePrice {
   store: string;
   price: number | null;
   delta?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  products?: Product[];
+  actions?: ChatAction[];
+  timestamp: number;
+  image?: string;
+}
+
+export interface ChatAction {
+  type: 'add_to_basket';
+  label: string;
+  product_ids?: string[];
 }

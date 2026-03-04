@@ -11,12 +11,56 @@ interface MegaCategory {
 }
 
 const CATEGORIES: MegaCategory[] = [
-  { path: '/ge/telefonebi', label: 'ტელეფონები' },
-  { path: '/ge/planshetebi', label: 'ტაბლეტები' },
-  { path: '/ge/noutbukebi', label: 'ლეპტოპები' },
+  // Phones & tablets
+  { path: '/ge/telefonebi', label: 'სმარტფონები' },
+  { path: '/ge/mobilurebi', label: 'მობილურები' },
+  { path: '/ge/planshetebi', label: 'პლანშეტები' },
+  { path: '/ge/smart', label: 'სმარტ საათები' },
+  { path: '/ge/accessories', label: 'მობ. აქსესუარები' },
+
+  // TVs & Audio
   { path: '/ge/televizorebi', label: 'ტელევიზორები' },
-  { path: '/ge/audio', label: 'აუდიო' },
-  { path: '/ge/gaming', label: 'გეიმინგი' },
+  { path: '/ge/audio', label: 'აუდიო სისტემები' },
+  { path: '/ge/dinamikebi', label: 'დინამიკები' },
+  { path: '/ge/yursasmeni', label: 'ყურსასმენები' },
+
+  // Computers
+  { path: '/ge/leptopebi', label: 'ლეპტოპები' },
+  { path: '/ge/monitor', label: 'მონიტორები' },
+  { path: '/ge/mausebi', label: 'მაუსები' },
+  { path: '/ge/klaviatura', label: 'კლავიატურები' },
+  { path: '/ge/sadenebi', label: 'სადენები' },
+  { path: '/ge/Powercore', label: 'დამტენები' },
+  { path: '/ge/Notebook%20Bags', label: 'ჩანთები' },
+  { path: '/ge/USB%20Flash%20drive', label: 'USB ფლეშ' },
+  { path: '/ge/WIFI', label: 'ქსელური მოწყობილობები' },
+  { path: '/ge/Gamepad', label: 'გეიმინგი' },
+
+  // Home appliances
+  { path: '/ge/macivrebi%20macivari', label: 'მაცივრები' },
+  { path: '/ge/sashrobi-da-sarecxi-manqanebi', label: 'სარეცხი/საშრობი მანქანები' },
+  { path: '/ge/churchlis-sarecxi-manqana', label: 'ჭურჭლის სარეცხი' },
+  { path: '/ge/gazqura', label: 'გაზქურები' },
+  { path: '/ge/gumeli', label: 'ღუმელი/გამწოვი/ზედაპირი' },
+  { path: '/ge/mikrotalguli-aparatebi', label: 'მიკროტალღური' },
+
+  // Cleaning & ironing
+  { path: '/ge/mtversasrutebi-utoebi', label: 'მტვერსასრუტი/უთო' },
+
+  // Beauty & personal care
+  { path: '/ge/estetika-silamaze', label: 'სილამაზე და მოვლა' },
+
+  // Kitchen appliances
+  { path: '/ge/samzareulos-teqnika', label: 'სამზარეულო ტექნიკა' },
+
+  // Heating & cooling
+  { path: '/ge/gatboba-gagrileba', label: 'გათბობა/გაგრილება' },
+
+  // Water dispensers
+  { path: '/ge/wylis-dispenseri', label: 'წყლის დისპენსერი' },
+
+  // Other
+  { path: '/ge/other', label: 'სხვა' },
 ];
 
 export class MegatechnicaScraper extends BaseScraper {

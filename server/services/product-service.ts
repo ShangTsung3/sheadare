@@ -229,6 +229,22 @@ export function getProductWithStores(id: number) {
   };
 }
 
+export function searchProductsForAI(query: string, category?: string, storeType?: string, limit = 5) {
+  const { results } = searchProducts(query, category, 1, limit, false, storeType);
+  return results.map(p => {
+    const priceEntries = Object.entries(p.prices).filter(([, v]) => v > 0).sort((a, b) => a[1] - b[1]);
+    return {
+      id: p.id,
+      name: p.name,
+      size: p.size,
+      prices: p.prices,
+      cheapest_store: priceEntries[0]?.[0] || null,
+      cheapest_price: priceEntries[0]?.[1] || null,
+      image: p.image || null,
+    };
+  });
+}
+
 export function upsertProduct(data: {
   external_id: string;
   name: string;

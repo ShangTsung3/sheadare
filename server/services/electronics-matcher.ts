@@ -4,6 +4,7 @@
 // Brand words: if found in name, set brand to the canonical value
 // These are pure brand names that get REMOVED from model words and prepended
 const PURE_BRANDS: Record<string, string> = {
+  // Electronics
   'apple': 'apple',
   'samsung': 'samsung',
   'xiaomi': 'xiaomi',
@@ -40,11 +41,105 @@ const PURE_BRANDS: Record<string, string> = {
   'hyperx': 'hyperx',
   'xbox': 'xbox',
   'nintendo': 'nintendo',
+  // Home appliances
   'dyson': 'dyson',
   'bosch': 'bosch',
   'siemens': 'siemens',
   'electrolux': 'electrolux',
   'whirlpool': 'whirlpool',
+  'braun': 'braun',
+  'tefal': 'tefal',
+  'moulinex': 'moulinex',
+  'delonghi': 'delonghi',
+  "de'longhi": 'delonghi',
+  'gorenje': 'gorenje',
+  'midea': 'midea',
+  'haier': 'haier',
+  'beko': 'beko',
+  'indesit': 'indesit',
+  'zanussi': 'zanussi',
+  'candy': 'candy',
+  'ariston': 'ariston',
+  'hotpoint': 'hotpoint',
+  'hitachi': 'hitachi',
+  'daewoo': 'daewoo',
+  'sharp': 'sharp',
+  'kenwood': 'kenwood',
+  'rowenta': 'rowenta',
+  'remington': 'remington',
+  'babyliss': 'babyliss',
+  'grundig': 'grundig',
+  'karcher': 'karcher',
+  'dreame': 'dreame',
+  'roborock': 'roborock',
+  'ecovacs': 'ecovacs',
+  'tineco': 'tineco',
+  'roidmi': 'roidmi',
+  'vitek': 'vitek',
+  'scarlett': 'scarlett',
+  'polaris': 'polaris',
+  'kitchenaid': 'kitchenaid',
+  'smeg': 'smeg',
+  'imetec': 'imetec',
+  'redmond': 'redmond',
+  'franke': 'franke',
+  'faber': 'faber',
+  'elica': 'elica',
+  'neff': 'neff',
+  'gaggenau': 'gaggenau',
+  'miele': 'miele',
+  'aeg': 'aeg',
+  'liebherr': 'liebherr',
+  'daikin': 'daikin',
+  'gree': 'gree',
+  'vivax': 'vivax',
+  'sencor': 'sencor',
+  'pioneer': 'pioneer',
+  'hmd': 'hmd',
+  'nothing': 'nothing',
+  'anker': 'anker',
+  'baseus': 'baseus',
+  'ugreen': 'ugreen',
+  'amazfit': 'amazfit',
+  'garmin': 'garmin',
+  'gopro': 'gopro',
+  'dji': 'dji',
+  'canon': 'canon',
+  'nikon': 'nikon',
+  'fujifilm': 'fujifilm',
+  'benq': 'benq',
+  'aoc': 'aoc',
+  'segway': 'segway',
+  'a4tech': 'a4tech',
+  'bloody': 'a4tech',
+  'hama': 'hama',
+  'trust': 'trust',
+  'arzum': 'arzum',
+  'sven': 'sven',
+  'defender': 'defender',
+  'havit': 'havit',
+  'rapoo': 'rapoo',
+  'coolermaster': 'coolermaster',
+  'thermaltake': 'thermaltake',
+  'insta360': 'insta360',
+  'osram': 'osram',
+  'hiper': 'hiper',
+  'crucial': 'crucial',
+  'kingston': 'kingston',
+  'sandisk': 'sandisk',
+  'seagate': 'seagate',
+  'western': 'western',
+  'tplink': 'tplink',
+  'tp-link': 'tplink',
+  'netgear': 'netgear',
+  'dlink': 'dlink',
+  'd-link': 'dlink',
+  'keychron': 'keychron',
+  'redragon': 'redragon',
+  'cougar': 'cougar',
+  'genesis': 'genesis',
+  'nzxt': 'nzxt',
+  'deepcool': 'deepcool',
 };
 
 // Brand-product words: set brand but KEEP the word in model (iphone → brand=apple, keep "iphone")
@@ -72,6 +167,12 @@ const BRAND_PRODUCT_WORDS: Record<string, string> = {
   'pavilion': 'hp',
   'envy': 'hp',
   'spectre': 'hp',
+  'tuf': 'asus',
+  'nitro': 'acer',
+  'aspire': 'acer',
+  'swift': 'acer',
+  'extensa': 'acer',
+  'bravia': 'sony',
 };
 
 // Colors to remove from product names
@@ -86,28 +187,112 @@ const COLORS = new Set([
   'champagne', 'glacier', 'alpine', 'arctic', 'deep', 'light', 'dark',
   'ice', 'iceblue', 'moonlight', 'sunlight', 'ocean', 'sky', 'space',
   'sunny', 'oasis', 'mist', 'dusty', 'dreamy', 'moondust', 'cloudy',
+  // Additional colors from store data
+  'cafe', 'latte', 'panda', 'punk', 'frost', 'shadow', 'plum', 'smoke',
+  'lunar', 'matte', 'jaeger', 'pure', 'quiet', 'mecha', 'steel',
+  'carbon', 'charcoal', 'platinum', 'mercury', 'obsidian', 'emerald',
+  'ruby', 'sapphire', 'amber', 'cyan', 'magenta', 'crimson', 'scarlet',
+  'taupe', 'khaki', 'mahogany', 'hazel', 'stormy', 'pastel', 'neon',
+  'gradient', 'satin', 'glossy', 'denim', 'ceramic', 'crystal',
+  'mocha', 'luna', 'stardust', 'starry', 'misty', 'foggy', 'clouded',
 ]);
 
 // Noise words/patterns to remove
 const NOISE_WORDS = new Set([
   'only', 'dual', 'sim', 'esim', 'e-sim', 'wifi', 'wi-fi',
   '5g', '4g', 'lte', 'nfc', 'gps', 'bluetooth',
-  'with', 'for', 'and', 'new', 'global', 'version', 'eu', 'intl', "int'l",
-  'inch', 'wireless', 'galaxy',
-  // Georgian noise words from Megatechnica product names
+  'with', 'without', 'for', 'and', 'new', 'global', 'version', 'eu', 'intl', "int'l",
+  'inch', 'wireless', 'galaxy', 'charger', 'adapter', 'box', 'open',
+  // English category/description words to remove for matching
+  'smart', 'phone', 'smartphone', 'tablet', 'laptop', 'notebook', 'television',
+  'monitor', 'headphone', 'headphones', 'earphone', 'earphones', 'speaker',
+  'console', 'computer', 'desktop', 'portable', 'professional', 'series',
+  'washing', 'machine', 'refrigerator', 'fridge', 'freezer', 'dishwasher',
+  'vacuum', 'cleaner', 'robot', 'cordless', 'handheld', 'stick',
+  'iron', 'steam', 'generator', 'blender', 'mixer', 'toaster',
+  'kettle', 'electric', 'coffee', 'maker', 'grinder', 'juicer',
+  'hair', 'dryer', 'straightener', 'curler', 'trimmer', 'shaver',
+  'epilator', 'toothbrush', 'air', 'conditioner', 'heater', 'fan',
+  'purifier', 'humidifier', 'oven', 'microwave', 'grill', 'fryer',
+  'hood', 'cooktop', 'hob', 'built', 'freestanding', 'induction',
+  'inverter', 'compressor', 'motor', 'digital', 'automatic', 'manual',
+  'premium',
+  // Product type words — peripherals & accessories
+  'gaming', 'mouse', 'keyboard', 'combo', 'set', 'kit', 'bundle',
+  'bag', 'backpack', 'carry', 'case', 'cover', 'sleeve', 'pouch',
+  'cable', 'charge', 'power', 'supply', 'stand', 'mount', 'holder',
+  'dock', 'hub', 'dongle', 'receiver', 'transmitter',
+  'lens', 'filter', 'tripod', 'strap', 'protector', 'film', 'guard',
+  'router', 'extender', 'repeater', 'modem', 'switch', 'access', 'point',
+  'external', 'internal', 'drive', 'storage', 'memory', 'card', 'reader',
+  'printer', 'scanner', 'projector', 'camera', 'webcam', 'microphone',
+  // Description qualifiers
+  'extendable', 'band', 'layout', 'scissor', 'mechanical', 'membrane',
+  'ergonomic', 'adjustable', 'foldable', 'collapsible', 'removable',
+  'rechargeable', 'wired', 'optical', 'laser', 'sensor', 'rgb',
+  'fire', 'model', 'standard', 'edition', 'pack', 'piece',
+  'en', 'ru', 'carger',
+  // WiFi/networking speed specs (inconsistently included across stores)
+  'ax1800', 'ax3000', 'ax5400', 'ax6000', 'be3600', 'be7200',
+  'ac1200', 'ac1900', 'ac2600', 'ac3200', 'n300', 'n600',
+  // CPU/GPU specs (Zoomer includes full specs, others don't)
+  'intel', 'amd', 'core', 'ryzen', 'snapdragon', 'qualcomm',
+  'uhd', 'graphics', 'radeon', 'geforce', 'nvidia', 'adreno', 'gpu',
+  'ram', 'ssd', 'hdd', 'ddr4', 'ddr5', 'free', 'dos', 'windows',
+  'fhd', 'wuxga', 'ips', 'oled', 'amoled', 'led', 'lcd', 'qled',
+  'slimbezel', 'nit', 'nits', 'hz',
+  // Display size qualifiers (after inch normalization)
+  '144hz', '165hz', '120hz', '60hz', '240hz', '300nit',
+  // Georgian noise words — electronics
   'სმარტფონები', 'სმარტფონი', 'ტელეფონი', 'ტელეფონები',
   'ტაბლეტი', 'ტაბლეტები', 'ლეპტოპი', 'ლეპტოპები', 'ნოუთბუქი',
   'ტელევიზორი', 'ტელევიზორები', 'მონიტორი', 'მონიტორები',
   'ყურსასმენი', 'ყურსასმენები', 'დინამიკი', 'დინამიკები',
   'კონსოლი', 'კონსოლები', 'კომპიუტერი', 'კომპიუტერები',
+  // Georgian noise words — home appliances
+  'მაცივარი', 'მაცივრები', 'სარეცხი', 'მანქანა', 'მანქანები',
+  'საშრობი', 'ჭურჭლის', 'გაზქურა', 'გაზქურები',
+  'ღუმელი', 'ღუმელები', 'გამწოვი', 'გამწოვები',
+  'მიკროტალღური', 'ჩასაშენებელი', 'ზედაპირი',
+  // Georgian noise words — cleaning & ironing
+  'მტვერსასრუტი', 'მტვერსასრუტები', 'უთო', 'უთოები',
+  'რობოტი', 'უსადენო', 'ორთქლის',
+  // Georgian noise words — kitchen
+  'ბლენდერი', 'ბლენდერები', 'მიქსერი', 'მიქსერები',
+  'ტოსტერი', 'ტოსტერები', 'ჩაიდანი', 'ჩაიდანები',
+  'ელექტრო', 'წვენსაწური', 'ჩოფერი', 'კომბაინი',
+  'სამზარეულო', 'აეროგრილი', 'მულტისახარში',
+  'ყავის', 'აპარატი', 'აპარატები', 'საფქვავი',
+  // Georgian noise words — beauty & personal care
+  'ფენი', 'ფენები', 'წვერსაპარსი', 'წვერსაპარსები',
+  'ეპილატორი', 'ეპილატორები', 'ტრიმერი', 'ტრიმერები',
+  'თმის', 'სახვევი', 'გასასწორებელი', 'საკრეჭი',
+  'ჯაგრისი', 'ჯაგრისები', 'ირიგატორი',
+  // Georgian noise words — climate
+  'კონდიციონერი', 'კონდიციონერები', 'ვენტილატორი',
+  'გამათბობელი', 'გამათბობლები', 'გამაცხელებელი',
+  'დამატენიანებელი', 'გამწმენდი',
+  // Georgian noise words — grills, juicers, misc appliances
+  'გრილი', 'ტოსტერი', 'ციტრუსის', 'საწური', 'საწურები',
+  'პურის', 'საცხობი', 'სენდვიჩის', 'ვაფლის', 'წარმოება',
+  // Georgian misc
+  'სასწორი', 'სასწორები', 'პრინტერი', 'პრინტერები',
+  'კლავიატურა', 'მაუსი', 'დრონი', 'დრონები',
+  'სკუტერი', 'სკუტერები', 'ველოსიპედი',
+  'რაუტერი', 'მოდემი', 'კამერა', 'კამერები',
+  'ხარისხის', 'მაღალი', 'დაბალი', 'საშუალო',
+  'ფასდაკლება', 'აქცია', 'ახალი', 'თაობა',
 ]);
 
-// Samsung/device model number patterns to strip: S948, S948B, SM-S948B, SM-A065FZKDCAU, RMX3890, etc.
-const MODEL_NUMBER_RE = /\b(sm-)?[a-z]\d{3,4}[a-z]{0,10}\b/gi;
-// Full Samsung model codes like SM-A065FZKDCAU
+// Full Samsung model codes like SM-A065FZKDCAU, SM-S948B
 const SAMSUNG_FULL_MODEL_RE = /\bsm-[a-z0-9]+\b/gi;
 // Realme model codes like RMX3890
 const REALME_MODEL_RE = /\brmx\d+\b/gi;
+// Samsung bare internal codes: appears AFTER known Samsung series pattern
+// e.g. "S26 Ultra S948B" → strip "S948B" but keep "S26"
+// Only strip if it looks like a Samsung internal code (letter + exactly 3 digits + optional letters)
+// and the product is Samsung (checked in extractCanonicalKey)
+const SAMSUNG_BARE_CODE_RE = /\b[sa]\d{3}[a-z]{0,6}\b/gi;
 
 export function extractCanonicalKey(name: string): string | null {
   if (!name || name.trim().length === 0) return null;
@@ -147,19 +332,63 @@ export function extractCanonicalKey(name: string): string | null {
   s = s.replace(/\b\d{1,2}\s*(?:gb\s*)?[/]\s*\d+\s*(?:gb|tb)\b/gi, ' ');
   s = s.replace(/\b\d+\s*(?:gb|tb)\b/gi, ' ');
 
+  // Remove Philips-style /00, /10, /12 etc. suffixes (product variant codes)
+  s = s.replace(/\/\d{2}\b/g, ' ');
+
+  // Remove content in parentheses (SKU numbers, model suffixes, part numbers)
+  // e.g. "(13045)", "(MWW43ZE/A)", "(NP.ACC11.02A)", "(90IG06P0-MO3510)"
+  s = s.replace(/\([^)]*\)/g, ' ');
+
   // Now normalize delimiters
   s = s.replace(/[|/\\,;:()[\]{}]/g, ' ');
 
-  // 3. Remove device model numbers (Samsung SM-xxx, Realme RMX, etc.)
+  // Remove Apple-style part numbers: tokens ending in region codes (ZM, ZE, AM, MZ)
+  // e.g. MWW43ZE, MX2D3AM, MQKJ3MZ, MGPG4ZE, MD818ZM, MW2G3ZM
+  // Also Apple A-model numbers: A2795, A3610, etc.
+  const isApple = /\b(?:apple|iphone|ipad|macbook|airpods|airtag|pencil|magic|magsafe)\b/i.test(s);
+  if (isApple) {
+    s = s.replace(/\b[a-z0-9]{4,8}(?:zm|ze|am|mz|qa|ru|hx|hb|tx|ll|hn|rk|vc)\b/gi, ' ');
+    s = s.replace(/\ba\d{4}\b/gi, ' ');
+  }
+  // Acer/Asus NX.XXXXX.NNN, NH.XXXXX.NNN style part numbers
+  s = s.replace(/\b(?:nx|nh|gp|np)\.[a-z0-9]+\.[a-z0-9]+\b/gi, ' ');
+  // Asus-style 90XXXXXX-XXXXXX codes
+  s = s.replace(/\b90[a-z0-9]{4,}-[a-z0-9]+\b/gi, ' ');
+
+  // 3. Extract Samsung model base from SM codes BEFORE removing them
+  // SM-R410NZKACIS → "r410", SM-S938BZKDCAU → "s938b"
+  // This keeps different product models distinguishable (Buds Core R410 vs Buds 3 R530)
+  let samsungModelBase = '';
+  const smCodeMatch = s.match(/\bsm-([a-z]\d{3,4}[a-z]?)/i);
+  if (smCodeMatch) {
+    samsungModelBase = smCodeMatch[1].toLowerCase();
+  }
+
+  // Remove device model numbers (Samsung SM-xxx, Realme RMX, etc.)
   s = s.replace(SAMSUNG_FULL_MODEL_RE, ' ');
   SAMSUNG_FULL_MODEL_RE.lastIndex = 0;
   s = s.replace(REALME_MODEL_RE, ' ');
   REALME_MODEL_RE.lastIndex = 0;
-  s = s.replace(MODEL_NUMBER_RE, ' ');
-  MODEL_NUMBER_RE.lastIndex = 0;
+  // Only strip Samsung bare codes (S948B, A365F) for Samsung products
+  const isSamsung = /\bsamsung\b/i.test(s) || /\bgalaxy\b/i.test(s);
+  if (isSamsung) {
+    s = s.replace(SAMSUNG_BARE_CODE_RE, ' ');
+    SAMSUNG_BARE_CODE_RE.lastIndex = 0;
+  }
 
-  // 4. Remove e-SIM patterns before word splitting
+  // 4. Remove e-SIM and Wi-Fi patterns before word splitting
   s = s.replace(/e-?sim\s*(only)?/gi, ' ');
+  s = s.replace(/wi-?fi/gi, 'wifi');
+  // Remove CPU speed specs like "2.8GHz", "3.2 GHz"
+  s = s.replace(/\d+\.?\d*\s*(?:ghz|mhz)\b/gi, ' ');
+  // Remove CPU model codes: i3-1315U, i5-13420H, i7-12650H, r7-5825U, Core 5-210H, etc.
+  s = s.replace(/\b[ir]\d[-]\d{3,5}[a-z]{0,3}\b/gi, ' ');
+  // Remove standalone CPU numbers like "7-5825U" (from "Ryzen 7-5825U" after Ryzen is stripped)
+  s = s.replace(/\b\d[-]\d{4,5}[a-z]{0,2}\b/gi, ' ');
+  // Remove Intel N-series: N305, N355, N100, etc.
+  s = s.replace(/\bn\d{3}\b/gi, ' ');
+  // Remove GPU codes: RTX 3050, RTX 4050, RTX 5070, GTX 1650, etc.
+  s = s.replace(/\b(?:rtx|gtx)\s*\d{4}\b/gi, ' ');
 
   // 5. Remove year numbers (2020-2030)
   s = s.replace(/\b20[2-3]\d\b/g, ' ');
@@ -198,16 +427,17 @@ export function extractCanonicalKey(name: string): string | null {
     // Skip single non-digit chars
     if (w.length <= 1 && !/\d/.test(w)) continue;
 
-    // Skip standalone small numbers < 5 (usually RAM like "8" or "12" leftover)
-    if (/^\d+$/.test(w) && parseInt(w) < 5) continue;
+    // Skip standalone 0 and 1 (usually leftover noise, not product series)
+    if (/^\d+$/.test(w) && parseInt(w) < 2) continue;
 
     filtered.push(w);
   }
 
-  // 10. Combine: brand + model words + storage
+  // 10. Combine: brand + model words + samsung model base + storage
   const parts: string[] = [];
   if (brand) parts.push(brand);
   parts.push(...filtered);
+  if (samsungModelBase) parts.push(samsungModelBase);
   if (storage) parts.push(storage);
 
   const key = parts.join('-').replace(/-+/g, '-').replace(/^-|-$/g, '');

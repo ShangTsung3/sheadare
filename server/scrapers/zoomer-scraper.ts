@@ -29,12 +29,61 @@ interface ZoomerCategory {
 }
 
 const CATEGORIES: ZoomerCategory[] = [
+  // Core devices
   { id: 855, slug: 'mobiluri-telefonebi-c855', label: 'ტელეფონები' },
   { id: 877, slug: 'planshetebi-c877', label: 'ტაბლეტები' },
   { id: 717, slug: 'leptopis-brendebi-c717', label: 'ლეპტოპები' },
   { id: 505, slug: 'televizorebi-c505', label: 'ტელევიზორები' },
+  { id: 503, slug: 'monitorebi-c503', label: 'მონიტორები' },
   { id: 463, slug: 'gaming-c463', label: 'გეიმინგი' },
-  { id: 528, slug: 'audio-sistema-c528', label: 'აუდიო' },
+
+  // Audio
+  { id: 528, slug: 'audio-sistema-c528', label: 'აუდიო სისტემა' },
+  { id: 533, slug: 'yursasmenebi-c533', label: 'ყურსასმენები' },
+  { id: 862, slug: 'mikrofoni-c862', label: 'მიკროფონები' },
+
+  // Wearables
+  { id: 873, slug: 'smart-saatebi-c873', label: 'სმარტ საათები' },
+  { id: 872, slug: 'fitnes-trekerebi-da-aqsesuarebi-c872', label: 'ფიტნეს ტრეკერები' },
+
+  // Accessories
+  { id: 538, slug: 'mobiluris-aqsesuarebi-c538', label: 'მობილურის აქსესუარები' },
+  { id: 539, slug: 'planshetis-aqsesuarebi-c539', label: 'ტაბლეტის აქსესუარები' },
+  { id: 700, slug: 'leptopis-aqsesuarebi-c700', label: 'ლეპტოპის აქსესუარები' },
+  { id: 506, slug: 'televizoris-da-monitoris-aqsesuarebi-c506', label: 'TV/მონიტორის აქსესუარები' },
+  { id: 970, slug: 'smart-saatis-aqsesuarebi-c970', label: 'საათის აქსესუარები' },
+  { id: 1145, slug: 'kabelebi-c1145', label: 'კაბელები' },
+
+  // IT & storage
+  { id: 460, slug: 'it-c460', label: 'IT / საოფისე' },
+  { id: 519, slug: 'mekhsierebis-matareblebi-c519', label: 'მეხსიერება' },
+
+  // Photo & video
+  { id: 858, slug: 'foto-da-video-kamerebi-c858', label: 'ფოტო/ვიდეო კამერები' },
+  { id: 864, slug: 'eqshen-kamerebi-c864', label: 'ექშენ კამერები' },
+  { id: 865, slug: 'dronebi-da-aqsesuarebi-c865', label: 'დრონები' },
+  { id: 881, slug: 'foto-printerebi-c881', label: 'ფოტო პრინტერები' },
+  { id: 732, slug: 'foto-video-aqsesuarebi-c732', label: 'ფოტო/ვიდეო აქსესუარები' },
+
+  // Smart home & monitoring
+  { id: 474, slug: 'chkviani-sakhli-c474', label: 'ჭკვიანი სახლი' },
+  { id: 488, slug: 'monitoringi-c488', label: 'მონიტორინგი' },
+  { id: 891, slug: 'media-pleerebi-c891', label: 'მედია პლეერები' },
+  { id: 642, slug: 'proeqtorebi-c642', label: 'პროექტორები' },
+  { id: 1178, slug: 'smart-ganateba-c1178', label: 'სმარტ განათება' },
+
+  // Home appliances
+  { id: 495, slug: 'samzareulo-c495', label: 'სამზარეულო' },
+  { id: 490, slug: 'tavis-movla-c490', label: 'პერსონალური მოვლა' },
+  { id: 1262, slug: 'tansacmlis-movla-c1262', label: 'ტანსაცმლის მოვლა' },
+
+  // Mobility & other
+  { id: 1164, slug: 'smart-gadaadgileba-c1164', label: 'ელექტრო ტრანსპორტი' },
+  { id: 481, slug: 'manqanis-aqsesuarebi-c481', label: 'მანქანის აქსესუარები' },
+  { id: 469, slug: 'shinauri-ckhovelebi-c469', label: 'შინაური ცხოველები' },
+  { id: 776, slug: 'grafikuli-tabebi-c776', label: 'გრაფიკული ტაბები' },
+  { id: 1086, slug: 'ebook-c1086', label: 'E-Book' },
+  { id: 1188, slug: 'samgzavro-chemodani-c1188', label: 'სამგზავრო ჩემოდანი' },
 ];
 
 const PAGE_SIZE = 28;

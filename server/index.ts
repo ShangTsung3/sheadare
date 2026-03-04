@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,11 +12,13 @@ import historyRouter from './routes/history.js';
 import basketRouter from './routes/basket.js';
 import alertsRouter from './routes/alerts.js';
 import storesRouter from './routes/stores.js';
+import chatRouter from './routes/chat.js';
+import aiSearchRouter from './routes/ai-search.js';
 import { startScheduler } from './jobs/scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Init database
 initDb();
@@ -29,6 +32,8 @@ app.use('/api/alerts', alertsRouter);
 app.use('/api/history', historyRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/stores', storesRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/ai', aiSearchRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

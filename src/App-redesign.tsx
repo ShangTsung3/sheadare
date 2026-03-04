@@ -29,11 +29,13 @@ import {
   RefreshCw,
   Heart,
   ScanLine,
+  Camera,
 } from 'lucide-react';
 import { motion, AnimatePresence, type PanInfo } from 'motion/react';
 import QRCode from 'qrcode';
-import { Html5Qrcode } from 'html5-qrcode';
-import { Screen, StorePrice, Product } from './types';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Screen, StorePrice, Product, ChatMessage, ChatAction } from './types';
+import { Sparkles, Send, ImagePlus } from 'lucide-react';
 
 // --- Image Assets ---
 const STORE_CONFIG: Record<string, { color: string, letter: string, filename: string, logo: string }> = {
@@ -321,8 +323,10 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [pullDist, setPullDist] = useState(0);
+  const [isAiResult, setIsAiResult] = useState(false);
   const pullStartY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const fetchTopSavings = useCallback(() => {
     fetch('/api/search/top-savings')
@@ -400,34 +404,66 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
 
   const CATEGORY_MAP = storeType === 'grocery' ? GROCERY_CATEGORY_MAP : ELECTRONICS_CATEGORY_MAP;
 
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (debouncedQuery) params.set('q', debouncedQuery);
-    const catValue = CATEGORY_MAP[selectedCategory];
-    if (catValue) params.set('category', catValue);
-    params.set('storeType', storeType);
-    if (storeType === 'grocery' && !debouncedQuery && !catValue) params.set('allStores', 'true');
-    params.set('limit', '30');
+  // Smart search detection: 3+ words or patterns like "იაფი", size patterns
+  const isSmartQuery = (q: string) => {
+    if (!q) return false;
+    const words = q.trim().split(/\s+/);
+    const smartPatterns = /იაფი|ძვირი|საუკეთესო|კარგი|\d+\s*გ($|\s)|მლ|ლიტრ|კგ/i;
+    return words.length >= 3 || smartPatterns.test(q);
+  };
 
+  useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
+    setIsAiResult(false);
 
-    fetch(`/api/search?${params}`, { signal: controller.signal })
-      .then(r => r.json())
-      .then(data => {
-        const withPrices = (data.results || []).filter((p: Product) => Object.keys(p.prices).length > 0);
-        if (withPrices.length > 0) {
-          setProducts(withPrices);
-        } else if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') {
-          setProducts(FALLBACK_PRODUCTS);
-        } else {
-          setProducts(withPrices);
-        }
-      })
-      .catch(() => {
-        if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') setProducts(FALLBACK_PRODUCTS);
-      })
-      .finally(() => setLoading(false));
+    // Try smart search for qualifying queries
+    if (debouncedQuery && isSmartQuery(debouncedQuery)) {
+      fetch(`/api/ai/smart?q=${encodeURIComponent(debouncedQuery)}`, { signal: controller.signal })
+        .then(r => r.json())
+        .then(data => {
+          const withPrices = (data.results || []).filter((p: Product) => Object.keys(p.prices).length > 0);
+          if (withPrices.length > 0) {
+            setProducts(withPrices);
+            setIsAiResult(!!data.ai_parsed);
+          } else {
+            setProducts([]);
+          }
+        })
+        .catch(() => {
+          // Fallback to regular search
+          return regularSearch(controller.signal);
+        })
+        .finally(() => setLoading(false));
+    } else {
+      regularSearch(controller.signal).finally(() => setLoading(false));
+    }
+
+    function regularSearch(signal: AbortSignal) {
+      const params = new URLSearchParams();
+      if (debouncedQuery) params.set('q', debouncedQuery);
+      const catValue = CATEGORY_MAP[selectedCategory];
+      if (catValue) params.set('category', catValue);
+      params.set('storeType', storeType);
+      if (storeType === 'grocery' && !debouncedQuery && !catValue) params.set('allStores', 'true');
+      params.set('limit', '30');
+
+      return fetch(`/api/search?${params}`, { signal })
+        .then(r => r.json())
+        .then(data => {
+          const withPrices = (data.results || []).filter((p: Product) => Object.keys(p.prices).length > 0);
+          if (withPrices.length > 0) {
+            setProducts(withPrices);
+          } else if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') {
+            setProducts(FALLBACK_PRODUCTS);
+          } else {
+            setProducts(withPrices);
+          }
+        })
+        .catch(() => {
+          if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') setProducts(FALLBACK_PRODUCTS);
+        });
+    }
 
     return () => controller.abort();
   }, [debouncedQuery, selectedCategory, refreshKey, storeType]);
@@ -611,12 +647,53 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           )}
         </div>
         <button
+          onClick={() => cameraInputRef.current?.click()}
+          className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shrink-0"
+          aria-label="ფოტოთი ძებნა"
+        >
+          <Camera size={20} className="text-white" />
+        </button>
+        <button
           onClick={() => setScreen('scanner')}
           className="w-12 h-12 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center shrink-0"
           aria-label="ბარკოდის სკანერი"
         >
           <ScanLine size={20} className="text-white dark:text-slate-900" />
         </button>
+        <input
+          type="file"
+          ref={cameraInputRef}
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = reader.result as string;
+              setLoading(true);
+              fetch('/api/ai/image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64 }),
+              })
+                .then(r => r.json())
+                .then(data => {
+                  if (data.products?.length > 0) {
+                    const withPrices = data.products.filter((p: Product) => Object.keys(p.prices).length > 0);
+                    setProducts(withPrices);
+                    setIsAiResult(true);
+                    if (data.identified) setSearchQuery(data.identified);
+                  }
+                })
+                .catch(() => {})
+                .finally(() => setLoading(false));
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+          }}
+        />
       </div>
 
       {/* Categories */}
@@ -660,9 +737,16 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
       {/* Products */}
       <section>
         <div className="flex justify-between items-center mb-3">
-          <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400">
-            {selectedCategory === 'ყველა' ? 'პოპულარული' : selectedCategory}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400">
+              {selectedCategory === 'ყველა' ? 'პოპულარული' : selectedCategory}
+            </h2>
+            {isAiResult && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 text-white">
+                AI
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -774,67 +858,287 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
 };
 
 const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void }) => {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [scanning, setScanning] = useState(true);
+  const [manualCode, setManualCode] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [lastScanned, setLastScanned] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lookingUp = useRef(false);
+  const quaggaStarted = useRef(false);
+
+  const [scanSuccess, setScanSuccess] = useState(false);
+
+  const playBeep = useCallback(() => {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 1200;
+      gain.gain.value = 0.3;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+      setTimeout(() => {
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.frequency.value = 1600;
+        gain2.gain.value = 0.3;
+        osc2.start();
+        osc2.stop(ctx.currentTime + 0.15);
+      }, 150);
+    } catch(_e) { /* */ }
+  }, []);
+
+  const lookupBarcode = useCallback((code: string) => {
+    if (lookingUp.current) return;
+    lookingUp.current = true;
+    setScanSuccess(true);
+    setSearching(true);
+    setNotFound(false);
+    setError(null);
+    setLastScanned(code);
+    playBeep();
+    try { navigator.vibrate?.([100, 50, 100]); } catch(_e) { /* */ }
+    fetch(`/api/search/barcode/${encodeURIComponent(code)}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        if (data.product) {
+          setSelectedProduct(data.product);
+          setScreen('compare');
+        } else {
+          setNotFound(true);
+        }
+      })
+      .catch((err) => {
+        console.error('Barcode lookup failed:', err);
+        setError(`ბარკოდის ძებნა ვერ მოხერხდა: ${code}`);
+      })
+      .finally(() => { setSearching(false); lookingUp.current = false; });
+  }, [setSelectedProduct, setScreen]);
 
   useEffect(() => {
-    const scanner = new Html5Qrcode('barcode-reader');
-    scannerRef.current = scanner;
+    let mounted = true;
+    let detected = false;
 
-    scanner.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 280, height: 150 } },
-      (decodedText) => {
-        scanner.stop().catch(() => {});
-        setScanning(false);
-        fetch(`/api/search/barcode/${encodeURIComponent(decodedText)}`)
-          .then(r => r.json())
-          .then(data => {
-            if (data.product) {
-              setSelectedProduct(data.product);
-              setScreen('compare');
-            } else {
-              setNotFound(true);
+    const startQuagga = async () => {
+      const Quagga = (await import('@ericblade/quagga2')).default;
+      if (!mounted) return;
+
+      Quagga.init({
+        inputStream: {
+          name: 'Live',
+          type: 'LiveStream',
+          target: document.getElementById('barcode-reader')!,
+          constraints: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        },
+        decoder: {
+          readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
+          multiple: false,
+        },
+        locate: true,
+        frequency: 20,
+      }, (err: Error | null) => {
+        if (err || !mounted) {
+          // Try user-facing camera
+          Quagga.init({
+            inputStream: {
+              name: 'Live',
+              type: 'LiveStream',
+              target: document.getElementById('barcode-reader')!,
+              constraints: {
+                facingMode: 'user',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+            },
+            decoder: {
+              readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
+              multiple: false,
+            },
+            locate: true,
+            frequency: 20,
+          }, (err2: Error | null) => {
+            if (err2 || !mounted) {
+              if (mounted) setError('კამერაზე წვდომა ვერ მოხერხდა');
+              return;
             }
-          })
-          .catch(() => setNotFound(true));
-      },
-      () => {},
-    ).catch(() => {
-      setError('კამერაზე წვდომა ვერ მოხერხდა');
-    });
+            Quagga.start();
+            quaggaStarted.current = true;
+          });
+          return;
+        }
+        Quagga.start();
+        quaggaStarted.current = true;
+      });
 
-    return () => { scanner.stop().catch(() => {}); };
-  }, []);
+      Quagga.onDetected((result: { codeResult?: { code?: string } }) => {
+        if (detected || !mounted) return;
+        const code = result?.codeResult?.code;
+        if (!code || code.length < 8) return;
+        detected = true;
+        Quagga.stop();
+        quaggaStarted.current = false;
+        setScanning(false);
+        lookupBarcode(code);
+      });
+    };
+
+    startQuagga();
+
+    return () => {
+      mounted = false;
+      import('@ericblade/quagga2').then(m => {
+        try { if (quaggaStarted.current) m.default.stop(); } catch(_e) { /* */ }
+      });
+    };
+  }, [lookupBarcode]);
+
+  const captureAndScan = async () => {
+    const container = document.getElementById('barcode-reader');
+    const video = container?.querySelector('video');
+    if (!video) return;
+    setError(null);
+
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    const Quagga = (await import('@ericblade/quagga2')).default;
+
+    // Try multiple image processing approaches
+    const attempts = [
+      { crop: false, threshold: 0 },      // raw image
+      { crop: true, threshold: 0 },        // center crop
+      { crop: false, threshold: 128 },     // B&W threshold
+      { crop: true, threshold: 128 },      // center crop + B&W
+      { crop: false, threshold: 100 },     // lower threshold
+      { crop: true, threshold: 160 },      // higher threshold
+    ];
+
+    for (const attempt of attempts) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+
+      if (attempt.crop) {
+        // Crop center 60% of image
+        const cw = Math.floor(w * 0.7);
+        const ch = Math.floor(h * 0.5);
+        const cx = Math.floor((w - cw) / 2);
+        const cy = Math.floor((h - ch) / 2);
+        canvas.width = cw;
+        canvas.height = ch;
+        ctx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
+      } else {
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(video, 0, 0);
+      }
+
+      // Apply B&W thresholding if specified
+      if (attempt.threshold > 0) {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+          const val = gray > attempt.threshold ? 255 : 0;
+          d[i] = d[i+1] = d[i+2] = val;
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+      const code = await new Promise<string | null>((resolve) => {
+        Quagga.decodeSingle({
+          src: dataUrl,
+          numOfWorkers: 0,
+          decoder: { readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'] },
+          locate: true,
+        }, (result) => {
+          resolve(result?.codeResult?.code || null);
+        });
+      });
+
+      if (code && code.length >= 8) {
+        import('@ericblade/quagga2').then(m => {
+          try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
+        });
+        setScanning(false);
+        lookupBarcode(code);
+        return;
+      }
+    }
+
+    // All attempts failed — also try html5-qrcode on the raw frame
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(video, 0, 0);
+      const blob = await new Promise<Blob>((r) => canvas.toBlob(b => r(b!), 'image/jpeg', 1.0));
+      const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+      const scanner = new Html5Qrcode('barcode-reader-file', {
+        formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.UPC_A],
+        verbose: false,
+      });
+      const decoded = await scanner.scanFile(file, false);
+      if (decoded) {
+        import('@ericblade/quagga2').then(m => {
+          try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
+        });
+        setScanning(false);
+        lookupBarcode(decoded);
+        return;
+      }
+    } catch(_e) { /* */ }
+
+    setError('ბარკოდი ვერ ამოიცნო. სცადე კამერა პირდაპირ ბარკოდზე მიუშვირო.');
+    setTimeout(() => setError(null), 4000);
+  };
+
+  const handleManualSubmit = () => {
+    const code = manualCode.trim();
+    if (code.length < 8 || searching) return;
+    import('@ericblade/quagga2').then(m => {
+      try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
+    });
+    setScanning(false);
+    lookupBarcode(code);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    import('@ericblade/quagga2').then(m => {
+      try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
+    });
+    setScanning(false);
+    const scanner = new Html5Qrcode('barcode-reader-file', {
+      formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.UPC_A],
+      verbose: false,
+    });
+    scanner.scanFile(file, false)
+      .then(decodedText => lookupBarcode(decodedText))
+      .catch(() => setError('ბარკოდი ვერ ამოიცნო ფოტოდან'));
+  };
 
   const retry = () => {
     setNotFound(false);
+    setError(null);
     setScanning(true);
-    const scanner = scannerRef.current;
-    if (scanner) {
-      scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 280, height: 150 } },
-        (decodedText) => {
-          scanner.stop().catch(() => {});
-          setScanning(false);
-          fetch(`/api/search/barcode/${encodeURIComponent(decodedText)}`)
-            .then(r => r.json())
-            .then(data => {
-              if (data.product) {
-                setSelectedProduct(data.product);
-                setScreen('compare');
-              } else {
-                setNotFound(true);
-              }
-            })
-            .catch(() => setNotFound(true));
-        },
-        () => {},
-      ).catch(() => setError('კამერაზე წვდომა ვერ მოხერხდა'));
-    }
+    setSearching(false);
+    lookingUp.current = false;
+    setScreen('home');
+    setTimeout(() => setScreen('scanner'), 50);
   };
 
   return (
@@ -846,29 +1150,112 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
         <h1 className="text-xl font-bold text-slate-900 dark:text-white">ბარკოდის სკანერი</h1>
       </div>
 
+      <div id="barcode-reader-file" className="hidden" />
       <div className="rounded-2xl overflow-hidden bg-black relative">
-        <div id="barcode-reader" className="w-full" />
-        {scanning && !error && (
-          <div className="absolute bottom-4 left-0 right-0 text-center">
-            <span className="bg-black/60 text-white text-xs px-4 py-2 rounded-full">
-              მიმართე კამერა ბარკოდისკენ
-            </span>
-          </div>
+        <div id="barcode-reader" className="w-full [&>video]:w-full [&>canvas]:absolute [&>canvas]:top-0 [&>canvas]:left-0" />
+
+        {/* Scanning laser line */}
+        {scanning && !error && !scanSuccess && (
+          <>
+            <div className="absolute inset-0 pointer-events-none border-2 border-white/20 rounded-2xl" />
+            <div className="absolute left-4 right-4 h-0.5 bg-red-500 pointer-events-none animate-[scanline_2s_ease-in-out_infinite]"
+              style={{ boxShadow: '0 0 8px 2px rgba(239,68,68,0.6), 0 0 20px 4px rgba(239,68,68,0.3)' }} />
+            {/* Corner markers */}
+            <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-white/70 rounded-tl pointer-events-none" />
+            <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-white/70 rounded-tr pointer-events-none" />
+            <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-white/70 rounded-bl pointer-events-none" />
+            <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-white/70 rounded-br pointer-events-none" />
+            <div className="absolute bottom-4 left-0 right-0 text-center">
+              <span className="bg-black/60 text-white text-xs px-4 py-2 rounded-full">
+                მიმართე კამერა ბარკოდისკენ
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* Success flash */}
+        {scanSuccess && (
+          <div className="absolute inset-0 bg-green-500/30 animate-[flash_0.6s_ease-out_forwards] pointer-events-none rounded-2xl" />
         )}
       </div>
+
+      <style>{`
+        @keyframes scanline {
+          0%, 100% { top: 15%; }
+          50% { top: 75%; }
+        }
+        @keyframes flash {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+
+      {/* Capture & scan button */}
+      {scanning && (
+        <button
+          onClick={captureAndScan}
+          className="mt-4 w-full flex items-center justify-center gap-2 py-4 bg-blue-600 text-white rounded-xl font-bold text-base"
+        >
+          <Camera size={20} />
+          გადაღება და სკანირება
+        </button>
+      )}
+
+      {/* File upload option */}
+      <div className="mt-3 flex gap-3">
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-semibold text-sm"
+        >
+          <Camera size={18} />
+          ფოტოს ატვირთვა
+        </button>
+      </div>
+
+      {/* Manual barcode input */}
+      <div className="mt-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="ბარკოდის ნომერი (მაგ. 5449000133335)"
+            value={manualCode}
+            onChange={e => setManualCode(e.target.value.replace(/[^0-9]/g, ''))}
+            onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+            className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl text-sm placeholder:text-slate-400"
+          />
+          <button
+            onClick={handleManualSubmit}
+            disabled={manualCode.trim().length < 8 || searching}
+            className="px-5 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm disabled:opacity-40"
+          >
+            {searching ? '...' : 'ძებნა'}
+          </button>
+        </div>
+      </div>
+
+      {searching && (
+        <div className="mt-6 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl">
+            <div className="w-4 h-4 border-2 border-slate-400 border-t-slate-900 dark:border-t-white rounded-full animate-spin" />
+            <span className="text-sm text-slate-600 dark:text-slate-300">იძებნება: {lastScanned}...</span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-6 text-center">
           <p className="text-red-500 font-medium mb-3">{error}</p>
-          <button onClick={() => setScreen('home')} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm">
-            უკან დაბრუნება
+          <button onClick={retry} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm">
+            თავიდან ცდა
           </button>
         </div>
       )}
 
       {notFound && (
         <div className="mt-6 text-center">
-          <p className="text-slate-500 dark:text-slate-400 font-medium mb-3">პროდუქტი ვერ მოიძებნა</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mb-3">პროდუქტი ვერ მოიძებნა{lastScanned ? ` (${lastScanned})` : ''}</p>
           <div className="flex gap-3 justify-center">
             <button onClick={retry} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm">
               თავიდან სკანირება
@@ -1690,6 +2077,248 @@ const AlertsScreen = ({ setScreen, darkMode, setDarkMode }: { setScreen: (s: Scr
   </div>
 );
 
+// --- Chat Screen ---
+const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSelectedProduct }: {
+  setScreen: (s: Screen) => void;
+  darkMode: boolean;
+  setDarkMode: (v: boolean) => void;
+  basket: Product[];
+  setBasket: React.Dispatch<React.SetStateAction<Product[]>>;
+  setSelectedProduct: (p: Product) => void;
+}) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      role: 'assistant',
+      text: 'გამარჯობა! მე ვარ შეადარე-ს AI ასისტენტი. დამიწერე რა პროდუქტები გაინტერესებს და მოვძებნი საუკეთესო ფასებს! 🛒',
+      timestamp: Date.now(),
+    },
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async (text: string, image?: string) => {
+    if (!text.trim() && !image) return;
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      text: text.trim() || 'ფოტოთი ძებნა',
+      timestamp: Date.now(),
+      image,
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      let response;
+      if (image) {
+        // Image search
+        const res = await fetch('/api/ai/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image }),
+        });
+        response = await res.json();
+      } else {
+        // Text chat
+        const history = messages
+          .filter(m => m.id !== 'welcome')
+          .map(m => ({ role: m.role === 'user' ? 'user' : 'model', text: m.text }));
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text.trim(), history }),
+        });
+        response = await res.json();
+      }
+
+      const aiMsg: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        text: response.text || response.error || 'ვერ მივიღე პასუხი',
+        products: response.products,
+        actions: response.actions,
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, aiMsg]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: `err-${Date.now()}`,
+        role: 'assistant',
+        text: 'კავშირის შეცდომა. სცადე თავიდან.',
+        timestamp: Date.now(),
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImagePick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      sendMessage('', base64);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleAction = (action: ChatAction, products?: Product[]) => {
+    if (action.type === 'add_to_basket' && products) {
+      const newItems = products.filter(p => !basket.find(b => b.id === p.id));
+      if (newItems.length > 0) {
+        setBasket(prev => [...prev, ...newItems]);
+      }
+    }
+  };
+
+  return (
+    <div className="pb-20 pt-14 px-0 min-h-screen flex flex-col">
+      <div className="px-5">
+        <Header title="AI ასისტენტი" showBack onBack={() => setScreen('home')} darkMode={darkMode} setDarkMode={setDarkMode} />
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 space-y-3">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] ${msg.role === 'user' ? '' : ''}`}>
+              {/* Message bubble */}
+              <div className={`rounded-2xl px-4 py-3 ${
+                msg.role === 'user'
+                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-br-md'
+                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-md border border-slate-100 dark:border-slate-700'
+              }`}>
+                {msg.image && (
+                  <img src={msg.image} alt="uploaded" className="w-32 h-32 object-cover rounded-lg mb-2" />
+                )}
+                <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+              </div>
+
+              {/* Products carousel */}
+              {msg.products && msg.products.length > 0 && (
+                <div className="mt-2 flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {msg.products.map((product) => {
+                    const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
+                    if (priceEntries.length === 0) return null;
+                    const isInBasket = basket.find(b => b.id === product.id);
+                    return (
+                      <div
+                        key={product.id}
+                        onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
+                        className="flex-shrink-0 w-[150px] bg-white dark:bg-slate-900 rounded-xl p-3 border border-slate-100 dark:border-slate-800 cursor-pointer active:scale-[0.97] transition-transform"
+                      >
+                        <div className="w-full h-16 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800 mb-2">
+                          <SmartImage filename="" imageUrl={product.image} alt={product.name} className="w-full h-full object-contain p-1" fallbackLetter={product.name[0]} />
+                        </div>
+                        <h4 className="text-[12px] font-semibold text-slate-900 dark:text-white leading-tight line-clamp-2 mb-1.5" style={{ minHeight: '30px' }}>{product.name}</h4>
+                        {priceEntries.slice(0, 2).map(([store, price], i) => (
+                          <div key={store} className={`text-[11px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                            {store}: {(price as number).toFixed(2)}₾
+                          </div>
+                        ))}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isInBasket) setBasket(prev => [...prev, product]);
+                          }}
+                          className={`mt-2 w-full py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                            isInBasket
+                              ? 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                              : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                          }`}
+                        >
+                          {isInBasket ? 'კალათაშია' : '+ კალათა'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              {msg.actions && msg.actions.length > 0 && msg.products && msg.products.length > 0 && (
+                <div className="mt-2 flex gap-2 flex-wrap">
+                  {msg.actions.map((action, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleAction(action, msg.products)}
+                      className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-lg text-[12px] font-semibold active:scale-95 transition-transform"
+                    >
+                      <ShoppingBasket size={12} className="inline mr-1" />
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {/* Loading indicator */}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl rounded-bl-md px-4 py-3 border border-slate-100 dark:border-slate-700">
+              <div className="flex gap-1.5">
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      <div className="sticky bottom-0 px-4 py-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex gap-2 items-end">
+          <input type="file" ref={fileInputRef} accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+          <button
+            onClick={handleImagePick}
+            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0 active:scale-90 transition-transform"
+          >
+            <ImagePlus size={20} />
+          </button>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
+            placeholder="დაწერე რა გაინტერესებს..."
+            className="flex-1 bg-white dark:bg-slate-800 rounded-xl py-3 px-4 text-[14px] font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-600"
+          />
+          <button
+            onClick={() => sendMessage(input)}
+            disabled={loading || (!input.trim())}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90 ${
+              input.trim() && !loading
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
+            }`}
+          >
+            <Send size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Voice Command Toast ---
 const VoiceToast = ({ text, type }: { text: string; type: 'command' | 'listening' | 'error' }) => (
   <motion.div
@@ -1942,6 +2571,7 @@ export default function App() {
       case 'basket': return <BasketScreen {...props} setTargetStore={setTargetStore} />;
       case 'alerts': return <AlertsScreen {...props} />;
       case 'scanner': return <BarcodeScannerScreen setScreen={setScreen} setSelectedProduct={setSelectedProduct} />;
+      case 'chat': return <ChatScreen {...props} setSelectedProduct={setSelectedProduct} />;
       default: return <HomeScreen {...homeProps} />;
     }
   };
@@ -1978,18 +2608,29 @@ export default function App() {
             {voiceToast && <VoiceToast text={voiceToast.text} type={voiceToast.type} />}
           </AnimatePresence>
 
-          {/* Global floating mic button */}
-          {currentScreen !== 'map' && (
-            <button
-              onClick={startVoiceCommand}
-              className={`fixed bottom-[5.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
-                voiceListening
-                  ? 'bg-red-500 text-white animate-pulse'
-                  : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-              }`}
-            >
-              <Mic size={20} />
-            </button>
+          {/* Floating buttons */}
+          {currentScreen !== 'map' && currentScreen !== 'chat' && (
+            <>
+              {/* AI Chat button */}
+              <button
+                onClick={() => setScreen('chat')}
+                className="fixed bottom-[8.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
+              >
+                <Sparkles size={20} className="text-white" />
+              </button>
+              {/* Voice mic button */}
+              <button
+                onClick={startVoiceCommand}
+                className={`fixed bottom-[5.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+                  voiceListening
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                }`}
+              >
+                <Mic size={20} />
+              </button>
+            </>
           )}
 
           <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} />

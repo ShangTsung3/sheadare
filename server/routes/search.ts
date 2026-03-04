@@ -22,7 +22,8 @@ router.get('/', (req: Request, res: Response) => {
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
 
   const allStores = req.query.allStores === 'true';
-  const { results, total } = searchProducts(q, category, page, limit, allStores);
+  const storeType = req.query.storeType ? String(req.query.storeType) : undefined;
+  const { results, total } = searchProducts(q, category, page, limit, allStores, storeType);
   res.json({ results, total, page, limit });
 });
 
