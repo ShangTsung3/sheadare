@@ -1,4 +1,5 @@
 import { getDb } from '../db/connection.js';
+import { extractCanonicalKey } from './electronics-matcher.js';
 
 export interface ProductRow {
   id: number;
@@ -46,7 +47,7 @@ function toDTO(product: ProductRow, offers: StoreOfferRow[]): ProductDTO {
   };
 }
 
-export function searchProducts(query: string, category?: string, page = 1, limit = 20, allStores = false): { results: ProductDTO[]; total: number } {
+export function searchProducts(query: string, category?: string, page = 1, limit = 20, allStores = false, storeType?: string): { results: ProductDTO[]; total: number } {
   const db = getDb();
   const offset = (page - 1) * limit;
 
@@ -96,6 +97,11 @@ export function searchProducts(query: string, category?: string, page = 1, limit
   if (category) {
     where += ' AND p.category LIKE ?';
     params.push(`%${category}%`);
+  }
+
+  if (storeType) {
+    where += ' AND p.store_type = ?';
+    params.push(storeType);
   }
 
   // Filter to products available in all 3 stores
@@ -232,6 +238,7 @@ export function upsertProduct(data: {
   brand?: string;
   barcode?: string;
   source: string;
+  store_type?: string;
 }): number {
   const db = getDb();
   const normalized = data.name.toLowerCase().trim();
@@ -258,9 +265,29 @@ export function upsertProduct(data: {
     }
   }
 
+  // For electronics: use canonical_key to match same product across different stores
+  const canonicalKey = data.store_type === 'electronics' ? extractCanonicalKey(data.name) : null;
+
+  if (canonicalKey) {
+    const existing = db.prepare(
+      "SELECT id, image_url, size, category FROM products WHERE canonical_key = ? AND store_type = 'electronics' LIMIT 1"
+    ).get(canonicalKey) as { id: number; image_url: string | null; size: string | null; category: string | null } | undefined;
+
+    if (existing) {
+      // Fill in missing data on the canonical record
+      if (!existing.image_url && data.image_url) {
+        db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+      }
+      if (!existing.category && data.category) {
+        db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
+      }
+      return existing.id;
+    }
+  }
+
   db.prepare(`
-    INSERT INTO products (external_id, name, name_normalized, barcode, size, category, image_url, brand, source)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (external_id, name, name_normalized, barcode, size, category, image_url, brand, source, store_type, canonical_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(external_id, source) DO UPDATE SET
       name = excluded.name,
       name_normalized = excluded.name_normalized,
@@ -269,8 +296,10 @@ export function upsertProduct(data: {
       category = excluded.category,
       image_url = excluded.image_url,
       brand = excluded.brand,
+      store_type = excluded.store_type,
+      canonical_key = excluded.canonical_key,
       updated_at = datetime('now')
-  `).run(data.external_id, data.name, normalized, data.barcode || null, data.size || null, data.category || null, data.image_url || null, data.brand || null, data.source);
+  `).run(data.external_id, data.name, normalized, data.barcode || null, data.size || null, data.category || null, data.image_url || null, data.brand || null, data.source, data.store_type || 'grocery', canonicalKey);
 
   const row = db.prepare('SELECT id FROM products WHERE external_id = ? AND source = ?').get(data.external_id, data.source) as { id: number };
   return row.id;

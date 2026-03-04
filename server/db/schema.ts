@@ -88,4 +88,20 @@ export function initDb(): void {
   } catch {
     // Column already exists
   }
+
+  // Migration: add store_type column for grocery vs electronics
+  try {
+    db.exec("ALTER TABLE products ADD COLUMN store_type TEXT DEFAULT 'grocery'");
+  } catch {
+    // Column already exists
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_products_store_type ON products(store_type)');
+
+  // Migration: add canonical_key for electronics product matching
+  try {
+    db.exec('ALTER TABLE products ADD COLUMN canonical_key TEXT');
+  } catch {
+    // Column already exists
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_products_canonical_key ON products(canonical_key)');
 }

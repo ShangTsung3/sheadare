@@ -41,6 +41,10 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   '2 Nabiji': { color: 'bg-[#EE3124]', letter: '2', filename: '2. 2 nabiji', logo: 'https://2nabiji.ge/2-nabiji-logo.png' },
   'Goodwill': { color: 'bg-[#0054A6]', letter: 'G', filename: '3. Goodwill', logo: 'https://static.goodwill.ge/Goodwill_files/28402b34-5b3f-4e50-825a-d9827094769c_Thumb.png' },
   'Europroduct': { color: 'bg-[#E30613]', letter: 'E', filename: '4. Europroduct', logo: 'https://europroduct.ge/Content/Images/logo.svg' },
+  'Zoomer': { color: 'bg-[#00AEEF]', letter: 'Z', filename: 'zoomer', logo: 'https://zoommer.ge/favicon.ico' },
+  'Alta': { color: 'bg-[#F7941D]', letter: 'A', filename: 'alta', logo: 'https://alta.ge/favicon.ico' },
+  'Kontakt': { color: 'bg-[#E4002B]', letter: 'K', filename: 'kontakt', logo: 'https://kontakt.ge/favicon.ico' },
+  'Megatechnica': { color: 'bg-[#1B4D8E]', letter: 'M', filename: 'megatechnica', logo: 'https://megatechnica.ge/favicon.ico' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string }) => {
@@ -303,6 +307,7 @@ const BasketToast = ({ productName }: { productName: string }) => (
 );
 
 const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, basket, setBasket, favorites, setFavorites, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, favorites: Product[], setFavorites: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void }) => {
+  const [storeType, setStoreType] = useState<'grocery' | 'electronics'>('grocery');
   const [selectedCategory, setSelectedCategory] = useState('ყველა');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -382,18 +387,26 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     }
   }, [debouncedQuery]);
 
-  const CATEGORY_MAP: Record<string, string> = {
+  const GROCERY_CATEGORY_MAP: Record<string, string> = {
     'რძე': 'რძ', 'ხორცი': 'ხორც', 'პური': 'პურ', 'ხილი': 'ხილ',
     'სასმელი': 'სასმელ', 'ლუდი': 'ლუდი', 'ტკბილეული': 'ტკბილ',
     'სნექი': 'სნექ', 'ყავა/ჩაი': 'ყავა', 'ჰიგიენა': 'ჰიგიენ',
   };
+
+  const ELECTRONICS_CATEGORY_MAP: Record<string, string> = {
+    'ტელეფონები': 'ტელეფონ', 'ლეპტოპები': 'ლეპტოპ', 'ტაბლეტები': 'ტაბლეტ',
+    'ტელევიზორები': 'ტელევიზორ', 'აუდიო': 'აუდიო', 'გეიმინგი': 'გეიმინგ',
+  };
+
+  const CATEGORY_MAP = storeType === 'grocery' ? GROCERY_CATEGORY_MAP : ELECTRONICS_CATEGORY_MAP;
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (debouncedQuery) params.set('q', debouncedQuery);
     const catValue = CATEGORY_MAP[selectedCategory];
     if (catValue) params.set('category', catValue);
-    if (!debouncedQuery && !catValue) params.set('allStores', 'true');
+    params.set('storeType', storeType);
+    if (storeType === 'grocery' && !debouncedQuery && !catValue) params.set('allStores', 'true');
     params.set('limit', '30');
 
     const controller = new AbortController();
@@ -405,19 +418,19 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
         const withPrices = (data.results || []).filter((p: Product) => Object.keys(p.prices).length > 0);
         if (withPrices.length > 0) {
           setProducts(withPrices);
-        } else if (!debouncedQuery && selectedCategory === 'ყველა') {
+        } else if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') {
           setProducts(FALLBACK_PRODUCTS);
         } else {
           setProducts(withPrices);
         }
       })
       .catch(() => {
-        if (!debouncedQuery && selectedCategory === 'ყველა') setProducts(FALLBACK_PRODUCTS);
+        if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') setProducts(FALLBACK_PRODUCTS);
       })
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [debouncedQuery, selectedCategory, refreshKey]);
+  }, [debouncedQuery, selectedCategory, refreshKey, storeType]);
 
   // Deduplicate products with same name - keep the one with most stores
   const filteredProducts = products.filter((product, idx, arr) => {
@@ -485,8 +498,32 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
 
       <Header title="შეადარე" darkMode={darkMode} setDarkMode={setDarkMode} />
 
+      {/* Store Type Tabs */}
+      <div className="flex gap-0 mb-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+        <button
+          onClick={() => { setStoreType('grocery'); setSelectedCategory('ყველა'); setSearchQuery(''); }}
+          className={`flex-1 py-2.5 text-[13px] font-semibold rounded-lg transition-all ${
+            storeType === 'grocery'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          სასურსათო
+        </button>
+        <button
+          onClick={() => { setStoreType('electronics'); setSelectedCategory('ყველა'); setSearchQuery(''); }}
+          className={`flex-1 py-2.5 text-[13px] font-semibold rounded-lg transition-all ${
+            storeType === 'electronics'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          ტექნიკა
+        </button>
+      </div>
+
       {/* Top Savings */}
-      {topSavings.length > 0 && !debouncedQuery && (
+      {storeType === 'grocery' && topSavings.length > 0 && !debouncedQuery && (
         <section className="mb-5">
           <div className="flex items-center gap-2 mb-3">
             <TrendingDown size={16} className="text-emerald-500" />
@@ -584,7 +621,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
 
       {/* Categories */}
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-5">
-        {[
+        {(storeType === 'grocery' ? [
           { name: 'ყველა', emoji: '🛒' },
           { name: 'რძე', emoji: '🥛' },
           { name: 'ხორცი', emoji: '🥩' },
@@ -596,7 +633,15 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           { name: 'სნექი', emoji: '🥜' },
           { name: 'ყავა/ჩაი', emoji: '☕' },
           { name: 'ჰიგიენა', emoji: '🧴' },
-        ].map((cat) => (
+        ] : [
+          { name: 'ყველა', emoji: '📱' },
+          { name: 'ტელეფონები', emoji: '📲' },
+          { name: 'ლეპტოპები', emoji: '💻' },
+          { name: 'ტაბლეტები', emoji: '📋' },
+          { name: 'ტელევიზორები', emoji: '📺' },
+          { name: 'აუდიო', emoji: '🎧' },
+          { name: 'გეიმინგი', emoji: '🎮' },
+        ]).map((cat) => (
           <button
             key={cat.name}
             onClick={() => setSelectedCategory(cat.name)}
@@ -679,7 +724,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
                           {priceEntries.map(([store, price], i) => (
                             <span key={store} className={`inline-flex items-center gap-1.5 text-[14px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-500 dark:text-slate-400'}`}>
                               <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-4.5 h-4.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                              <span className={`text-[11px] ${i === 0 ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store}</span>
+                              <span className={`text-[11px] ${i === 0 ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store === 'Megatechnica' ? 'Mega' : store}</span>
                               {(price as number).toFixed(2)}₾
                             </span>
                           ))}

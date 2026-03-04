@@ -5,6 +5,10 @@ import { SparScraper } from '../scrapers/spar-scraper.js';
 import { NabijiScraper } from '../scrapers/nabiji-scraper.js';
 import { GoodwillScraper } from '../scrapers/goodwill-scraper.js';
 import { EuroproductScraper } from '../scrapers/europroduct-scraper.js';
+import { ZoomerScraper } from '../scrapers/zoomer-scraper.js';
+import { AltaScraper } from '../scrapers/alta-scraper.js';
+import { KontaktScraper } from '../scrapers/kontakt-scraper.js';
+import { MegatechnicaScraper } from '../scrapers/megatechnica-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -114,6 +118,106 @@ async function main() {
     });
     upsertAll();
     console.log(`Europroduct done. ${products.length} products saved.`);
+  }
+
+  if (store === 'zoomer' || store === 'all') {
+    console.log('Running full Zoomer scrape...');
+    const scraper = new ZoomerScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Zoomer] ${msg}`));
+
+    console.log(`Upserting ${products.length} Zoomer products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'zoomer',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'Zoomer', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Zoomer done. ${products.length} products saved.`);
+  }
+
+  if (store === 'alta' || store === 'all') {
+    console.log('Running full Alta scrape...');
+    const scraper = new AltaScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Alta] ${msg}`));
+
+    console.log(`Upserting ${products.length} Alta products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'alta',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'Alta', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Alta done. ${products.length} products saved.`);
+  }
+
+  if (store === 'kontakt' || store === 'all') {
+    console.log('Running full Kontakt scrape...');
+    const scraper = new KontaktScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Kontakt] ${msg}`));
+
+    console.log(`Upserting ${products.length} Kontakt products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'kontakt',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'Kontakt', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Kontakt done. ${products.length} products saved.`);
+  }
+
+  if (store === 'megatechnica' || store === 'all') {
+    console.log('Running full Megatechnica scrape...');
+    const scraper = new MegatechnicaScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Megatechnica] ${msg}`));
+
+    console.log(`Upserting ${products.length} Megatechnica products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'megatechnica',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'Megatechnica', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Megatechnica done. ${products.length} products saved.`);
   }
 
   closeDb();
