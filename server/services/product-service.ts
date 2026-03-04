@@ -1,6 +1,38 @@
 import { getDb } from '../db/connection.js';
 import { extractCanonicalKey } from './electronics-matcher.js';
 
+// Extract model identifiers from product name/URL for cross-validation
+// e.g. "LG GR-B589BQAM" → ["grb589"], "SM-R410NZKACIS" → ["smr410"]
+function extractModelIds(s: string): string[] {
+  if (!s) return [];
+  const lower = s.toLowerCase();
+  const ids: string[] = [];
+
+  // Samsung SM codes: SM-R410, SM-S938B, SM-X520
+  const smCodes = lower.match(/sm[- ]?([a-z]\d{3,4}[a-z]?)/g);
+  if (smCodes) ids.push(...smCodes.map(m => m.replace(/[- ]/g, '')));
+
+  // LG appliance models: GR-B589, GC-B247, GW-B509
+  const lgModels = lower.match(/(?:gr|gc|gw|f2v|f4v|wd|wm)[- ]?([a-z0-9]{4,})/g);
+  if (lgModels) ids.push(...lgModels.map(m => m.replace(/[- ]/g, '').slice(0, 8)));
+
+  // Asus model codes: M1502YA, S5406SA, G615LR, X1502VA
+  const asusModels = lower.match(/\b([a-z]\d{3,4}[a-z]{1,3})\b/g);
+  if (asusModels) ids.push(...asusModels.filter(m => m.length >= 6));
+
+  return [...new Set(ids)];
+}
+
+// Check if two sets of model IDs have any overlap
+function modelIdsOverlap(a: string[], b: string[]): boolean {
+  for (const ai of a) {
+    for (const bi of b) {
+      if (ai === bi || ai.includes(bi) || bi.includes(ai)) return true;
+    }
+  }
+  return false;
+}
+
 export interface ProductRow {
   id: number;
   external_id: string | null;
@@ -286,18 +318,27 @@ export function upsertProduct(data: {
 
   if (canonicalKey) {
     const existing = db.prepare(
-      "SELECT id, image_url, size, category FROM products WHERE canonical_key = ? AND store_type = 'electronics' LIMIT 1"
-    ).get(canonicalKey) as { id: number; image_url: string | null; size: string | null; category: string | null } | undefined;
+      "SELECT id, name, image_url, size, category FROM products WHERE canonical_key = ? AND store_type = 'electronics' LIMIT 1"
+    ).get(canonicalKey) as { id: number; name: string; image_url: string | null; size: string | null; category: string | null } | undefined;
 
     if (existing) {
-      // Fill in missing data on the canonical record
-      if (!existing.image_url && data.image_url) {
-        db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+      // Safety check: verify model numbers in names aren't contradicting
+      // e.g. don't merge "LG GR-B589" with "LG GR-F589" even if keys match
+      const newModels = extractModelIds(data.name);
+      const existingModels = extractModelIds(existing.name);
+      const compatible = newModels.length === 0 || existingModels.length === 0 || modelIdsOverlap(newModels, existingModels);
+
+      if (compatible) {
+        // Fill in missing data on the canonical record
+        if (!existing.image_url && data.image_url) {
+          db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+        }
+        if (!existing.category && data.category) {
+          db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
+        }
+        return existing.id;
       }
-      if (!existing.category && data.category) {
-        db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
-      }
-      return existing.id;
+      // Model mismatch — don't merge, create separate product
     }
   }
 
