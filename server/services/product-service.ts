@@ -1,5 +1,5 @@
 import { getDb } from '../db/connection.js';
-import { extractCanonicalKey } from './electronics-matcher.js';
+import { extractCanonicalKey, stripColorsFromName } from './electronics-matcher.js';
 
 // Extract model identifiers from product name/URL for cross-validation
 // e.g. "LG GR-B589BQAM" → ["grb589"], "SM-R410NZKACIS" → ["smr410"]
@@ -314,7 +314,9 @@ export function upsertProduct(data: {
   }
 
   // For electronics: use canonical_key to match same product across different stores
+  // Also strip color from name so merged products show a color-neutral name
   const canonicalKey = data.store_type === 'electronics' ? extractCanonicalKey(data.name) : null;
+  const displayName = data.store_type === 'electronics' ? stripColorsFromName(data.name) : data.name;
 
   if (canonicalKey) {
     const existing = db.prepare(
@@ -356,7 +358,7 @@ export function upsertProduct(data: {
       store_type = excluded.store_type,
       canonical_key = excluded.canonical_key,
       updated_at = datetime('now')
-  `).run(data.external_id, data.name, normalized, data.barcode || null, data.size || null, data.category || null, data.image_url || null, data.brand || null, data.source, data.store_type || 'grocery', canonicalKey);
+  `).run(data.external_id, displayName, displayName.toLowerCase().trim(), data.barcode || null, data.size || null, data.category || null, data.image_url || null, data.brand || null, data.source, data.store_type || 'grocery', canonicalKey);
 
   const row = db.prepare('SELECT id FROM products WHERE external_id = ? AND source = ?').get(data.external_id, data.source) as { id: number };
   return row.id;

@@ -337,6 +337,12 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
 
   useEffect(() => { fetchTopSavings(); }, [refreshKey]);
 
+  // Auto-refresh top savings every 30 minutes
+  useEffect(() => {
+    const interval = setInterval(fetchTopSavings, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchTopSavings]);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     pullStartY.current = e.touches[0].clientY;
   }, []);
@@ -563,7 +569,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
         <section className="mb-5">
           <div className="flex items-center gap-2 mb-3">
             <TrendingDown size={16} className="text-emerald-500" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">ამ კვირის დანაზოგი</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">დღის დანაზოგი</h2>
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
             {topSavings.map((product) => {

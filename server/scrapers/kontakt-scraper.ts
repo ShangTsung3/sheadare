@@ -1,8 +1,10 @@
+import { chromium, type Browser, type Page } from 'playwright';
 import { BaseScraper, ScrapedProduct } from './base-scraper.js';
 import { RateLimiter } from './rate-limiter.js';
 
 const KONTAKT_SITE = 'https://kontakt.ge';
 const GRAPHQL_URL = `${KONTAKT_SITE}/graphql`;
+const CATEGORY_URL = `${KONTAKT_SITE}/catalog/category/view/id`;
 
 interface KontaktCategory {
   id: string;
@@ -152,6 +154,69 @@ const CATEGORIES: KontaktCategory[] = [
   { id: '3269', label: 'სასკოლო ზურგჩანთები' },
 ];
 
+// Parse Georgian price format: "4399,99 ₾" → 4399.99
+function parsePrice(text: string): number {
+  if (!text || text.includes('------')) return 0;
+  const cleaned = text.replace(/[^\d,]/g, '').replace(',', '.');
+  return parseFloat(cleaned) || 0;
+}
+
+// Extract products from the rendered Playwright page
+function extractProductsScript(): any[] {
+  const items = document.querySelectorAll('.prodItem.product-item');
+  const results: any[] = [];
+
+  for (const el of items) {
+    const sku = el.getAttribute('data-sku') || '';
+    if (!sku) continue;
+
+    // Product name
+    const nameEl = el.querySelector('.prodItem__title');
+    const name = nameEl?.textContent?.trim() || '';
+
+    // Product URL from image link
+    const linkEl = el.querySelector('a.prodItem__img') as HTMLAnchorElement | null;
+    const url = linkEl?.href || '';
+
+    // Product image
+    const imgEl = el.querySelector('img.product-image') as HTMLImageElement | null;
+    const imageUrl = imgEl?.src || '';
+
+    // Price extraction from prodItem__prices > strong
+    const priceStrong = el.querySelector('.prodItem__prices strong');
+    let finalPrice = 0;
+
+    if (priceStrong) {
+      const simplePrice = priceStrong.querySelector('b.simple-price');
+      const discountNew = priceStrong.querySelector('b:not(.simple-price)');
+
+      if (simplePrice) {
+        // Regular price, no discount
+        finalPrice = parseFloat(
+          (simplePrice.textContent?.trim() || '')
+            .replace(/[^\d,]/g, '').replace(',', '.')
+        ) || 0;
+      } else if (discountNew) {
+        // Discounted price — <i> is old, <b> is new/final
+        finalPrice = parseFloat(
+          (discountNew.textContent?.trim() || '')
+            .replace(/[^\d,]/g, '').replace(',', '.')
+        ) || 0;
+      }
+    }
+
+    // Check stock: if price is "------ ₾" → out of stock
+    const priceText = priceStrong?.textContent?.trim() || '';
+    const inStock = !priceText.includes('------') && finalPrice > 0;
+
+    if (name && finalPrice > 0) {
+      results.push({ sku, name, finalPrice, url, imageUrl, inStock });
+    }
+  }
+
+  return results;
+}
+
 interface GqlProductItem {
   name: string;
   sku: string;
@@ -203,53 +268,34 @@ export class KontaktScraper extends BaseScraper {
     }
   }
 
-  private buildQuery(categoryId: string, page: number, pageSize = 50): string {
-    return `{
-  products(
-    filter: { category_id: { eq: "${categoryId}" } }
-    pageSize: ${pageSize}
-    currentPage: ${page}
-    sort: { position: ASC }
-  ) {
-    items {
-      name
-      sku
-      url_key
-      price_range {
-        minimum_price {
-          final_price {
-            value
-            currency
-          }
-        }
-      }
-      small_image {
-        url
-      }
-      stock_status
-    }
-    total_count
-    page_info {
-      current_page
-      total_pages
-    }
-  }
-}`;
-  }
+  private async scrapeCategoryPage(
+    page: Page,
+    categoryId: string,
+    pageNum: number,
+  ): Promise<{ products: any[]; hasNextPage: boolean }> {
+    const url = pageNum === 1
+      ? `${CATEGORY_URL}/${categoryId}`
+      : `${CATEGORY_URL}/${categoryId}?p=${pageNum}`;
 
-  private toScrapedProduct(item: GqlProductItem, categoryLabel: string): ScrapedProduct | null {
-    const price = item.price_range?.minimum_price?.final_price?.value;
-    if (!price || price <= 0) return null;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
-    return {
-      external_id: `kontakt-${item.sku}`,
-      name: item.name,
-      price,
-      category: categoryLabel,
-      image_url: item.small_image?.url || undefined,
-      url: item.url_key ? `${KONTAKT_SITE}/${item.url_key}.html` : undefined,
-      in_stock: item.stock_status !== 'OUT_OF_STOCK',
-    };
+    // Wait for product items or "no products" indicator
+    try {
+      await page.waitForSelector('.prodItem.product-item, .message.info.empty', {
+        timeout: 8000,
+      });
+    } catch {
+      // Page may have loaded but no products visible yet
+    }
+
+    const products = await page.evaluate(extractProductsScript);
+
+    const hasNextPage = await page.evaluate(() => {
+      const nextLink = document.querySelector('.pages-items .action.next');
+      return !!nextLink;
+    });
+
+    return { products, hasNextPage };
   }
 
   async scrapeAll(onProgress?: (msg: string) => void): Promise<ScrapedProduct[]> {
@@ -257,54 +303,79 @@ export class KontaktScraper extends BaseScraper {
     const allProducts: ScrapedProduct[] = [];
     const seen = new Set<string>();
 
-    for (const cat of CATEGORIES) {
-      log(`Category: ${cat.label} (id=${cat.id})`);
+    log('Launching browser for Kontakt scraping...');
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    });
+    const page = await context.newPage();
 
-      let page = 1;
-      let totalPages = 1;
+    // Block heavy resources to speed up page loading
+    // Use fulfill() instead of abort() to prevent ERR_NETWORK_IO_SUSPENDED
+    await page.route('**/*', (route) => {
+      const type = route.request().resourceType();
+      if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
+        return route.fulfill({ status: 200, body: '', contentType: 'text/plain' });
+      }
+      return route.continue();
+    });
 
-      while (page <= totalPages) {
-        try {
-          await this.rateLimiter.acquire();
+    try {
+      for (const cat of CATEGORIES) {
+        log(`Category: ${cat.label} (id=${cat.id})`);
 
-          const query = this.buildQuery(cat.id, page);
-          const response = await this.fetchGraphQL(query);
+        let pageNum = 1;
 
-          if (!response?.data?.products) {
-            log(`  No data for category ${cat.id} page ${page}`);
-            break;
-          }
+        while (true) {
+          try {
+            await this.rateLimiter.acquire();
 
-          const { items, total_count, page_info } = response.data.products;
-          totalPages = page_info.total_pages;
+            const { products, hasNextPage } = await this.scrapeCategoryPage(
+              page, cat.id, pageNum,
+            );
 
-          if (items.length === 0) break;
+            if (products.length === 0 && pageNum === 1) {
+              log(`  Empty category, skipping`);
+              break;
+            }
 
-          let newInPage = 0;
-          for (const item of items) {
-            if (seen.has(item.sku)) continue;
-            seen.add(item.sku);
+            let newInPage = 0;
+            for (const item of products) {
+              if (seen.has(item.sku)) continue;
+              seen.add(item.sku);
 
-            const scraped = this.toScrapedProduct(item, cat.label);
-            if (scraped) {
-              allProducts.push(scraped);
+              allProducts.push({
+                external_id: `kontakt-${item.sku}`,
+                name: item.name,
+                price: item.finalPrice,
+                category: cat.label,
+                image_url: item.imageUrl || undefined,
+                url: item.url || undefined,
+                in_stock: item.inStock,
+              });
               newInPage++;
             }
-          }
 
-          log(`  Page ${page}/${totalPages}: +${newInPage} products (${total_count} total in category, ${allProducts.length} scraped total)`);
-          page++;
-        } catch (err) {
-          log(`  Error in ${cat.label} page ${page}: ${err}`);
-          break;
+            log(`  Page ${pageNum}: ${products.length} items, +${newInPage} new (${allProducts.length} total)`);
+
+            if (!hasNextPage || products.length === 0) break;
+            pageNum++;
+          } catch (err) {
+            log(`  Error in ${cat.label} page ${pageNum}: ${err}`);
+            break;
+          }
         }
       }
+    } finally {
+      await browser.close();
+      log('Browser closed');
     }
 
     log(`Total unique products: ${allProducts.length}`);
     return allProducts;
   }
 
+  // Search still uses GraphQL (fast, good enough for live search)
   async search(query: string): Promise<ScrapedProduct[]> {
     try {
       await this.rateLimiter.acquire();
@@ -344,7 +415,20 @@ export class KontaktScraper extends BaseScraper {
       if (!response?.data?.products?.items) return [];
 
       return response.data.products.items
-        .map((item) => this.toScrapedProduct(item, ''))
+        .map((item) => {
+          const price = item.price_range?.minimum_price?.final_price?.value;
+          if (!price || price <= 0) return null;
+
+          return {
+            external_id: `kontakt-${item.sku}`,
+            name: item.name,
+            price,
+            category: '',
+            image_url: item.small_image?.url || undefined,
+            url: item.url_key ? `${KONTAKT_SITE}/${item.url_key}.html` : undefined,
+            in_stock: item.stock_status !== 'OUT_OF_STOCK',
+          } as ScrapedProduct;
+        })
         .filter((p): p is ScrapedProduct => p !== null);
     } catch {
       return [];

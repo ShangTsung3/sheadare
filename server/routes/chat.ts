@@ -5,6 +5,21 @@ import type { ProductDTO } from '../services/product-service.js';
 
 const router = Router();
 
+// Retry helper for Gemini API calls (handles temporary 429 rate limits)
+async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED');
+      if (!is429 || attempt === maxRetries) throw err;
+      const delay = (attempt + 1) * 3000; // 3s, 6s
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
 function executeFunctionCall(name: string, args: Record<string, unknown>): unknown {
   switch (name) {
     case 'search_products': {
@@ -51,14 +66,14 @@ router.post('/', async (req, res) => {
     contents.push({ role: 'user', parts: [{ text: message }] });
 
     // Call Gemini with function calling - max 3 rounds
-    let response = await ai.models.generateContent({
+    let response = await callWithRetry(() => ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents,
       config: {
         systemInstruction: SYSTEM_PROMPT,
         tools,
       },
-    });
+    }));
 
     for (let round = 0; round < 3; round++) {
       const candidate = response.candidates?.[0];
@@ -103,14 +118,14 @@ router.post('/', async (req, res) => {
         ...functionResponses,
       ];
 
-      response = await ai.models.generateContent({
+      response = await callWithRetry(() => ai.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: newContents as any,
         config: {
           systemInstruction: SYSTEM_PROMPT,
           tools,
         },
-      });
+      }));
     }
 
     // Extract final text response

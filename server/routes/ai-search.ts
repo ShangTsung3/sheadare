@@ -4,6 +4,21 @@ import { searchProductsForAI, searchProducts } from '../services/product-service
 
 const router = Router();
 
+// Retry helper for Gemini API calls (handles temporary 429 rate limits)
+async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED');
+      if (!is429 || attempt === maxRetries) throw err;
+      const delay = (attempt + 1) * 3000;
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
 // POST /api/ai/image — Image-based product search
 router.post('/image', async (req, res) => {
   if (!isAIAvailable()) {
@@ -27,7 +42,7 @@ router.post('/image', async (req, res) => {
     const base64Data = match[2];
 
     // Ask Gemini to identify the product
-    const identifyResponse = await ai.models.generateContent({
+    const identifyResponse = await callWithRetry(() => ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: [{
         role: 'user',
@@ -45,7 +60,7 @@ router.post('/image', async (req, res) => {
           },
         ],
       }],
-    });
+    }));
 
     const identifyText = identifyResponse.candidates?.[0]?.content?.parts
       ?.filter((p: any) => p.text)
@@ -126,7 +141,7 @@ router.get('/smart', async (req, res) => {
     const ai = getAI()!;
 
     // Ask Gemini to parse the natural language query
-    const parseResponse = await ai.models.generateContent({
+    const parseResponse = await callWithRetry(() => ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: [{
         role: 'user',
@@ -139,7 +154,7 @@ router.get('/smart', async (req, res) => {
 მხოლოდ JSON, სხვა ტექსტის გარეშე.`,
         }],
       }],
-    });
+    }));
 
     const parseText = parseResponse.candidates?.[0]?.content?.parts
       ?.filter((p: any) => p.text)

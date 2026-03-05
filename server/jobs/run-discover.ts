@@ -9,6 +9,7 @@ import { ZoomerScraper } from '../scrapers/zoomer-scraper.js';
 import { AltaScraper } from '../scrapers/alta-scraper.js';
 import { KontaktScraper } from '../scrapers/kontakt-scraper.js';
 import { MegatechnicaScraper } from '../scrapers/megatechnica-scraper.js';
+import { MetroMartScraper } from '../scrapers/metromart-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -218,6 +219,31 @@ async function main() {
     });
     upsertAll();
     console.log(`Megatechnica done. ${products.length} products saved.`);
+  }
+
+  if (store === 'metromart' || store === 'all') {
+    console.log('Running full MetroMart scrape...');
+    const scraper = new MetroMartScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[MetroMart] ${msg}`));
+
+    console.log(`Upserting ${products.length} MetroMart products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'metromart',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'MetroMart', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`MetroMart done. ${products.length} products saved.`);
   }
 
   closeDb();

@@ -188,7 +188,8 @@ const COLORS = new Set([
   'ice', 'iceblue', 'moonlight', 'sunlight', 'ocean', 'sky', 'space',
   'sunny', 'oasis', 'mist', 'dusty', 'dreamy', 'moondust', 'cloudy',
   // Additional colors from store data
-  'cafe', 'latte', 'panda', 'punk', 'frost', 'shadow', 'plum', 'smoke',
+  'arctic', 'luna', 'cool', 'jet', 'titan', 'icy', 'bright', 'vivid',
+  'cafe', 'latte', 'panda', 'punk', 'frost', 'shadow', 'plum', 'smoke', 'ultramarine',
   'lunar', 'matte', 'jaeger', 'pure', 'quiet', 'mecha', 'steel',
   'carbon', 'charcoal', 'platinum', 'mercury', 'obsidian', 'emerald',
   'ruby', 'sapphire', 'amber', 'cyan', 'magenta', 'crimson', 'scarlet',
@@ -205,7 +206,7 @@ const NOISE_WORDS = new Set([
   'inch', 'wireless', 'galaxy', 'charger', 'adapter', 'box', 'open',
   // English category/description words to remove for matching
   'smart', 'phone', 'smartphone', 'tablet', 'laptop', 'notebook', 'television',
-  'monitor', 'headphone', 'headphones', 'earphone', 'earphones', 'speaker',
+  'monitor', 'headphone', 'headphones', 'earphone', 'earphones', 'earbuds', 'speaker',
   'console', 'computer', 'desktop', 'portable', 'professional', 'series',
   'washing', 'machine', 'refrigerator', 'fridge', 'freezer', 'dishwasher',
   'vacuum', 'cleaner', 'robot', 'cordless', 'handheld', 'stick',
@@ -282,7 +283,63 @@ const NOISE_WORDS = new Set([
   'რაუტერი', 'მოდემი', 'კამერა', 'კამერები',
   'ხარისხის', 'მაღალი', 'დაბალი', 'საშუალო',
   'ფასდაკლება', 'აქცია', 'ახალი', 'თაობა',
+  // Georgian category prefixes (used by Megatechnica, Alta etc.)
+  'მობილურის', 'აქსესუარი', 'აქსესუარები', 'ტექნიკა',
+  'ქეისი', 'ქეისები', 'პლანშეტური', 'დამცავი', 'სტიკერი',
+  'დამტენი', 'დამტენები', 'კაბელი', 'კაბელები', 'ადაპტერი',
+  'პავერბანკი', 'პავერბანკები', 'ჩამრთველი', 'გადამყვანი',
+  'ფილმი', 'მინა', 'დაცვა', 'სახელური', 'თანა',
+  'საქაღალდე', 'ტელესკოპი', 'სტილუსი',
 ]);
+
+// Product-type words: these are in NOISE_WORDS but represent fundamental product categories.
+// We extract the first match BEFORE noise filtering strips it, then include it in the key.
+// This prevents e.g. "Xiaomi Mouse Lite 2" and "Xiaomi Kettle 2 Lite" from colliding.
+const PRODUCT_TYPES: Record<string, string> = {
+  // Peripherals & accessories
+  'mouse': 'mouse',
+  'keyboard': 'keyboard',
+  'headphones': 'headphones',
+  'headphone': 'headphones',
+  'earphones': 'earbuds',
+  'earphone': 'earbuds',
+  'earbuds': 'earbuds',
+  'speaker': 'speaker',
+  'webcam': 'webcam',
+  'microphone': 'mic',
+  // Small kitchen appliances
+  'kettle': 'kettle',
+  'blender': 'blender',
+  'mixer': 'mixer',
+  'toaster': 'toaster',
+  'juicer': 'juicer',
+  'grinder': 'grinder',
+  'fryer': 'fryer',
+  // Climate
+  'humidifier': 'humidifier',
+  'purifier': 'purifier',
+  'heater': 'heater',
+  // Cleaning
+  'vacuum': 'vacuum',
+  'iron': 'iron',
+  // Personal care
+  'shaver': 'shaver',
+  'trimmer': 'trimmer',
+  'epilator': 'epilator',
+  'toothbrush': 'toothbrush',
+  'straightener': 'straightener',
+  'curler': 'curler',
+  'dryer': 'dryer',
+  // Cooking
+  'oven': 'oven',
+  'microwave': 'microwave',
+  'grill': 'grill',
+  // Office & imaging
+  'printer': 'printer',
+  'scanner': 'scanner',
+  'projector': 'projector',
+  'camera': 'camera',
+};
 
 // Full Samsung model codes like SM-A065FZKDCAU, SM-S948B
 const SAMSUNG_FULL_MODEL_RE = /\bsm-[a-z0-9]+\b/gi;
@@ -293,6 +350,33 @@ const REALME_MODEL_RE = /\brmx\d+\b/gi;
 // Only strip if it looks like a Samsung internal code (letter + exactly 3 digits + optional letters)
 // and the product is Samsung (checked in extractCanonicalKey)
 const SAMSUNG_BARE_CODE_RE = /\b[sa]\d{3}[a-z]{0,6}\b/gi;
+
+/** Strip color words from electronics product name for cleaner display */
+export function stripColorsFromName(name: string): string {
+  // Step 1: Remove trailing parenthetical model codes like (SM-S942BZKCCAU)
+  let cleaned = name.replace(/\s*\([A-Z]{2}-[A-Z0-9]+\)\s*$/, '');
+  // Remove trailing model codes like MFYP4ZD/A
+  cleaned = cleaned.replace(/\s+[A-Z]{3,}[0-9]+[A-Z]*\/[A-Z]\s*$/, '');
+
+  // Step 2: Walk backwards and strip trailing color words
+  const words = cleaned.split(/\s+/);
+  let end = words.length;
+  while (end > 0) {
+    const w = words[end - 1].toLowerCase().replace(/[^a-z]/g, '');
+    if (w && COLORS.has(w)) {
+      end--;
+    } else if (/^[-|/,]+$/.test(words[end - 1])) {
+      // Also skip trailing separators
+      end--;
+    } else {
+      break;
+    }
+  }
+  // Don't strip if we'd remove too much
+  if (end < words.length * 0.4) return name;
+  const result = words.slice(0, end).join(' ').replace(/\s*[-|/,]+\s*$/, '').trim();
+  return result || name;
+}
 
 export function extractCanonicalKey(name: string): string | null {
   if (!name || name.trim().length === 0) return null;
@@ -335,6 +419,28 @@ export function extractCanonicalKey(name: string): string | null {
   // Remove Philips-style /00, /10, /12 etc. suffixes (product variant codes)
   s = s.replace(/\/\d{2}\b/g, ' ');
 
+  // Extract pack/multi-pack quantity BEFORE removing parentheses
+  // e.g. "(4 Pack)", "4-Pack", "4 pack", "pack of 4", "4ცალიანი", "4 ცალი"
+  let packSize = 0;
+  const packPatterns = [
+    /\((\d+)\s*[-]?\s*(?:pack|piece|pieces|pcs|ცალი|ცალიანი|კომპლექტი)\)/i,
+    /\b(\d+)\s*[-]?\s*(?:pack)\b/i,
+    /\bpack\s+of\s+(\d+)\b/i,
+    /\b(\d+)\s*[-]?\s*(?:ცალიანი|ცალი)\b/i,
+  ];
+  for (const re of packPatterns) {
+    const m = re.exec(s);
+    if (m && parseInt(m[1]) > 1) {
+      packSize = parseInt(m[1]);
+      // Remove the matched pack pattern from string to avoid duplicate tokens
+      s = s.replace(re, ' ');
+      break;
+    }
+  }
+
+  // e-SIM Only is stripped via NOISE_WORDS; not included in key since stores
+  // label the same product inconsistently (Zoomer: "e-SIM Only", Megatechnica: nothing)
+
   // Remove content in parentheses (SKU numbers, model suffixes, part numbers)
   // e.g. "(13045)", "(MWW43ZE/A)", "(NP.ACC11.02A)", "(90IG06P0-MO3510)"
   s = s.replace(/\([^)]*\)/g, ' ');
@@ -347,7 +453,7 @@ export function extractCanonicalKey(name: string): string | null {
   // Also Apple A-model numbers: A2795, A3610, etc.
   const isApple = /\b(?:apple|iphone|ipad|macbook|airpods|airtag|pencil|magic|magsafe)\b/i.test(s);
   if (isApple) {
-    s = s.replace(/\b[a-z0-9]{4,8}(?:zm|ze|am|mz|qa|ru|hx|hb|tx|ll|hn|rk|vc)\b/gi, ' ');
+    s = s.replace(/\b[a-z0-9]{4,8}(?:zm|ze|am|mz|qa|ru|hx|hb|tx|ll|hn|rk|vc|zd|af|zp)\b/gi, ' ');
     s = s.replace(/\ba\d{4}\b/gi, ' ');
   }
   // Acer/Asus NX.XXXXX.NNN, NH.XXXXX.NNN style part numbers
@@ -412,6 +518,16 @@ export function extractCanonicalKey(name: string): string | null {
     }
   }
 
+  // 8b. Identify product type BEFORE noise filtering strips it.
+  // This prevents different product categories from colliding on the same key.
+  let productType = '';
+  for (const w of words) {
+    if (PRODUCT_TYPES[w]) {
+      productType = PRODUCT_TYPES[w];
+      break;
+    }
+  }
+
   // 9. Filter words
   const filtered: string[] = [];
   for (const w of words) {
@@ -433,12 +549,15 @@ export function extractCanonicalKey(name: string): string | null {
     filtered.push(w);
   }
 
-  // 10. Combine: brand + model words + samsung model base + storage
+  // 10. Combine: brand + product type + model words + storage + pack size
+  // Note: samsungModelBase NOT appended — SM codes appear inconsistently across stores
+  // (Megatechnica includes SM-S948BZKBCAU, Zoomer has bare S948 which gets stripped)
   const parts: string[] = [];
   if (brand) parts.push(brand);
+  if (productType) parts.push(productType);
   parts.push(...filtered);
-  if (samsungModelBase) parts.push(samsungModelBase);
   if (storage) parts.push(storage);
+  if (packSize > 1) parts.push(`${packSize}pack`);
 
   const key = parts.join('-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   return key.length > 3 ? key : null;
