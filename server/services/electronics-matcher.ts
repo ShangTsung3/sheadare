@@ -386,13 +386,15 @@ export function extractCanonicalKey(name: string): string | null {
   // Normalize quotes
   s = s.replace(/["""'']/g, '');
 
-  // 1. Extract storage BEFORE normalizing delimiters (so 12/256GB stays intact)
+  // 1. Extract storage and RAM BEFORE normalizing delimiters (so 12/256GB stays intact)
   let storage = '';
+  let ram = '';
 
   // RAM/storage combo: "12/256GB", "8/128GB", "12GB/256GB", "12/256 GB"
   const ramStorageRe = /\b(\d{1,2})\s*(?:gb)?\s*[/]\s*(\d+)\s*(gb|tb)\b/i;
   const ramMatch = ramStorageRe.exec(s);
   if (ramMatch) {
+    ram = `${ramMatch[1]}gb`;
     storage = `${ramMatch[2]}${ramMatch[3].toLowerCase()}`;
   }
 
@@ -549,13 +551,17 @@ export function extractCanonicalKey(name: string): string | null {
     filtered.push(w);
   }
 
-  // 10. Combine: brand + product type + model words + storage + pack size
+  // 10. Combine: brand + product type + model words + ram + storage + pack size
   // Note: samsungModelBase NOT appended — SM codes appear inconsistently across stores
   // (Megatechnica includes SM-S948BZKBCAU, Zoomer has bare S948 which gets stripped)
   const parts: string[] = [];
   if (brand) parts.push(brand);
   if (productType) parts.push(productType);
   parts.push(...filtered);
+  // Include RAM for non-Apple products to distinguish RAM variants (e.g. 8GB vs 12GB Honor X9d).
+  // Apple products skip RAM because stores inconsistently include it (Alta: "8GB/256GB", others: "256GB")
+  // and Apple doesn't have RAM variants per storage tier.
+  if (ram && brand !== 'apple') parts.push(ram);
   if (storage) parts.push(storage);
   if (packSize > 1) parts.push(`${packSize}pack`);
 

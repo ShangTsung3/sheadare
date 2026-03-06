@@ -10,6 +10,9 @@ import { AltaScraper } from '../scrapers/alta-scraper.js';
 import { KontaktScraper } from '../scrapers/kontakt-scraper.js';
 import { MegatechnicaScraper } from '../scrapers/megatechnica-scraper.js';
 import { MetroMartScraper } from '../scrapers/metromart-scraper.js';
+import { PspScraper } from '../scrapers/psp-scraper.js';
+import { GpcScraper } from '../scrapers/gpc-scraper.js';
+import { AversiScraper } from '../scrapers/aversi-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -244,6 +247,93 @@ async function main() {
     });
     upsertAll();
     console.log(`MetroMart done. ${products.length} products saved.`);
+  }
+
+  if (store === 'psp' || store === 'pharmacy' || store === 'all') {
+    console.log('Running full PSP scrape...');
+    const scraper = new PspScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[PSP] ${msg}`));
+
+    console.log(`Upserting ${products.length} PSP products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'psp',
+          store_type: 'pharmacy',
+          active_ingredient: p.active_ingredient,
+          dose: p.dose,
+          dosage_form: p.dosage_form,
+          quantity: p.quantity,
+        });
+        upsertOffer(productId, 'PSP', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`PSP done. ${products.length} products saved.`);
+  }
+
+  if (store === 'gpc' || store === 'pharmacy' || store === 'all') {
+    console.log('Running full GPC scrape...');
+    const scraper = new GpcScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[GPC] ${msg}`));
+
+    console.log(`Upserting ${products.length} GPC products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'gpc',
+          store_type: 'pharmacy',
+          active_ingredient: p.active_ingredient,
+          dose: p.dose,
+          dosage_form: p.dosage_form,
+          quantity: p.quantity,
+        });
+        upsertOffer(productId, 'GPC', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`GPC done. ${products.length} products saved.`);
+  }
+
+  if (store === 'aversi' || store === 'pharmacy' || store === 'all') {
+    console.log('Running full Aversi scrape...');
+    const scraper = new AversiScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Aversi] ${msg}`));
+
+    console.log(`Upserting ${products.length} Aversi products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'aversi',
+          store_type: 'pharmacy',
+          active_ingredient: p.active_ingredient,
+          dose: p.dose,
+          dosage_form: p.dosage_form,
+          quantity: p.quantity,
+        });
+        upsertOffer(productId, 'Aversi', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Aversi done. ${products.length} products saved.`);
   }
 
   closeDb();

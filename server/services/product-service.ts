@@ -1,5 +1,19 @@
 import { getDb } from '../db/connection.js';
 import { extractCanonicalKey, stripColorsFromName } from './electronics-matcher.js';
+import { extractPharmacyCanonicalKey, extractBrandKey, buildBrandDict, parsePharmacyFromName } from './pharmacy-matcher.js';
+
+// Lazy-built Georgian → Latin brand dictionary from PSP data in DB.
+// Used to translate GPC's Georgian brand names to Latin for cross-store matching.
+let _brandDict: Record<string, string> | null = null;
+function getPharmacyBrandDict(): Record<string, string> {
+  if (_brandDict) return _brandDict;
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT name FROM products WHERE source = 'psp' AND store_type = 'pharmacy'"
+  ).all() as { name: string }[];
+  _brandDict = buildBrandDict(rows.map(r => r.name));
+  return _brandDict;
+}
 
 // Extract model identifiers from product name/URL for cross-validation
 // e.g. "LG GR-B589BQAM" → ["grb589"], "SM-R410NZKACIS" → ["smr410"]
@@ -195,7 +209,8 @@ export function getTopSavings(limit = 7): ProductDTO[] {
       (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as max_price,
       (SELECT MIN(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as min_price
     FROM products p
-    WHERE (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) = 3
+    WHERE p.store_type = 'grocery'
+      AND (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) = 3
       AND p.external_id NOT LIKE 'split-%' AND p.external_id NOT LIKE 'wrong-merge-%'
       AND (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) <= 30
       AND p.name NOT LIKE '%ვისკი%' AND p.name NOT LIKE '%კონიაკი%' AND p.name NOT LIKE '%ღვინო%'
@@ -287,6 +302,10 @@ export function upsertProduct(data: {
   barcode?: string;
   source: string;
   store_type?: string;
+  active_ingredient?: string;
+  dose?: string;
+  dosage_form?: string;
+  quantity?: string;
 }): number {
   const db = getDb();
   const normalized = data.name.toLowerCase().trim();
@@ -315,7 +334,23 @@ export function upsertProduct(data: {
 
   // For electronics: use canonical_key to match same product across different stores
   // Also strip color from name so merged products show a color-neutral name
-  const canonicalKey = data.store_type === 'electronics' ? extractCanonicalKey(data.name) : null;
+  // For pharmacy: use brand name + dose + form + quantity (NOT active ingredient)
+  let canonicalKey: string | null = null;
+  if (data.store_type === 'electronics') {
+    canonicalKey = extractCanonicalKey(data.name);
+  } else if (data.store_type === 'pharmacy') {
+    const brandKey = extractBrandKey(data.name, data.source, getPharmacyBrandDict());
+    // Fall back to parsing dose/form/quantity from name when structured fields are missing
+    // (GPC doesn't always provide medicamentCharacteristic)
+    const parsed = (!data.dose && !data.dosage_form) ? parsePharmacyFromName(data.name) : null;
+    canonicalKey = extractPharmacyCanonicalKey({
+      name: data.name,
+      brandKey,
+      dose: data.dose || parsed?.dose,
+      form: data.dosage_form || parsed?.form,
+      quantity: data.quantity || parsed?.quantity,
+    });
+  }
   const displayName = data.store_type === 'electronics' ? stripColorsFromName(data.name) : data.name;
 
   if (canonicalKey) {
@@ -341,6 +376,24 @@ export function upsertProduct(data: {
         return existing.id;
       }
       // Model mismatch — don't merge, create separate product
+    }
+  }
+
+  // Pharmacy: merge SAME BRAND across different stores only.
+  // Brand-based keys ensure Toradol only matches Toradol, not generic ketorolac.
+  if (canonicalKey && data.store_type === 'pharmacy') {
+    const existing = db.prepare(
+      "SELECT id, name, source, image_url, size, category FROM products WHERE canonical_key = ? AND store_type = 'pharmacy' AND source != ? LIMIT 1"
+    ).get(canonicalKey, data.source) as { id: number; name: string; source: string; image_url: string | null; size: string | null; category: string | null } | undefined;
+
+    if (existing) {
+      if (!existing.image_url && data.image_url) {
+        db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+      }
+      if (!existing.category && data.category) {
+        db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
+      }
+      return existing.id;
     }
   }
 

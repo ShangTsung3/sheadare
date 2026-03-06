@@ -47,6 +47,9 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'Alta': { color: 'bg-[#F7941D]', letter: 'A', filename: 'alta', logo: 'https://alta.ge/favicon.ico' },
   'Kontakt': { color: 'bg-[#E4002B]', letter: 'K', filename: 'kontakt', logo: 'https://kontakt.ge/favicon.ico' },
   'Megatechnica': { color: 'bg-[#1B4D8E]', letter: 'M', filename: 'megatechnica', logo: 'https://megatechnica.ge/favicon.ico' },
+  'PSP': { color: 'bg-[#00A651]', letter: 'P', filename: 'psp', logo: 'https://psp.ge/favicon.ico' },
+  'Aversi': { color: 'bg-[#0072BC]', letter: 'A', filename: 'aversi', logo: 'https://shop.aversi.ge/favicon.ico' },
+  'GPC': { color: 'bg-[#E2231A]', letter: 'G', filename: 'gpc', logo: 'https://gpc.ge/favicon.ico' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string }) => {
@@ -309,7 +312,7 @@ const BasketToast = ({ productName }: { productName: string }) => (
 );
 
 const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, basket, setBasket, favorites, setFavorites, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, favorites: Product[], setFavorites: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void }) => {
-  const [storeType, setStoreType] = useState<'grocery' | 'electronics'>('grocery');
+  const [storeType, setStoreType] = useState<'grocery' | 'electronics' | 'pharmacy'>('grocery');
   const [selectedCategory, setSelectedCategory] = useState('ყველა');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -408,7 +411,12 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     'ტელევიზორები': 'ტელევიზორ', 'აუდიო': 'აუდიო', 'გეიმინგი': 'გეიმინგ',
   };
 
-  const CATEGORY_MAP = storeType === 'grocery' ? GROCERY_CATEGORY_MAP : ELECTRONICS_CATEGORY_MAP;
+  const PHARMACY_CATEGORY_MAP: Record<string, string> = {
+    'ტკივილი': 'ტკივილ', 'ვიტამინი': 'ვიტამინ', 'გული': 'გულ',
+    'ანტიბიოტიკი': 'ანტიბიოტ', 'დიაბეტი': 'დიაბეტ', 'ალერგია': 'ალერგ',
+  };
+
+  const CATEGORY_MAP = storeType === 'grocery' ? GROCERY_CATEGORY_MAP : storeType === 'electronics' ? ELECTRONICS_CATEGORY_MAP : PHARMACY_CATEGORY_MAP;
 
   // Smart search detection: 3+ words or patterns like "იაფი", size patterns
   const isSmartQuery = (q: string) => {
@@ -561,6 +569,16 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           }`}
         >
           ტექნიკა
+        </button>
+        <button
+          onClick={() => { setStoreType('pharmacy'); setSelectedCategory('ყველა'); setSearchQuery(''); }}
+          className={`flex-1 py-2.5 text-[13px] font-semibold rounded-lg transition-all ${
+            storeType === 'pharmacy'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          აფთიაქი
         </button>
       </div>
 
@@ -716,7 +734,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           { name: 'სნექი', emoji: '🥜' },
           { name: 'ყავა/ჩაი', emoji: '☕' },
           { name: 'ჰიგიენა', emoji: '🧴' },
-        ] : [
+        ] : storeType === 'electronics' ? [
           { name: 'ყველა', emoji: '📱' },
           { name: 'ტელეფონები', emoji: '📲' },
           { name: 'ლეპტოპები', emoji: '💻' },
@@ -724,6 +742,14 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           { name: 'ტელევიზორები', emoji: '📺' },
           { name: 'აუდიო', emoji: '🎧' },
           { name: 'გეიმინგი', emoji: '🎮' },
+        ] : [
+          { name: 'ყველა', emoji: '💊' },
+          { name: 'ტკივილი', emoji: '🩹' },
+          { name: 'ვიტამინი', emoji: '🍊' },
+          { name: 'გული', emoji: '❤️' },
+          { name: 'ანტიბიოტიკი', emoji: '💉' },
+          { name: 'დიაბეტი', emoji: '🩸' },
+          { name: 'ალერგია', emoji: '🤧' },
         ]).map((cat) => (
           <button
             key={cat.name}

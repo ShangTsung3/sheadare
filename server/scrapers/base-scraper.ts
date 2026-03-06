@@ -11,6 +11,10 @@ export interface ScrapedProduct {
   barcode?: string;
   url?: string;
   in_stock?: boolean;
+  active_ingredient?: string;
+  dose?: string;
+  dosage_form?: string;
+  quantity?: string;
 }
 
 export abstract class BaseScraper {

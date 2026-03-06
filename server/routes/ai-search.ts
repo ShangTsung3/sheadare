@@ -55,7 +55,7 @@ router.post('/image', async (req, res) => {
           },
           {
             text: `ამოიცანი ეს პროდუქტი და დააბრუნე JSON ფორმატით:
-{"product_name": "პროდუქტის სახელი", "search_queries": ["ძიების სიტყვა 1", "ძიების სიტყვა 2"], "category": "კატეგორია ან null", "store_type": "grocery ან electronics"}
+{"product_name": "პროდუქტის სახელი", "search_queries": ["ძიების სიტყვა 1", "ძიების სიტყვა 2"], "category": "კატეგორია ან null", "store_type": "grocery ან electronics ან pharmacy"}
 მხოლოდ JSON დააბრუნე, სხვა ტექსტის გარეშე.`,
           },
         ],
@@ -149,7 +149,7 @@ router.get('/smart', async (req, res) => {
           text: `მომხმარებელი ეძებს: "${query}"
 
 დააბრუნე JSON:
-{"search_terms": ["ძიების სიტყვა"], "category": "კატეგორია ან null", "store_type": "grocery ან electronics", "sort_by": "price_asc ან price_desc ან relevance", "size_filter": "ზომის ფილტრი ან null", "max_price": null ან რიცხვი}
+{"search_terms": ["ძიების სიტყვა"], "category": "კატეგორია ან null", "store_type": "grocery ან electronics ან pharmacy", "sort_by": "price_asc ან price_desc ან relevance", "size_filter": "ზომის ფილტრი ან null", "max_price": null ან რიცხვი}
 
 მხოლოდ JSON, სხვა ტექსტის გარეშე.`,
         }],
