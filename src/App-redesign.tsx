@@ -43,13 +43,14 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   '2 Nabiji': { color: 'bg-[#EE3124]', letter: '2', filename: '2. 2 nabiji', logo: 'https://2nabiji.ge/2-nabiji-logo.png' },
   'Goodwill': { color: 'bg-[#0054A6]', letter: 'G', filename: '3. Goodwill', logo: 'https://static.goodwill.ge/Goodwill_files/28402b34-5b3f-4e50-825a-d9827094769c_Thumb.png' },
   'Europroduct': { color: 'bg-[#E30613]', letter: 'E', filename: '4. Europroduct', logo: 'https://europroduct.ge/Content/Images/logo.svg' },
-  'Zoomer': { color: 'bg-[#00AEEF]', letter: 'Z', filename: 'zoomer', logo: 'https://zoommer.ge/favicon.ico' },
-  'Alta': { color: 'bg-[#F7941D]', letter: 'A', filename: 'alta', logo: 'https://alta.ge/favicon.ico' },
-  'Kontakt': { color: 'bg-[#E4002B]', letter: 'K', filename: 'kontakt', logo: 'https://kontakt.ge/favicon.ico' },
-  'Megatechnica': { color: 'bg-[#1B4D8E]', letter: 'M', filename: 'megatechnica', logo: 'https://megatechnica.ge/favicon.ico' },
-  'PSP': { color: 'bg-[#00A651]', letter: 'P', filename: 'psp', logo: 'https://psp.ge/favicon.ico' },
-  'Aversi': { color: 'bg-[#0072BC]', letter: 'A', filename: 'aversi', logo: 'https://shop.aversi.ge/favicon.ico' },
-  'GPC': { color: 'bg-[#E2231A]', letter: 'G', filename: 'gpc', logo: 'https://gpc.ge/favicon.ico' },
+  'Zoomer': { color: 'bg-[#00AEEF]', letter: 'Z', filename: 'zoomer', logo: 'https://zoommer.ge/icons/main-logo.svg' },
+  'Alta': { color: 'bg-[#F7941D]', letter: 'A', filename: 'alta', logo: 'https://alta.ge/images/logo.svg' },
+  'Kontakt': { color: 'bg-[#E4002B]', letter: 'K', filename: 'kontakt', logo: 'https://kontakt.ge/static/version1772708998/frontend/Swissup/breeze-customized-ge/ka_GE/images/logo.svg' },
+  'Megatechnica': { color: 'bg-[#1B4D8E]', letter: 'M', filename: 'megatechnica', logo: 'https://megatechnica.ge/assets/img/app/red_logo_large.png' },
+  'MetroMart': { color: 'bg-[#FF6B00]', letter: 'M', filename: 'metromart', logo: 'https://metromart.ge/logo.png' },
+  'PSP': { color: 'bg-[#00A651]', letter: 'P', filename: 'psp', logo: 'https://psp.ge/logo.png' },
+  'Aversi': { color: 'bg-[#0072BC]', letter: 'A', filename: 'aversi', logo: 'https://shop.aversi.ge/images/logos/31/logo_Aversi-24-3.png' },
+  'GPC': { color: 'bg-[#E2231A]', letter: 'G', filename: 'gpc', logo: 'https://gpc.ge/images/logo_ka.svg' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string }) => {

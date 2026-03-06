@@ -42,6 +42,18 @@ function normalizeDose(dose: string): string | null {
   const pctMatch = s.match(/^([\d.]+)\s*%$/);
   if (pctMatch) return `${pctMatch[1]}pct`;
 
+  // PSP provides percentages as decimals without unit (10% → "0.1", 5% → "0.05")
+  // Detect bare decimals 0 < x < 1 and convert to percentage format
+  const bareDecimal = s.match(/^(0\.[\d]+)$/);
+  if (bareDecimal) {
+    const pctValue = parseFloat(bareDecimal[1]) * 100;
+    // Only convert clean percentages (1%, 2%, 5%, 10%, etc.), not arbitrary decimals
+    if (pctValue >= 0.1 && pctValue <= 100 && Number.isFinite(pctValue)) {
+      // Remove trailing zeros: 5.000 → 5, 0.5 → 0.5
+      return `${parseFloat(pctValue.toFixed(4))}pct`;
+    }
+  }
+
   // Match number + unit patterns
   const match = s.match(/^([\d.]+)\s*(მგ|mg|გ|g|მკგ|mcg|ug|μg|მლ|ml|iul|iu|მე)$/);
   if (!match) {
@@ -118,21 +130,31 @@ export function buildBrandDict(pspNames: string[]): Record<string, string> {
     const dashIdx = name.indexOf(' - ');
     if (dashIdx === -1) continue;
 
-    const geoPart = name.substring(0, dashIdx).trim();
-    const latinPart = name.substring(dashIdx + 3).trim();
+    const left = name.substring(0, dashIdx).trim();
+    const right = name.substring(dashIdx + 3).trim();
 
-    // Extract first Georgian word (brand)
-    const geoMatch = geoPart.match(/^([ა-ჰ][ა-ჰ\-]*)/);
-    if (!geoMatch) continue;
-    const geoWord = geoMatch[1];
+    // PSP uses both formats: "ქართული - Latin" and "Latin - ქართული"
+    // Detect which side is Georgian and which is Latin
+    let geoWord: string | null = null;
+    let latinBrand: string | null = null;
 
-    // Extract first Latin word (brand), normalizing Cyrillic lookalikes
-    const latinMatch = normalizeCyrillic(latinPart).match(/^([A-Za-z][A-Za-z]*)/);
-    if (!latinMatch) continue;
-    const latinBrand = latinMatch[1].toLowerCase();
-    if (latinBrand.length < 2) continue;
+    const leftGeo = left.match(/^([ა-ჰ][ა-ჰ\-]*)/);
+    const rightLatin = normalizeCyrillic(right).match(/^([A-Za-z][A-Za-z]*)/);
+    const leftLatin = normalizeCyrillic(left).match(/^([A-Za-z][A-Za-z]*)/);
+    const rightGeo = right.match(/^([ა-ჰ][ა-ჰ\-]*)/);
 
-    // Store mapping (first occurrence wins — PSP data is consistent)
+    if (leftGeo && rightLatin) {
+      // Standard: "ქართული - Latin"
+      geoWord = leftGeo[1];
+      latinBrand = rightLatin[1].toLowerCase();
+    } else if (leftLatin && rightGeo) {
+      // Reversed: "Latin - ქართული"
+      geoWord = rightGeo[1];
+      latinBrand = leftLatin[1].toLowerCase();
+    }
+
+    if (!geoWord || !latinBrand || latinBrand.length < 2) continue;
+
     if (!dict[geoWord]) {
       dict[geoWord] = latinBrand;
     }
@@ -152,16 +174,21 @@ export function extractBrandKey(
   brandDict?: Record<string, string>,
 ): string | null {
   if (source === 'psp') {
-    // PSP: "ტორადოლი - Toradol 10მგ 20 ტაბლეტი"
+    // PSP uses both: "ქართული - Latin dose" and "Latin - ქართული dose"
     const dashIdx = name.indexOf(' - ');
     if (dashIdx === -1) {
       const m = name.match(/^([A-Za-z][A-Za-z]*)/);
       return m ? m[1].toLowerCase() : null;
     }
-    // Normalize Cyrillic lookalikes (e.g. "Сitramon" → "Citramon")
-    const latinPart = normalizeCyrillic(name.substring(dashIdx + 3).trim());
-    const m = latinPart.match(/^([A-Za-z][A-Za-z]*)/);
-    return m ? m[1].toLowerCase() : null;
+    const left = normalizeCyrillic(name.substring(0, dashIdx).trim());
+    const right = normalizeCyrillic(name.substring(dashIdx + 3).trim());
+    // Try right side first (standard: "ქართული - Latin")
+    const rightMatch = right.match(/^([A-Za-z][A-Za-z]*)/);
+    if (rightMatch) return rightMatch[1].toLowerCase();
+    // Try left side (reversed: "Latin - ქართული")
+    const leftMatch = left.match(/^([A-Za-z][A-Za-z]*)/);
+    if (leftMatch) return leftMatch[1].toLowerCase();
+    return null;
   }
 
   if (source === 'gpc') {
