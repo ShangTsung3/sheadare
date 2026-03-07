@@ -15,10 +15,13 @@ const FORM_ALIASES: Record<string, string> = {
   'მალამო': 'oint', 'კრემი': 'cream',
   'წვეთები': 'drops', 'წვეთ': 'drops',
   'სუსპენზია': 'susp', 'სუსპ': 'susp',
+  'სპრეი': 'spray',
   'საინჰალაციო': 'inhal', 'აეროზოლი': 'aerosol',
   'სუპოზიტორია': 'supp', 'სანთელი': 'supp', 'სანთლები': 'supp',
   'ფხვნილი': 'powder', 'გრანულა': 'granule', 'გრანულები': 'granule',
   'გელი': 'gel', 'ხსნარი': 'sol', 'საინექციო': 'inj', 'ფლაკონი': 'vial', 'ფლ': 'vial',
+  'სავლები': 'rinse', 'დროფსი': 'drops',
+  'სპირტი': 'sol', 'სპირტხსნარი': 'sol',
   // English
   'tablet': 'tab', 'tablets': 'tab', 'tab': 'tab', 'tabs': 'tab',
   'capsule': 'caps', 'capsules': 'caps', 'caps': 'caps',
@@ -31,12 +34,25 @@ const FORM_ALIASES: Record<string, string> = {
   'powder': 'powder', 'granule': 'granule', 'granules': 'granule',
   'gel': 'gel', 'solution': 'sol', 'injection': 'inj',
   'inhaler': 'inhal',
+  'spray': 'spray',
+  'rinse': 'rinse', 'mouthwash': 'rinse',
+  'spiritus': 'sol', 'spirituosa': 'sol',
 };
 
 /** Normalize dose to base unit in mg */
 function normalizeDose(dose: string): string | null {
   if (!dose) return null;
   const s = dose.toLowerCase().replace(/\s+/g, '');
+
+  // Handle combination doses: "5mg/5mg", "10მგ+10მგ", "5/5mg" (unit on one or both sides)
+  const comboMatch = s.match(/^([\d.]+)\s*(mg|მგ)?\s*[\/+]\s*([\d.]+)\s*(mg|მგ)/i);
+  if (comboMatch) {
+    return `${comboMatch[1]}mg+${comboMatch[3]}mg`;
+  }
+
+  // Skip concentration notations where denominator is a volume: "667mg/ml", "667g/l"
+  // But NOT combination doses like "5mg/5mg" (same unit → handled above)
+  if (/\d+(mg|მგ|g|გ)\s*\/(ml|მლ|l|ლ|\d)/i.test(s)) return null;
 
   // Percentage doses (1%, 5%, 0.1%) — keep as-is, don't convert
   const pctMatch = s.match(/^([\d.]+)\s*%$/);
@@ -94,7 +110,18 @@ function normalizeDoseValue(value: number, unit: string): string {
 function normalizeForm(form: string): string | null {
   if (!form) return null;
   const lower = form.toLowerCase().trim();
-  return FORM_ALIASES[lower] || lower.replace(/[^a-z]/g, '') || null;
+  // Direct match
+  if (FORM_ALIASES[lower]) return FORM_ALIASES[lower];
+  // Try partial match: check if input starts with any alias
+  // Handles PSP's Georgian abbreviations like "ტაბლ" → matches "ტაბ" → tab
+  for (const [alias, normalized] of Object.entries(FORM_ALIASES)) {
+    if (lower.startsWith(alias) || alias.startsWith(lower)) {
+      return normalized;
+    }
+  }
+  // Latin-only fallback for English form names
+  const latin = lower.replace(/[^a-z]/g, '');
+  return FORM_ALIASES[latin] || latin || null;
 }
 
 /** Normalize quantity: #20, N20, x20, 20ц, №20 → 20 */
@@ -115,6 +142,66 @@ const CYRILLIC_TO_LATIN: Record<string, string> = {
 
 function normalizeCyrillic(s: string): string {
   return s.replace(/[А-яЁё]/g, ch => CYRILLIC_TO_LATIN[ch] || '');
+}
+
+// ─── Brand modifier detection (Plus, Forte, Extra) ────────────────────
+// "Zetor Plus" ≠ "Zetor" — modifier is part of the brand identity
+
+const GEO_MODIFIERS: [string, string][] = [
+  ['პლუსი', 'plus'], ['პლუს', 'plus'],
+  ['ფორტე', 'forte'],
+  ['ექსტრა', 'extra'],
+  ['რეტარდი', 'retard'], ['რეტარდ', 'retard'],
+  ['მაქსი', 'max'], ['მაქს', 'max'],
+  ['ადვანსი', 'advance'], ['ადვანს', 'advance'],
+  ['დუო', 'duo'],
+];
+
+/** Check if Latin text starts with a brand modifier */
+function checkLatinModifier(textAfterBrand: string): string | null {
+  // Order matters: check longer patterns first (hct before h, retard before r, advance before a)
+  const m = textAfterBrand.trim().match(/^(plus|forte|extra|retard|advance|hct|hd|h|xr|sr|cr|mr|xl|er|dr|max|duo)\b/i);
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** Check if Georgian text starts with a brand modifier (პლუსი, ფორტე, ექსტრა) */
+function checkGeoModifier(textAfterBrand: string): string | null {
+  const trimmed = textAfterBrand.trim();
+  for (const [geo, latin] of GEO_MODIFIERS) {
+    if (trimmed.startsWith(geo)) {
+      // Ensure complete word — not a prefix of a longer word (e.g. ექსტრაქტი ≠ ექსტრა)
+      const after = trimmed[geo.length];
+      if (!after || after === ' ' || !/[ა-ჰ]/.test(after)) {
+        return latin;
+      }
+    }
+  }
+  return null;
+}
+
+// ─── Non-brand word filtering ─────────────────────────────────────────
+// Generic pharmaceutical Latin terms that appear as first word but aren't brand names.
+// e.g. "Sol iodi spirit" → brand = "iodi", not "sol"
+const NON_BRAND_WORDS = new Set([
+  'sol', 'solut', 'solution', 'tab', 'caps', 'amp', 'supp', 'inj',
+  'ung', 'sir', 'susp', 'dr', 'tinct', 'extr', 'inf', 'dec',
+  'pulv', 'gran', 'past', 'pil', 'lin', 'lot', 'emuls',
+  'spirit', 'spiritus', 'spirituosa', 'tinctura', 'extractum', 'unguentum',
+]);
+
+/** Extract first real brand word from Latin text, skipping generic pharmaceutical terms */
+function extractFirstBrandWord(text: string): { brand: string; mod: string | null } | null {
+  const words = text.match(/[A-Za-z]+/g);
+  if (!words) return null;
+  for (const word of words) {
+    const w = word.toLowerCase();
+    if (NON_BRAND_WORDS.has(w)) continue;
+    if (w.length < 2) continue;
+    const wordEnd = text.indexOf(word) + word.length;
+    const mod = checkLatinModifier(text.substring(wordEnd));
+    return { brand: w, mod };
+  }
+  return null;
 }
 
 // ─── Brand name extraction ─────────────────────────────────────────────
@@ -139,18 +226,18 @@ export function buildBrandDict(pspNames: string[]): Record<string, string> {
     let latinBrand: string | null = null;
 
     const leftGeo = left.match(/^([ა-ჰ][ა-ჰ\-]*)/);
-    const rightLatin = normalizeCyrillic(right).match(/^([A-Za-z][A-Za-z]*)/);
-    const leftLatin = normalizeCyrillic(left).match(/^([A-Za-z][A-Za-z]*)/);
     const rightGeo = right.match(/^([ა-ჰ][ა-ჰ\-]*)/);
 
-    if (leftGeo && rightLatin) {
-      // Standard: "ქართული - Latin"
+    if (leftGeo) {
+      // Standard: "ქართული - Latin" — extract first real brand word from right side
       geoWord = leftGeo[1];
-      latinBrand = rightLatin[1].toLowerCase();
-    } else if (leftLatin && rightGeo) {
-      // Reversed: "Latin - ქართული"
+      const r = extractFirstBrandWord(normalizeCyrillic(right));
+      latinBrand = r?.brand || null;
+    } else if (rightGeo) {
+      // Reversed: "Latin - ქართული" — extract first real brand word from left side
       geoWord = rightGeo[1];
-      latinBrand = leftLatin[1].toLowerCase();
+      const r = extractFirstBrandWord(normalizeCyrillic(left));
+      latinBrand = r?.brand || null;
     }
 
     if (!geoWord || !latinBrand || latinBrand.length < 2) continue;
@@ -177,17 +264,29 @@ export function extractBrandKey(
     // PSP uses both: "ქართული - Latin dose" and "Latin - ქართული dose"
     const dashIdx = name.indexOf(' - ');
     if (dashIdx === -1) {
-      const m = name.match(/^([A-Za-z][A-Za-z]*)/);
-      return m ? m[1].toLowerCase() : null;
+      // Latin-first name without dash
+      const r = extractFirstBrandWord(normalizeCyrillic(name));
+      if (r) return r.brand + (r.mod || '');
+      // Fallback: Georgian-only name → look up in brandDict (same as GPC)
+      // e.g. "ვიაგრა 100მგ 4ტაბლეტი" → brandDict["ვიაგრა"] → "viagra"
+      if (brandDict) {
+        const geoMatch = name.match(/^([ა-ჰ][ა-ჰ\-]*)/);
+        if (geoMatch) {
+          const brand = brandDict[geoMatch[1]];
+          if (brand) {
+            const textAfter = name.substring(geoMatch[0].length);
+            const mod = checkGeoModifier(textAfter) || checkLatinModifier(textAfter);
+            return brand + (mod || '');
+          }
+        }
+      }
+      return null;
     }
     const left = normalizeCyrillic(name.substring(0, dashIdx).trim());
     const right = normalizeCyrillic(name.substring(dashIdx + 3).trim());
-    // Try right side first (standard: "ქართული - Latin")
-    const rightMatch = right.match(/^([A-Za-z][A-Za-z]*)/);
-    if (rightMatch) return rightMatch[1].toLowerCase();
-    // Try left side (reversed: "Latin - ქართული")
-    const leftMatch = left.match(/^([A-Za-z][A-Za-z]*)/);
-    if (leftMatch) return leftMatch[1].toLowerCase();
+    // Try right side first (standard: "ქართული - Latin"), then left (reversed)
+    const result = extractFirstBrandWord(right) || extractFirstBrandWord(left);
+    if (result) return result.brand + (result.mod || '');
     return null;
   }
 
@@ -197,13 +296,18 @@ export function extractBrandKey(
     const geoMatch = name.match(/^([ა-ჰ][ა-ჰ\-]*)/);
     if (!geoMatch) return null;
     const geoWord = geoMatch[1];
-    return brandDict[geoWord] || null;
+    const brand = brandDict[geoWord];
+    if (!brand) return null;
+    // Check for Georgian modifier, then Latin modifier (e.g. "გლუკოფაჟი XR ტაბლეტი")
+    const textAfter = name.substring(geoMatch[0].length);
+    const mod = checkGeoModifier(textAfter) || checkLatinModifier(textAfter);
+    return brand + (mod || '');
   }
 
   if (source === 'aversi') {
     // Aversi: "Toradol 10mg #20t"
-    const m = name.match(/^([A-Za-z][A-Za-z]*)/);
-    return m ? m[1].toLowerCase() : null;
+    const r = extractFirstBrandWord(name);
+    return r ? r.brand + (r.mod || '') : null;
   }
 
   return null;
@@ -237,17 +341,22 @@ export function extractPharmacyCanonicalKey(info: PharmacyProductInfo): string |
   const form = normalizeForm(info.form || '');
   const qty = normalizeQuantity(info.quantity || '');
 
+  // Skip qty=1 for liquid/topical forms — GPC adds "#1" (1 bottle) but other stores don't,
+  // causing key mismatches like spiritus-10pct-sol-1 vs spiritus-10pct-sol
+  const LIQUID_FORMS = new Set(['sol', 'drops', 'syrup', 'spray', 'rinse', 'gel', 'cream', 'oint', 'vial', 'susp', 'aerosol', 'inhal']);
+  const effectiveQty = (qty === '1' && form && LIQUID_FORMS.has(form)) ? null : qty;
+
   if (dose) {
     // Standard path: brand + dose + optional form/qty
     const parts = [brand, dose];
     if (form) parts.push(form);
-    if (qty) parts.push(qty);
+    if (effectiveQty) parts.push(effectiveQty);
     return parts.join('-');
   }
 
   // Dose-less path: require both form AND quantity for safety
-  if (form && qty) {
-    return [brand, form, qty].join('-');
+  if (form && effectiveQty) {
+    return [brand, form, effectiveQty].join('-');
   }
 
   return null;
@@ -260,26 +369,39 @@ export function extractPharmacyCanonicalKey(info: PharmacyProductInfo): string |
 export function parsePharmacyFromName(name: string): Partial<PharmacyProductInfo> {
   const result: Partial<PharmacyProductInfo> = { name };
 
-  // Try to extract dose: percentage first, then number + unit
-  const pctMatch = name.match(/([\d.]+)\s*%/);
-  if (pctMatch) {
-    result.dose = pctMatch[0].trim();
+  // Try to extract dose: combination doses first, then percentage, then single dose
+  // Combination doses: "5mg/5mg", "10მგ+10მგ", "5/5mg" (unit on one or both sides)
+  const comboMatch = name.match(/([\d.]+)\s*(mg|მგ)?\s*[\/+]\s*([\d.]+)\s*(mg|მგ)/i);
+  if (comboMatch) {
+    result.dose = comboMatch[0].trim();
   } else {
-    const doseMatch = name.match(/([\d.]+)\s*(mg|მგ|mcg|მკგ|ml|მლ|iu)/i);
-    if (doseMatch) {
-      result.dose = doseMatch[0].trim();
+    const pctMatch = name.match(/([\d.]+)\s*%/);
+    if (pctMatch) {
+      result.dose = pctMatch[0].trim();
     } else {
-      // Try g/გ but only for small values (real doses, not tube weights)
-      const gMatch = name.match(/([\d.]+)\s*(g|გ)(?:\s|$|[^a-zა-ჰ])/i);
-      if (gMatch && parseFloat(gMatch[1]) < 10) {
-        result.dose = gMatch[1] + gMatch[2];
+      // Skip concentration notations (667mg/ml) with negative lookahead
+      const doseMatch = name.match(/([\d.]+)\s*(mg|მგ|mcg|მკგ|ml|მლ|iu)(?!\s*\/)/i);
+      if (doseMatch) {
+        result.dose = doseMatch[0].trim();
+      } else {
+        // Try g/გ but only for small values (real doses, not tube weights)
+        const gMatch = name.match(/([\d.]+)\s*(g|გ)(?:\s|$|[^a-zა-ჰ\/])/i);
+        if (gMatch && parseFloat(gMatch[1]) < 10) {
+          result.dose = gMatch[1] + gMatch[2];
+        }
       }
     }
   }
 
   // Try to extract quantity: #20, N20, №20, x20, 20ц, 20t
   // Also extract form suffix: #24t → qty=24, form=tab; #5a → qty=5, form=amp
-  const qtyMatch = name.match(/[#Nn№x×]\s*(\d+)([a-z]{1,4})?/) || name.match(/(\d+)\s*ც(?:\s|$)/);
+  // Note: # and № are unambiguous quantity markers, but N/n/x need a lookbehind
+  // to avoid matching inside words (e.g. "Ibuprofe*n* 400mg" → n isn't a qty prefix)
+  const qtyMatch = name.match(/[#№]\s*(\d+)([a-z]{1,4})?/)
+    || name.match(/(?<![a-zA-Zა-ჰ])[Nnx×]\s*(\d+)([a-z]{1,4})?/)
+    || name.match(/(\d+)\s*ც(?:\s|$)/)
+    // Georgian: bare number directly before a form word: "4ტაბლეტი", "10კაფსულა", "30სანთელი"
+    || name.match(/(?<![a-zA-Z\d])(\d+)\s*(?=ტაბ|კაფს|ამპულ|სუპოზ|სანთ|ფლაკ|პაკეტ|გრანულ)/);
   if (qtyMatch) {
     result.quantity = qtyMatch[1];
     // Aversi-style form suffix: t=tab, a=amp, fl=vial
@@ -296,9 +418,24 @@ export function parsePharmacyFromName(name: string): Partial<PharmacyProductInfo
   // Try to extract form from name
   const nameLower = name.toLowerCase();
   for (const [alias, normalized] of Object.entries(FORM_ALIASES)) {
-    if (nameLower.includes(alias)) {
-      result.form = normalized;
-      break;
+    if (/^[a-z]+$/.test(alias)) {
+      // English aliases: use word boundary to avoid matching inside words
+      // e.g. "amp" must not match inside "shampoo" or "camphoratus"
+      if (new RegExp(`\\b${alias}\\b`).test(nameLower)) {
+        result.form = normalized;
+        break;
+      }
+    } else {
+      // Georgian aliases: require left word boundary to prevent matching inside words
+      // e.g. "ამპ" must not match inside "შამპუნი" (shampoo)
+      const idx = nameLower.indexOf(alias);
+      if (idx !== -1) {
+        const before = idx > 0 ? nameLower[idx - 1] : ' ';
+        if (before === ' ' || !/[ა-ჰ]/.test(before)) {
+          result.form = normalized;
+          break;
+        }
+      }
     }
   }
 

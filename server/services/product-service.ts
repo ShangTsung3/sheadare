@@ -306,6 +306,7 @@ export function upsertProduct(data: {
   dose?: string;
   dosage_form?: string;
   quantity?: string;
+  price?: number;
 }): number {
   const db = getDb();
   const normalized = data.name.toLowerCase().trim();
@@ -340,13 +341,20 @@ export function upsertProduct(data: {
     canonicalKey = extractCanonicalKey(data.name);
   } else if (data.store_type === 'pharmacy') {
     const brandKey = extractBrandKey(data.name, data.source, getPharmacyBrandDict());
-    // Fall back to parsing dose/form/quantity from name when structured fields are missing
-    // (GPC doesn't always provide medicamentCharacteristic)
-    const parsed = (!data.dose && !data.dosage_form) ? parsePharmacyFromName(data.name) : null;
+    // Always parse from name to fill gaps in structured data (e.g. PSP may provide
+    // dose but not form — we still want to extract form from the product name)
+    const parsed = parsePharmacyFromName(data.name);
+    let finalDose = data.dose || parsed?.dose;
+    // For combination drugs (e.g. "10მგ+10მგ"), prefer combo dose from name
+    // over single-component structured dose (e.g. "10მგ")
+    const nameCombo = data.name.match(/([\d.]+)\s*(?:mg|მგ)?\s*[\/+]\s*([\d.]+)\s*(?:mg|მგ)/i);
+    if (nameCombo) {
+      finalDose = nameCombo[0];
+    }
     canonicalKey = extractPharmacyCanonicalKey({
       name: data.name,
       brandKey,
-      dose: data.dose || parsed?.dose,
+      dose: finalDose,
       form: data.dosage_form || parsed?.form,
       quantity: data.quantity || parsed?.quantity,
     });
@@ -381,19 +389,39 @@ export function upsertProduct(data: {
 
   // Pharmacy: merge SAME BRAND across different stores only.
   // Brand-based keys ensure Toradol only matches Toradol, not generic ketorolac.
+  // Price sanity check: don't merge if prices diverge >2.5x (e.g. generic 9₾ vs original 36₾).
   if (canonicalKey && data.store_type === 'pharmacy') {
-    const existing = db.prepare(
-      "SELECT id, name, source, image_url, size, category FROM products WHERE canonical_key = ? AND store_type = 'pharmacy' AND source != ? LIMIT 1"
-    ).get(canonicalKey, data.source) as { id: number; name: string; source: string; image_url: string | null; size: string | null; category: string | null } | undefined;
+    const candidates = db.prepare(
+      "SELECT id, name, source, image_url, size, category FROM products WHERE canonical_key = ? AND store_type = 'pharmacy' AND source != ?"
+    ).all(canonicalKey, data.source) as { id: number; name: string; source: string; image_url: string | null; size: string | null; category: string | null }[];
 
-    if (existing) {
-      if (!existing.image_url && data.image_url) {
-        db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+    let bestMatch: typeof candidates[0] | null = null;
+    for (const candidate of candidates) {
+      // If we have a price, check compatibility with existing offers
+      if (data.price && data.price > 0) {
+        const avgOffer = db.prepare(
+          'SELECT AVG(price) as avg_price FROM store_offers WHERE product_id = ? AND in_stock = 1 AND price > 0'
+        ).get(candidate.id) as { avg_price: number | null };
+
+        if (avgOffer?.avg_price && avgOffer.avg_price > 0) {
+          const ratio = data.price / avgOffer.avg_price;
+          // Same branded drug shouldn't differ by more than 1.8x between pharmacies.
+          // Larger differences indicate different manufacturers/formulations wrongly merged.
+          if (ratio > 1.8 || ratio < 1 / 1.8) continue;
+        }
       }
-      if (!existing.category && data.category) {
-        db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
+      bestMatch = candidate;
+      break;
+    }
+
+    if (bestMatch) {
+      if (!bestMatch.image_url && data.image_url) {
+        db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, bestMatch.id);
       }
-      return existing.id;
+      if (!bestMatch.category && data.category) {
+        db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, bestMatch.id);
+      }
+      return bestMatch.id;
     }
   }
 

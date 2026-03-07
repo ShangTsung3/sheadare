@@ -250,6 +250,9 @@ async function main() {
   }
 
   if (store === 'psp' || store === 'pharmacy' || store === 'all') {
+    console.log('Marking existing PSP offers as out_of_stock...');
+    db.prepare("UPDATE store_offers SET in_stock = 0 WHERE store = 'PSP'").run();
+
     console.log('Running full PSP scrape...');
     const scraper = new PspScraper(rateLimiter);
     const products = await scraper.scrapeAll((msg) => console.log(`[PSP] ${msg}`));
@@ -270,6 +273,7 @@ async function main() {
           dose: p.dose,
           dosage_form: p.dosage_form,
           quantity: p.quantity,
+          price: p.price,
         });
         upsertOffer(productId, 'PSP', p.price, p.url);
       }
@@ -279,6 +283,9 @@ async function main() {
   }
 
   if (store === 'gpc' || store === 'pharmacy' || store === 'all') {
+    console.log('Marking existing GPC offers as out_of_stock...');
+    db.prepare("UPDATE store_offers SET in_stock = 0 WHERE store = 'GPC'").run();
+
     console.log('Running full GPC scrape...');
     const scraper = new GpcScraper(rateLimiter);
     const products = await scraper.scrapeAll((msg) => console.log(`[GPC] ${msg}`));
@@ -299,6 +306,7 @@ async function main() {
           dose: p.dose,
           dosage_form: p.dosage_form,
           quantity: p.quantity,
+          price: p.price,
         });
         upsertOffer(productId, 'GPC', p.price, p.url);
       }
@@ -308,6 +316,12 @@ async function main() {
   }
 
   if (store === 'aversi' || store === 'pharmacy' || store === 'all') {
+    // Mark all existing Aversi offers as out_of_stock before scraping.
+    // The new scrape from www.aversi.ge has different product IDs (MatID vs shop product_id),
+    // so old offers that no longer exist will stay out_of_stock.
+    console.log('Marking existing Aversi offers as out_of_stock...');
+    db.prepare("UPDATE store_offers SET in_stock = 0 WHERE store = 'Aversi'").run();
+
     console.log('Running full Aversi scrape...');
     const scraper = new AversiScraper(rateLimiter);
     const products = await scraper.scrapeAll((msg) => console.log(`[Aversi] ${msg}`));
@@ -328,12 +342,48 @@ async function main() {
           dose: p.dose,
           dosage_form: p.dosage_form,
           quantity: p.quantity,
+          price: p.price,
         });
         upsertOffer(productId, 'Aversi', p.price, p.url);
       }
     });
     upsertAll();
     console.log(`Aversi done. ${products.length} products saved.`);
+  }
+
+  // Clean up stale cross-store offers that violate the price threshold.
+  // This handles cases where offers were merged in previous runs with a looser
+  // threshold and now the prices diverge too much.
+  if (store === 'pharmacy' || store === 'all') {
+    console.log('Cleaning up stale pharmacy price mismatches...');
+    const mismatches = db.prepare(`
+      SELECT p.id, p.canonical_key,
+        MIN(so.price) as min_price, MAX(so.price) as max_price,
+        CAST(MAX(so.price) AS REAL) / MIN(so.price) as ratio
+      FROM products p
+      JOIN store_offers so ON so.product_id = p.id AND so.in_stock = 1 AND so.price > 0
+      WHERE p.store_type = 'pharmacy'
+      GROUP BY p.id
+      HAVING COUNT(DISTINCT so.store) >= 2 AND ratio > 1.8
+    `).all() as { id: number; canonical_key: string; min_price: number; max_price: number; ratio: number }[];
+
+    let cleaned = 0;
+    for (const m of mismatches) {
+      // Find the median price and remove offers that are too far from it
+      const offers = db.prepare(
+        'SELECT store, price FROM store_offers WHERE product_id = ? AND in_stock = 1 AND price > 0 ORDER BY price'
+      ).all(m.id) as { store: string; price: number }[];
+      const median = offers[Math.floor(offers.length / 2)].price;
+      for (const o of offers) {
+        const r = o.price / median;
+        if (r > 1.8 || r < 1 / 1.8) {
+          db.prepare('UPDATE store_offers SET in_stock = 0 WHERE product_id = ? AND store = ?').run(m.id, o.store);
+          console.log(`  Removed ${o.store}:${o.price} from product ${m.canonical_key} (median=${median.toFixed(2)}, ratio=${r.toFixed(2)}x)`);
+          cleaned++;
+        }
+      }
+    }
+    console.log(`Cleaned ${cleaned} stale offers.`);
   }
 
   closeDb();

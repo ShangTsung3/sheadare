@@ -3,9 +3,13 @@ import { RateLimiter } from './rate-limiter.js';
 
 const PSP_GRAPHQL = 'https://app.psp.ge/graphql';
 
-// Category 823 = მედიკამენტები (~5,041 products)
+// Category 823 = მედიკამენტები (~5,034 products)
+// Category 826 = პაციენტის მოვლა (~628 products: ბინტები, პლასტირები, საფენები)
+// Category 827 = სამედიცინო მოწყობილობები (~789 products)
 const CATEGORIES = [
   { id: '823', label: 'მედიკამენტები' },
+  { id: '826', label: 'მოვლის საშუალებები' },
+  { id: '827', label: 'სამედიცინო მოწყობილობები' },
 ];
 
 const PRODUCTS_QUERY = `
