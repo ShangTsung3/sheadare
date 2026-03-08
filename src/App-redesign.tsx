@@ -782,11 +782,11 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           </div>
         </div>
 
-        <div className="space-y-3">
-          {loading && filteredProducts.length === 0 && [1,2,3,4,5].map(i => (
-            <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-4 flex items-center gap-3.5">
-              <div className="w-14 h-14 rounded-xl skeleton flex-shrink-0" />
-              <div className="flex-1 space-y-2.5">
+        <div className="grid grid-cols-2 gap-3">
+          {loading && filteredProducts.length === 0 && [1,2,3,4,5,6].map(i => (
+            <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
+              <div className="w-full aspect-square skeleton" />
+              <div className="p-3 space-y-2">
                 <div className="h-4 skeleton rounded w-3/4" />
                 <div className="h-3.5 skeleton rounded w-1/2" />
               </div>
@@ -799,81 +799,79 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
             if (priceEntries.length === 0) return null;
             const bestPrice = priceEntries[0][1] as number;
             const worstPrice = priceEntries.length >= 2 ? priceEntries[priceEntries.length - 1][1] as number : bestPrice;
+            const savePct = worstPrice > 0 ? Math.round(((worstPrice - bestPrice) / worstPrice) * 100) : 0;
+            const saveAmount = (worstPrice - bestPrice).toFixed(2);
 
             return (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 12 }}
-                animate={!swipeHintShown && idx === 0 ? { opacity: 1, y: 0, x: [0, -30, 30, 0] } : { opacity: 1, y: 0 }}
-                transition={!swipeHintShown && idx === 0 ? { delay: 0.5, x: { delay: 1, duration: 0.8 } } : { delay: idx * 0.03 }}
-                onAnimationComplete={() => { if (idx === 0 && !swipeHintShown) localStorage.setItem('pasebi-swipe-hint', 'true'); }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
+                onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
+                className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform border border-slate-100 dark:border-slate-800"
               >
-                <SwipeableProductCard
-                  product={product}
-                  onSwipeLeft={() => addToBasketSwipe(product)}
-                  onSwipeRight={() => addToFavorites(product)}
-                >
-                  <div
-                    onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
-                    className="bg-white dark:bg-slate-900 rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-transform border border-slate-100 dark:border-slate-800"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      {/* Product image */}
-                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 flex-shrink-0">
-                        <SmartImage
-                          filename=""
-                          imageUrl={product.image}
-                          alt={product.name}
-                          className="w-full h-full object-contain p-1"
-                          fallbackLetter={product.name[0]}
-                        />
-                      </div>
-
-                      {/* Name + prices */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h3 className="font-bold text-slate-900 dark:text-white text-[15px] leading-snug mb-0.5">{product.name}</h3>
-                          {isFavorite && <Heart size={12} className="text-pink-500 fill-pink-500 flex-shrink-0" />}
-                        </div>
-                        {product.size && <span className="text-slate-400 text-[12px]">{product.size}</span>}
-                        {/* Store prices - with store names */}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
-                          {priceEntries.map(([store, price], i) => (
-                            <span key={store} className={`inline-flex items-center gap-1.5 text-[14px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-500 dark:text-slate-400'}`}>
-                              <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-4.5 h-4.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                              <span className={`text-[11px] ${i === 0 ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store === 'Megatechnica' ? 'Mega' : store}</span>
-                              {(price as number).toFixed(2)}₾
-                            </span>
-                          ))}
-                        </div>
-                        {/* Savings badge */}
-                        {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
-                          <div className="mt-2">
-                            <span className={`text-[12px] font-bold px-2 py-1 rounded-lg inline-block ${
-                              (worstPrice - bestPrice) >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
-                              (worstPrice - bestPrice) >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
-                              'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                            }`}>
-                              დაზოგე {(worstPrice - bestPrice).toFixed(2)}₾
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Add to basket */}
-                      <button
-                        onClick={(e) => toggleBasket(e, product)}
-                        className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
-                          isInBasket
-                            ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        <ShoppingBasket size={18} strokeWidth={isInBasket ? 2.5 : 1.8} />
-                      </button>
+                {/* Image - full width top */}
+                <div className="relative w-full aspect-square bg-slate-50 dark:bg-slate-800 overflow-hidden">
+                  <SmartImage
+                    filename=""
+                    imageUrl={product.image}
+                    alt={product.name}
+                    className="w-full h-full object-contain p-4"
+                    fallbackLetter={product.name[0]}
+                  />
+                  {/* Savings badge - top left */}
+                  {priceEntries.length >= 2 && savePct >= 5 && (
+                    <div className={`absolute top-2 left-2 text-white text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      savePct >= 30 ? 'bg-gradient-to-r from-orange-500 to-red-500' :
+                      savePct >= 15 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' :
+                      'bg-gradient-to-r from-blue-500 to-blue-400'
+                    }`}>
+                      -{savePct}%
                     </div>
+                  )}
+                  {/* Basket + Favorite buttons - top right */}
+                  <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleBasket(e, product); }}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                        isInBasket
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                          : 'bg-white/80 dark:bg-slate-900/80 text-slate-400 backdrop-blur-sm'
+                      }`}
+                    >
+                      <ShoppingBasket size={14} strokeWidth={isInBasket ? 2.5 : 1.8} />
+                    </button>
+                    {isFavorite && <Heart size={14} className="text-pink-500 fill-pink-500 mx-auto" />}
                   </div>
-                </SwipeableProductCard>
+                </div>
+                {/* Info - below image */}
+                <div className="p-3">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-[13px] leading-tight line-clamp-2">{product.name}</h3>
+                  {product.size && <p className="text-slate-400 text-[11px] mt-0.5">{product.size}</p>}
+                  {/* Store prices as rows */}
+                  <div className="mt-2 space-y-1">
+                    {priceEntries.map(([store, price], i) => (
+                      <div key={store} className={`flex items-center justify-between text-[12px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-400'}`}>
+                        <span className="flex items-center gap-1.5">
+                          <img src={STORE_CONFIG[store]?.logo} alt="" className="w-4 h-4 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <span className="text-[10px]">{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store === 'Megatechnica' ? 'Mega' : store}</span>
+                        </span>
+                        <span>{(price as number).toFixed(2)}₾</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Save amount */}
+                  {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
+                    <div className={`mt-2 text-center text-[11px] font-bold py-1 rounded-lg ${
+                      (worstPrice - bestPrice) >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
+                      (worstPrice - bestPrice) >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
+                      'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                    }`}>
+                      დაზოგე {saveAmount}₾
+                    </div>
+                  )}
+                </div>
               </motion.div>
             );
           })}
