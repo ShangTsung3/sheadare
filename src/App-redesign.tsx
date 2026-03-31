@@ -329,52 +329,54 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
         })}
       </div>
       {/* Desktop top header nav */}
-      <div className="hidden lg:flex fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-100 px-8 items-center gap-6 z-50">
-        {/* Logo */}
-        <h1 className="text-[18px] font-light tracking-[0.35em] uppercase text-slate-900 shrink-0 mr-2" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE</h1>
+      <div className="hidden lg:flex fixed top-0 left-0 right-0 h-14 bg-white/95 backdrop-blur-md border-b border-slate-100/80 px-6 xl:px-10 items-center z-50">
+        {/* Logo — pushed right with left margin */}
+        <div className="flex items-center gap-8 ml-2">
+          <h1 className="text-[16px] font-semibold tracking-[0.25em] uppercase text-slate-800 shrink-0" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE</h1>
 
-        {/* Nav items */}
-        <nav className="flex items-center gap-1">
-          {navItems.map((item) => {
-            const isActive = active === item.id || (active === 'compare' && item.id === 'home');
-            return (
-              <button
-                key={item.id}
-                onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
-                className={`transition-colors relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${isActive ? 'text-[#108AB1] bg-[#108AB1]/10' : 'text-[#073A4B]/50 hover:text-[#073A4B]/80 hover:bg-slate-50'}`}
-              >
-                <item.icon size={18} strokeWidth={isActive ? 2.2 : 1.6} />
-                <span>{item.label}</span>
-                {item.id === 'basket' && basketCount > 0 && (
-                  <div className="min-w-[18px] h-[18px] bg-[#F04770] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                    {basketCount}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+          {/* Nav items */}
+          <nav className="flex items-center gap-0.5">
+            {navItems.map((item) => {
+              const isActive = active === item.id || (active === 'compare' && item.id === 'home');
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
+                  className={`transition-all relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium ${isActive ? 'text-[#108AB1] bg-[#108AB1]/8' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                >
+                  <item.icon size={16} strokeWidth={isActive ? 2.2 : 1.5} />
+                  <span>{item.label}</span>
+                  {item.id === 'basket' && basketCount > 0 && (
+                    <div className="min-w-[16px] h-[16px] bg-[#F04770] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 -mr-1">
+                      {basketCount}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
-        {/* Search bar + photo/barcode buttons */}
-        <div className="flex-1 max-w-xl mx-4 flex gap-2 items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={1.8} />
+        {/* Search bar — centered */}
+        <div className="flex-1 max-w-lg mx-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} strokeWidth={2} />
             <input
               type="text"
               placeholder={t('search_placeholder')}
               value={searchQuery || ''}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="w-full bg-slate-100 rounded-xl py-2.5 pl-10 pr-4 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-slate-200 focus:bg-white transition-all border-0"
+              className="w-full bg-slate-50 border border-slate-200 rounded-full py-2 pl-9 pr-4 text-[13px] font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30 focus:bg-white transition-all"
             />
           </div>
         </div>
 
         {/* Alert bell */}
         {onAlertTap && (
-          <button onClick={onAlertTap} className="p-2 relative text-slate-400 hover:text-slate-600 transition-colors shrink-0">
-            <Bell size={20} />
+          <button onClick={onAlertTap} className="p-2 relative text-slate-300 hover:text-slate-600 transition-colors shrink-0 mr-2">
+            <Bell size={18} strokeWidth={1.8} />
             {(alertCount ?? 0) > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-0.5">
+              <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-bold px-0.5">
                 {alertCount}
               </span>
             )}
@@ -678,7 +680,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   };
 
   return (
-    <div ref={containerRef} className="pb-24 lg:pb-8 pt-14 lg:pt-6 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen overflow-auto" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div ref={containerRef} className="pb-24 lg:pb-8 pt-14 lg:pt-3 px-5 md:px-8 lg:px-8 xl:px-10 min-h-screen overflow-auto" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
       <AnimatePresence>
         {favoriteToast && (
@@ -708,7 +710,8 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
       {/* Store Type Tabs — დროებით მხოლოდ სასურსათო, დანარჩენი ტაბები დაბრუნდება მოგვიანებით */}
 
       {/* Top Savings */}
-      {storeType === 'grocery' && topSavings.length > 0 && !debouncedQuery && (() => {
+      {/* დღის დანაზოგი დროებით გამორთული */}
+      {false && storeType === 'grocery' && topSavings.length > 0 && !debouncedQuery && (() => {
         const savingsData = topSavings.map((product) => {
           const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
           if (priceEntries.length < 2) return null;
@@ -948,31 +951,43 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             </div>
 
             {/* Desktop: sidebar categories + products */}
-            <div className="lg:flex lg:gap-6">
-              {/* Sidebar */}
-              <div className="hidden lg:block w-56 xl:w-60 shrink-0">
-                <div className="sticky top-24 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-4 pt-4 pb-3 flex items-center gap-2">
-                    <SlidersHorizontal size={16} className="text-[#108AB1]" />
-                    <span className="text-sm font-bold text-slate-900">კატეგორიები</span>
-                  </div>
-                  <div className="px-3 pb-2">
-                    {categories.map((cat, idx) => (
-                      <button
-                        key={cat.key}
-                        onClick={() => { setSelectedCategory(cat.key); setSearchQuery(''); }}
-                        aria-pressed={selectedCategory === cat.key}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left focus:outline-none ${
-                          selectedCategory === cat.key
-                            ? 'bg-[#108AB1] text-white shadow-sm mb-1'
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                        }`}
-                      >
-                        <span className={`shrink-0 ${selectedCategory === cat.key ? 'opacity-100' : 'opacity-40'}`}>{cat.icon}</span>
-                        <span className="flex-1">{cat.name}</span>
-                        {selectedCategory === cat.key && <ChevronRight size={14} className="opacity-70" />}
-                      </button>
-                    ))}
+            <div className="lg:flex lg:gap-6 lg:items-start">
+              {/* Sidebar — sticky on scroll */}
+              <div className="hidden lg:block w-56 xl:w-64 shrink-0">
+                <div className="sticky top-[4.5rem] max-h-[calc(100vh-5rem)] overflow-y-auto">
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] overflow-hidden">
+                    {/* Header */}
+                    <div className="px-5 pt-5 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#108AB1]/10 flex items-center justify-center">
+                          <SlidersHorizontal size={15} className="text-[#108AB1]" />
+                        </div>
+                        <span className="text-[14px] font-bold text-slate-800">კატეგორიები</span>
+                      </div>
+                    </div>
+                    {/* Category list */}
+                    <div className="px-3 pb-3 space-y-0.5">
+                      {categories.map((cat) => (
+                        <button
+                          key={cat.key}
+                          onClick={() => { setSelectedCategory(cat.key); setSearchQuery(''); }}
+                          aria-pressed={selectedCategory === cat.key}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left focus:outline-none group ${
+                            selectedCategory === cat.key
+                              ? 'bg-gradient-to-r from-[#108AB1] to-[#0d7a9e] text-white shadow-md shadow-[#108AB1]/20'
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                          }`}
+                        >
+                          <span className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                            selectedCategory === cat.key
+                              ? 'bg-white/20'
+                              : 'bg-slate-100 group-hover:bg-slate-200/70'
+                          }`}>{cat.icon}</span>
+                          <span className="flex-1">{cat.name}</span>
+                          {selectedCategory === cat.key && <ChevronRight size={14} className="opacity-80" />}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -991,44 +1006,45 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
               </span>
             )}
           </div>
-          {/* Grid view switcher */}
-          <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-1">
-            {([2, 3, 4, 5] as const).map(cols => (
-              <button
-                key={cols}
-                onClick={() => { setGridCols(cols); localStorage.setItem('pasebi-grid-cols', String(cols)); }}
-                className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${gridCols === cols ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  {cols === 2 && <>
-                    <rect x="1" y="1" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="9" y="1" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="1" y="9" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="9" y="9" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
-                  </>}
-                  {cols === 3 && <>
-                    <rect x="0.5" y="1" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="6" y="1" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="11.5" y="1" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="0.5" y="9" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="6" y="9" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    <rect x="11.5" y="9" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
-                  </>}
-                  {cols === 4 && <>
-                    {[0, 4.5, 9, 13.5].map((x, i) => <React.Fragment key={i}>
-                      <rect x={x} y="1" width="2.5" height="6" rx="0.75" className={gridCols === 4 ? 'fill-slate-700' : 'fill-slate-400'} />
-                      <rect x={x} y="9" width="2.5" height="6" rx="0.75" className={gridCols === 4 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    </React.Fragment>)}
-                  </>}
-                  {cols === 5 && <>
-                    {[0, 3.2, 6.4, 9.6, 12.8].map((x, i) => <React.Fragment key={i}>
-                      <rect x={x} y="1" width="2" height="6" rx="0.5" className={gridCols === 5 ? 'fill-slate-700' : 'fill-slate-400'} />
-                      <rect x={x} y="9" width="2" height="6" rx="0.5" className={gridCols === 5 ? 'fill-slate-700' : 'fill-slate-400'} />
-                    </React.Fragment>)}
-                  </>}
-                </svg>
-              </button>
-            ))}
+          {/* Grid view switcher — modern pill style */}
+          <div className="flex items-center bg-slate-100/80 rounded-full p-0.5 border border-slate-200/50">
+            {([2, 3, 4, 5] as const).map(cols => {
+              const isActive = gridCols === cols;
+              return (
+                <button
+                  key={cols}
+                  onClick={() => { setGridCols(cols); localStorage.setItem('pasebi-grid-cols', String(cols)); }}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${isActive ? 'bg-white shadow-sm scale-105' : 'hover:bg-white/60'}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                    {cols === 2 && <>
+                      <rect x="1" y="1" width="8" height="8" rx="2" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1.5" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.1" />
+                      <rect x="11" y="1" width="8" height="8" rx="2" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1.5" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.1" />
+                      <rect x="1" y="11" width="8" height="8" rx="2" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1.5" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.1" />
+                      <rect x="11" y="11" width="8" height="8" rx="2" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1.5" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.1" />
+                    </>}
+                    {cols === 3 && <>
+                      {[0.5, 7, 13.5].map((x, i) => <React.Fragment key={i}>
+                        <rect x={x} y="1" width="5.5" height="8" rx="1.5" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1.2" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.1" />
+                        <rect x={x} y="11" width="5.5" height="8" rx="1.5" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1.2" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.1" />
+                      </React.Fragment>)}
+                    </>}
+                    {cols === 4 && <>
+                      {[0.5, 5.5, 10.5, 15.5].map((x, i) => <React.Fragment key={i}>
+                        <rect x={x} y="2" width="3.5" height="6" rx="1" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.15" />
+                        <rect x={x} y="11" width="3.5" height="6" rx="1" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="1" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.15" />
+                      </React.Fragment>)}
+                    </>}
+                    {cols === 5 && <>
+                      {[0, 4, 8, 12, 16].map((x, i) => <React.Fragment key={i}>
+                        <rect x={x} y="2" width="3" height="6" rx="0.75" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="0.8" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.15" />
+                        <rect x={x} y="11" width="3" height="6" rx="0.75" stroke={isActive ? '#108AB1' : '#94a3b8'} strokeWidth="0.8" fill={isActive ? '#108AB1' : 'none'} fillOpacity="0.15" />
+                      </React.Fragment>)}
+                    </>}
+                  </svg>
+                </button>
+              );
+            })}
           </div>
         </div>
 
