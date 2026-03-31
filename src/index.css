@@ -1,19 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Georgian:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
 @import "leaflet/dist/leaflet.css";
 
 @theme {
   --font-sans: "Inter", "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
-  --color-cobalt: #3B82F6;
-  --color-emerald: #10B981;
-  --color-ink: #0F172A;
-  --color-dark-bg: #020617;
-  --color-dark-card: #0F172A;
+  --color-cobalt: #108AB1;
+  --color-emerald: #06D7A0;
+  --color-ink: #073A4B;
+  --color-dark-bg: #041E2B;
+  --color-dark-card: #073A4B;
+  --color-rose: #F04770;
+  --color-coral: #F78C6A;
+  --color-gold: #FFD167;
 }
 
 @layer base {
   body {
-    @apply bg-slate-50 text-ink font-sans antialiased transition-colors duration-300;
+    @apply bg-[#F5F7FA] text-ink font-sans antialiased transition-colors duration-300;
   }
   .dark body {
     @apply bg-dark-bg text-slate-100;
@@ -123,4 +128,48 @@
 .dark .skeleton {
   background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
   background-size: 200% 100%;
+}
+
+/* Photo scan progress bar — fills to 100% over 4s, then holds */
+@keyframes progressBar {
+  0% { width: 0%; }
+  15% { width: 25%; }
+  40% { width: 55%; }
+  65% { width: 78%; }
+  85% { width: 92%; }
+  100% { width: 100%; }
+}
+
+/* Glow pulse on the progress bar */
+@keyframes progressGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.8); }
+}
+
+/* Scanning ring animation */
+@keyframes scanRing {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Percentage counter */
+@property --progress {
+  syntax: "<integer>";
+  initial-value: 0;
+  inherits: false;
+}
+@keyframes countUp {
+  0% { --progress: 0; }
+  15% { --progress: 25; }
+  40% { --progress: 55; }
+  65% { --progress: 78; }
+  85% { --progress: 92; }
+  100% { --progress: 100; }
+}
+.progress-counter {
+  animation: countUp 4s ease-out forwards;
+  counter-reset: progress var(--progress);
+}
+.progress-counter::after {
+  content: counter(progress) "%";
 }

@@ -24,10 +24,11 @@ const STORES: StoreConfig[] = [
   { name: '2 Nabiji', source: 'nabiji', storeType: 'grocery', createScraper: (rl) => new NabijiScraper(rl) },
   { name: 'Goodwill', source: 'goodwill', storeType: 'grocery', createScraper: (rl) => new GoodwillScraper(rl) },
   { name: 'Europroduct', source: 'europroduct', storeType: 'grocery', createScraper: (rl) => new EuroproductScraper(rl) },
-  { name: 'Zoomer', source: 'zoomer', storeType: 'electronics', createScraper: (rl) => new ZoomerScraper(rl) },
-  { name: 'Alta', source: 'alta', storeType: 'electronics', createScraper: (rl) => new AltaScraper(rl) },
-  { name: 'Kontakt', source: 'kontakt', storeType: 'electronics', createScraper: (rl) => new KontaktScraper(rl) },
-  { name: 'Megatechnica', source: 'megatechnica', storeType: 'electronics', createScraper: (rl) => new MegatechnicaScraper(rl) },
+  // ტექნიკა დროებით გამორთულია — ჩასართავად კომენტარი მოხსენით
+  // { name: 'Zoomer', source: 'zoomer', storeType: 'electronics', createScraper: (rl) => new ZoomerScraper(rl) },
+  // { name: 'Alta', source: 'alta', storeType: 'electronics', createScraper: (rl) => new AltaScraper(rl) },
+  // { name: 'Kontakt', source: 'kontakt', storeType: 'electronics', createScraper: (rl) => new KontaktScraper(rl) },
+  // { name: 'Megatechnica', source: 'megatechnica', storeType: 'electronics', createScraper: (rl) => new MegatechnicaScraper(rl) },
 ];
 
 export async function runDiscoverJob(): Promise<void> {

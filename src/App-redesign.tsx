@@ -35,14 +35,16 @@ import { motion, AnimatePresence, type PanInfo } from 'motion/react';
 import QRCode from 'qrcode';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Screen, StorePrice, Product, ChatMessage, ChatAction } from './types';
-import { Sparkles, Send, ImagePlus } from 'lucide-react';
+import { Sparkles, Send, ImagePlus, Globe } from 'lucide-react';
+import { LanguageContext, useLanguageState, useLanguage } from './i18n';
 
 // --- Image Assets ---
 const STORE_CONFIG: Record<string, { color: string, letter: string, filename: string, logo: string }> = {
   'SPAR': { color: 'bg-[#00703C]', letter: 'S', filename: '1.spar', logo: 'https://static.spargeorgia.com/Spar_files/d019aa0c-1a0e-45f2-ae4c-cd8734e69f59_Thumb.png' },
   '2 Nabiji': { color: 'bg-[#EE3124]', letter: '2', filename: '2. 2 nabiji', logo: 'https://2nabiji.ge/2-nabiji-logo.png' },
-  'Goodwill': { color: 'bg-[#0054A6]', letter: 'G', filename: '3. Goodwill', logo: 'https://static.goodwill.ge/Goodwill_files/28402b34-5b3f-4e50-825a-d9827094769c_Thumb.png' },
+  'Goodwill': { color: 'bg-[#0054A6]', letter: 'G', filename: '3. Goodwill', logo: 'https://goodwill.ge/images/goodwill.jpg' },
   'Europroduct': { color: 'bg-[#E30613]', letter: 'E', filename: '4. Europroduct', logo: 'https://europroduct.ge/Content/Images/logo.svg' },
+  'Agrohub': { color: 'bg-[#4CAF50]', letter: 'A', filename: 'agrohub', logo: 'https://agrohub.com.ge/wp-content/uploads/2025/03/Agrohub-Logo.png' },
   'Zoomer': { color: 'bg-[#00AEEF]', letter: 'Z', filename: 'zoomer', logo: 'https://zoommer.ge/icons/main-logo.svg' },
   'Alta': { color: 'bg-[#F7941D]', letter: 'A', filename: 'alta', logo: 'https://alta.ge/images/logo.svg' },
   'Kontakt': { color: 'bg-[#E4002B]', letter: 'K', filename: 'kontakt', logo: 'https://kontakt.ge/static/version1772708998/frontend/Swissup/breeze-customized-ge/ka_GE/images/logo.svg' },
@@ -51,18 +53,26 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'PSP': { color: 'bg-[#00A651]', letter: 'P', filename: 'psp', logo: 'https://psp.ge/logo.png' },
   'Aversi': { color: 'bg-[#0072BC]', letter: 'A', filename: 'aversi', logo: 'https://shop.aversi.ge/images/logos/31/logo_Aversi-24-3.png' },
   'GPC': { color: 'bg-[#E2231A]', letter: 'G', filename: 'gpc', logo: 'https://gpc.ge/images/logo_ka.svg' },
+  'Gorgia': { color: 'bg-[#E8432E]', letter: 'G', filename: 'gorgia', logo: 'https://gorgia.ge/images/logos/44/logo_copy.webp' },
+  'Goodbuild': { color: 'bg-[#1B8B3A]', letter: 'G', filename: 'goodbuild', logo: 'https://goodbuild.ge/images/LogGeo.svg' },
+  'iMart': { color: 'bg-[#FF4500]', letter: 'i', filename: 'imart', logo: 'https://imart.ge/images/logos/405/%E1%83%90%E1%83%98%E1%83%9B%E1%83%90%E1%83%A0%E1%83%A2%E1%83%98%E1%83%A1-%E1%83%9A%E1%83%9D%E1%83%92%E1%83%9D11.png' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string }) => {
   const storeLogoUrl = isLogo && storeName && STORE_CONFIG[storeName]?.logo;
-  const [src, setSrc] = useState(imageUrl || storeLogoUrl || (filename ? `/api/images/${encodeURIComponent(filename)}` : ''));
+  const resolvedSrc = imageUrl || storeLogoUrl || (filename ? `/api/images/${encodeURIComponent(filename)}` : '');
   const [error, setError] = useState(false);
+
+  // Reset error state when source changes
+  useEffect(() => {
+    setError(false);
+  }, [resolvedSrc]);
 
   const handleError = () => {
     if (!error) setError(true);
   };
 
-  if (error || !src) {
+  if (error || !resolvedSrc) {
     if (isLogo && fallbackLetter) {
       return (
         <div className={`${className} ${fallbackColor} flex items-center justify-center text-white font-semibold`}>
@@ -77,12 +87,61 @@ const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, i
     );
   }
 
-  return <img src={src} alt={alt} className={className} onError={handleError} referrerPolicy="no-referrer" />;
+  return <img src={resolvedSrc} alt={alt} className={className} onError={handleError} referrerPolicy="no-referrer" />;
 };
 
 // --- Components ---
 
-const SplashScreen = () => (
+const PhotoScanOverlay = () => {
+  const { t } = useLanguage();
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const steps = [
+      { target: 15, delay: 300 },
+      { target: 30, delay: 600 },
+      { target: 48, delay: 400 },
+      { target: 62, delay: 500 },
+      { target: 75, delay: 400 },
+      { target: 85, delay: 600 },
+      { target: 93, delay: 800 },
+      { target: 97, delay: 1000 },
+    ];
+    let i = 0;
+    const tick = () => {
+      if (i >= steps.length) return;
+      const step = steps[i];
+      setTimeout(() => {
+        setProgress(step.target);
+        i++;
+        tick();
+      }, step.delay);
+    };
+    tick();
+  }, []);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex flex-col items-center justify-center">
+      <div className="relative mb-8">
+        <div className="absolute inset-0 rounded-full bg-[#108AB1]/30 animate-[scanRing_1.5s_ease-out_infinite]" />
+        <div className="absolute inset-0 rounded-full bg-[#108AB1]/20 animate-[scanRing_1.5s_ease-out_infinite_0.5s]" />
+        <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[#108AB1] to-[#073A4B] flex items-center justify-center shadow-xl shadow-[#108AB1]/40">
+          <Camera size={40} className="text-white" />
+        </div>
+      </div>
+      <div className="text-4xl font-bold text-white mb-2">{progress}%</div>
+      <div className="text-sm text-white/70 mb-6">{t('photo_scanning')}</div>
+      <div className="w-72 h-2.5 bg-white/15 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-[#108AB1] to-[#06D7A0] rounded-full transition-all duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const SplashScreen = () => {
+  const { t } = useLanguage();
+  return (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
@@ -104,20 +163,24 @@ const SplashScreen = () => (
         transition={{ delay: 0.3, duration: 0.4 }}
         className="text-slate-400 text-sm mt-3 tracking-wide"
       >
-        შეადარე ფასები
+        {t('splash_subtitle')}
       </motion.p>
     </motion.div>
   </motion.div>
-);
+  );
+};
 
-const ONBOARDING_SLIDES = [
-  { title: 'შეადარე ფასები', desc: 'ნახე სად ღირს ყველაზე იაფად', emoji: '🔍' },
-  { title: 'შეინახე კალათაში', desc: 'დაამატე პროდუქტები და ნახე ჯამი', emoji: '🛒' },
-  { title: 'იპოვე მაღაზია', desc: 'რუკაზე ნახე უახლოესი ფილიალი', emoji: '📍' },
-];
+const ONBOARDING_EMOJIS = ['🔍', '🛒', '📍'];
 
 const OnboardingScreen = ({ onComplete }: { onComplete: () => void }) => {
+  const { t } = useLanguage();
   const [current, setCurrent] = useState(0);
+
+  const ONBOARDING_SLIDES = [
+    { title: t('onboarding_slide1_title'), desc: t('onboarding_slide1_desc'), emoji: ONBOARDING_EMOJIS[0] },
+    { title: t('onboarding_slide2_title'), desc: t('onboarding_slide2_desc'), emoji: ONBOARDING_EMOJIS[1] },
+    { title: t('onboarding_slide3_title'), desc: t('onboarding_slide3_desc'), emoji: ONBOARDING_EMOJIS[2] },
+  ];
 
   const handleDragEnd = (_: any, info: PanInfo) => {
     if (info.offset.x < -50 && current < ONBOARDING_SLIDES.length - 1) {
@@ -173,9 +236,9 @@ const OnboardingScreen = ({ onComplete }: { onComplete: () => void }) => {
               onComplete();
             }
           }}
-          className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-semibold text-base active:scale-[0.98] transition-transform"
+          className="w-full bg-[#108AB1] text-white py-4 rounded-2xl font-semibold text-base active:scale-[0.98] transition-transform"
         >
-          {current < ONBOARDING_SLIDES.length - 1 ? 'შემდეგი' : 'დაწყება'}
+          {current < ONBOARDING_SLIDES.length - 1 ? t('onboarding_next') : t('onboarding_start')}
         </button>
 
         {current < ONBOARDING_SLIDES.length - 1 && (
@@ -183,7 +246,7 @@ const OnboardingScreen = ({ onComplete }: { onComplete: () => void }) => {
             onClick={() => { localStorage.setItem('pasebi-onboarded', 'true'); onComplete(); }}
             className="w-full text-slate-400 py-3 text-sm font-medium mt-2"
           >
-            გამოტოვება
+            {t('onboarding_skip')}
           </button>
         )}
       </div>
@@ -231,41 +294,98 @@ const SwipeableProductCard = ({ product, children, onSwipeLeft, onSwipeRight }: 
   );
 };
 
-const BottomNav = ({ active, setScreen, onMapTap, basketCount }: { active: Screen, setScreen: (s: Screen) => void, onMapTap?: () => void, basketCount: number }) => {
+const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAlertTap, searchQuery, onSearchChange, onChatTap, onVoiceTap, voiceListening }: { active: Screen, setScreen: (s: Screen) => void, onMapTap?: () => void, basketCount: number, alertCount?: number, onAlertTap?: () => void, searchQuery?: string, onSearchChange?: (q: string) => void, onChatTap?: () => void, onVoiceTap?: () => void, voiceListening?: boolean }) => {
+  const { t } = useLanguage();
   const navItems = [
-    { id: 'home', icon: Home, label: 'მთავარი' },
-    { id: 'basket', icon: ShoppingBasket, label: 'კალათა' },
-    { id: 'map', icon: MapIcon, label: 'რუკა' },
-    { id: 'profile', icon: User, label: 'პროფილი' },
+    { id: 'home', icon: Home, label: t('nav_home') },
+    { id: 'basket', icon: ShoppingBasket, label: t('nav_basket') },
+    { id: 'map', icon: MapIcon, label: t('nav_map') },
+    { id: 'profile', icon: User, label: t('nav_profile') },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 pt-3 pb-6 flex justify-between items-center z-50">
-      {navItems.map((item) => {
-        const isActive = active === item.id || (active === 'compare' && item.id === 'home');
-        return (
-          <button
-            key={item.id}
-            onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
-            className={`transition-colors relative flex flex-col items-center gap-1.5 min-w-[4rem] py-1 ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-600'}`}
-          >
-            <div className="relative">
-              <item.icon size={24} strokeWidth={isActive ? 2.2 : 1.6} />
-              {item.id === 'basket' && basketCount > 0 && (
-                <div className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                  {basketCount}
-                </div>
-              )}
-            </div>
-            <span className={`text-[12px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+    <>
+      {/* Mobile/Tablet bottom nav */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 pt-3 pb-6 flex justify-between items-center z-50">
+        {navItems.map((item) => {
+          const isActive = active === item.id || (active === 'compare' && item.id === 'home');
+          return (
+            <button
+              key={item.id}
+              onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
+              className={`transition-colors relative flex flex-col items-center gap-1.5 min-w-[4rem] py-1 ${isActive ? 'text-[#108AB1]' : 'text-[#073A4B]/30'}`}
+            >
+              <div className="relative">
+                <item.icon size={24} strokeWidth={isActive ? 2.2 : 1.6} />
+                {item.id === 'basket' && basketCount > 0 && (
+                  <div className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] bg-[#F04770] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                    {basketCount}
+                  </div>
+                )}
+              </div>
+              <span className={`text-[12px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {/* Desktop top header nav */}
+      <div className="hidden lg:flex fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-100 px-8 items-center gap-6 z-50">
+        {/* Logo */}
+        <h1 className="text-[18px] font-light tracking-[0.35em] uppercase text-slate-900 shrink-0 mr-2" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE</h1>
+
+        {/* Nav items */}
+        <nav className="flex items-center gap-1">
+          {navItems.map((item) => {
+            const isActive = active === item.id || (active === 'compare' && item.id === 'home');
+            return (
+              <button
+                key={item.id}
+                onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
+                className={`transition-colors relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${isActive ? 'text-[#108AB1] bg-[#108AB1]/10' : 'text-[#073A4B]/50 hover:text-[#073A4B]/80 hover:bg-slate-50'}`}
+              >
+                <item.icon size={18} strokeWidth={isActive ? 2.2 : 1.6} />
+                <span>{item.label}</span>
+                {item.id === 'basket' && basketCount > 0 && (
+                  <div className="min-w-[18px] h-[18px] bg-[#F04770] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                    {basketCount}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Search bar + photo/barcode buttons */}
+        <div className="flex-1 max-w-xl mx-4 flex gap-2 items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={1.8} />
+            <input
+              type="text"
+              placeholder={t('search_placeholder')}
+              value={searchQuery || ''}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              className="w-full bg-slate-100 rounded-xl py-2.5 pl-10 pr-4 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-slate-200 focus:bg-white transition-all border-0"
+            />
+          </div>
+        </div>
+
+        {/* Alert bell */}
+        {onAlertTap && (
+          <button onClick={onAlertTap} className="p-2 relative text-slate-400 hover:text-slate-600 transition-colors shrink-0">
+            <Bell size={20} />
+            {(alertCount ?? 0) > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-0.5">
+                {alertCount}
+              </span>
+            )}
           </button>
-        );
-      })}
-    </div>
+        )}
+      </div>
+    </>
   );
 };
 
-const Header = ({ title, showBack, onBack, darkMode, setDarkMode }: { title: string, showBack?: boolean, onBack?: () => void, darkMode?: boolean, setDarkMode?: (v: boolean) => void }) => (
+const Header = ({ title, showBack, onBack, alertCount, onAlertTap }: { title: string, showBack?: boolean, onBack?: () => void, darkMode?: boolean, setDarkMode?: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void }) => (
   <header className="mb-6 flex items-center justify-between">
     <div className="flex items-center gap-3">
       {showBack && (
@@ -273,18 +393,23 @@ const Header = ({ title, showBack, onBack, darkMode, setDarkMode }: { title: str
           <ArrowLeft size={20} strokeWidth={2} />
         </button>
       )}
-      {title === 'შეადარე' ? (
+      {(title === 'შეადარე' || title === 'Compare') ? (
         <h1 className="text-[22px] font-light tracking-[0.4em] uppercase text-slate-900 dark:text-white" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE</h1>
       ) : (
         <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
       )}
     </div>
-    {setDarkMode && (
+    {onAlertTap && (
       <button
-        onClick={() => setDarkMode(!darkMode)}
-        className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
+        onClick={onAlertTap}
+        className="p-2 relative text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
       >
-        {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+        <Bell size={20} />
+        {(alertCount ?? 0) > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+            {alertCount}
+          </span>
+        )}
       </button>
     )}
   </header>
@@ -300,20 +425,27 @@ const FALLBACK_PRODUCTS: Product[] = [
   { id: '5', name: 'ქათმის ფილე', size: '1kg', category: 'ხორცი', prices: { '2 Nabiji': 15.20, 'SPAR': 14.80, 'Goodwill': 14.50 } },
 ];
 
-const BasketToast = ({ productName }: { productName: string }) => (
+const BasketToast = ({ productName }: { productName: string }) => {
+  const { t } = useLanguage();
+  return (
   <motion.div
     initial={{ opacity: 0, y: 30 }}
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: -10 }}
-    className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2"
+    className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#073A4B] text-white px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2"
   >
     <ShoppingBasket size={14} strokeWidth={2.5} />
-    <span className="text-xs font-semibold">კალათაში დაემატა</span>
+    <span className="text-xs font-semibold">{t('toast_added_basket')}</span>
   </motion.div>
-);
+  );
+};
 
-const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, basket, setBasket, favorites, setFavorites, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, favorites: Product[], setFavorites: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void }) => {
-  const [storeType, setStoreType] = useState<'grocery' | 'electronics' | 'pharmacy'>('grocery');
+const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, alertCount, onAlertTap, basket, setBasket, favorites, setFavorites, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded, desktopSearchQuery, setDesktopSearchQuery }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, favorites: Product[], setFavorites: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void, desktopSearchQuery?: string, setDesktopSearchQuery?: (q: string) => void }) => {
+  const { t } = useLanguage();
+  const [storeType, setStoreType] = useState<'grocery' | 'electronics' | 'pharmacy' | 'construction'>('grocery');
+  const [gridCols, setGridCols] = useState<2 | 3 | 4 | 5>(() => {
+    try { const saved = localStorage.getItem('pasebi-grid-cols'); return saved ? Number(saved) as 2 | 3 | 4 | 5 : 2; } catch { return 2; }
+  });
   const [selectedCategory, setSelectedCategory] = useState('ყველა');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -328,6 +460,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   const [refreshing, setRefreshing] = useState(false);
   const [pullDist, setPullDist] = useState(0);
   const [isAiResult, setIsAiResult] = useState(false);
+  const [photoScanning, setPhotoScanning] = useState(false);
   const pullStartY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -373,6 +506,18 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     }
   }, [voiceSearchQuery]);
 
+  // Sync desktop header search → local search
+  useEffect(() => {
+    if (desktopSearchQuery !== undefined && desktopSearchQuery !== searchQuery) {
+      setSearchQuery(desktopSearchQuery);
+    }
+  }, [desktopSearchQuery]);
+
+  // Sync local search → desktop header search
+  useEffect(() => {
+    setDesktopSearchQuery?.(searchQuery);
+  }, [searchQuery]);
+
   // Listen for voice category changes from App
   useEffect(() => {
     if (voiceCategory) {
@@ -402,7 +547,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   }, [debouncedQuery]);
 
   const GROCERY_CATEGORY_MAP: Record<string, string> = {
-    'რძე': 'რძ', 'ხორცი': 'ხორც', 'პური': 'პურ', 'ხილი': 'ხილ',
+    'რძე': 'რძ', 'რძის პროდუქტი': 'რძ', 'ხორცი': 'ხორც', 'პური': 'პურ', 'ხილი': 'ხილ', 'ხილი/ბოსტანი': 'ხილ',
     'სასმელი': 'სასმელ', 'ლუდი': 'ლუდი', 'ტკბილეული': 'ტკბილ',
     'სნექი': 'სნექ', 'ყავა/ჩაი': 'ყავა', 'ჰიგიენა': 'ჰიგიენ',
   };
@@ -417,7 +562,12 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     'ანტიბიოტიკი': 'ანტიბიოტ', 'დიაბეტი': 'დიაბეტ', 'ალერგია': 'ალერგ',
   };
 
-  const CATEGORY_MAP = storeType === 'grocery' ? GROCERY_CATEGORY_MAP : storeType === 'electronics' ? ELECTRONICS_CATEGORY_MAP : PHARMACY_CATEGORY_MAP;
+  const CONSTRUCTION_CATEGORY_MAP: Record<string, string> = {
+    'ხელსაწყო': 'ხელსაწყო', 'საღებავი': 'საღებავ', 'სანტექნიკა': 'სანტექნიკ',
+    'განათება': 'განათებ', 'ავეჯი': 'ავეჯ', 'ბაღი': 'ბაღ',
+  };
+
+  const CATEGORY_MAP = storeType === 'grocery' ? GROCERY_CATEGORY_MAP : storeType === 'electronics' ? ELECTRONICS_CATEGORY_MAP : storeType === 'pharmacy' ? PHARMACY_CATEGORY_MAP : CONSTRUCTION_CATEGORY_MAP;
 
   // Smart search detection: 3+ words or patterns like "იაფი", size patterns
   const isSmartQuery = (q: string) => {
@@ -494,13 +644,17 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
   });
   const [toastProduct, setToastProduct] = useState<string | null>(null);
   const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
-  const [swipeHintShown] = useState(() => !!localStorage.getItem('pasebi-swipe-hint'));
+  const [swipeHintShown] = useState(() => {
+    const shown = !!localStorage.getItem('pasebi-swipe-hint');
+    if (!shown) localStorage.setItem('pasebi-swipe-hint', 'true');
+    return shown;
+  });
 
   const addToFavorites = (product: Product) => {
     if (!favorites.find(f => f.id === product.id)) {
       setFavorites(prev => [...prev, product]);
       setFavoriteToast(product.name);
-      setTimeout(() => setFavoriteToast(null), 1500);
+      setTimeout(() => setFavoriteToast(null), 2500);
     }
   };
 
@@ -508,7 +662,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     if (!basket.find(item => item.id === product.id)) {
       setBasket(prev => [...prev, product]);
       setToastProduct(product.name);
-      setTimeout(() => setToastProduct(null), 1500);
+      setTimeout(() => setToastProduct(null), 2500);
     }
   };
 
@@ -519,12 +673,12 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
     } else {
       setBasket([...basket, product]);
       setToastProduct(product.name);
-      setTimeout(() => setToastProduct(null), 1500);
+      setTimeout(() => setToastProduct(null), 2500);
     }
   };
 
   return (
-    <div ref={containerRef} className="pb-24 pt-14 px-5 min-h-screen overflow-auto" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div ref={containerRef} className="pb-24 lg:pb-8 pt-14 lg:pt-6 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen overflow-auto" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
       <AnimatePresence>
         {favoriteToast && (
@@ -535,7 +689,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
             className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-pink-500 text-white px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2"
           >
             <Heart size={14} strokeWidth={2.5} />
-            <span className="text-xs font-semibold">ფავორიტებში დაემატა</span>
+            <span className="text-xs font-semibold">{t('toast_added_favorites')}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -547,105 +701,112 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
         </div>
       )}
 
-      <Header title="შეადარე" darkMode={darkMode} setDarkMode={setDarkMode} />
-
-      {/* Store Type Tabs */}
-      <div className="flex gap-0 mb-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
-        <button
-          onClick={() => { setStoreType('grocery'); setSelectedCategory('ყველა'); setSearchQuery(''); }}
-          className={`flex-1 py-2.5 text-[13px] font-semibold rounded-lg transition-all ${
-            storeType === 'grocery'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-500 dark:text-slate-400'
-          }`}
-        >
-          სასურსათო
-        </button>
-        <button
-          onClick={() => { setStoreType('electronics'); setSelectedCategory('ყველა'); setSearchQuery(''); }}
-          className={`flex-1 py-2.5 text-[13px] font-semibold rounded-lg transition-all ${
-            storeType === 'electronics'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-500 dark:text-slate-400'
-          }`}
-        >
-          ტექნიკა
-        </button>
-        <button
-          onClick={() => { setStoreType('pharmacy'); setSelectedCategory('ყველა'); setSearchQuery(''); }}
-          className={`flex-1 py-2.5 text-[13px] font-semibold rounded-lg transition-all ${
-            storeType === 'pharmacy'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-500 dark:text-slate-400'
-          }`}
-        >
-          აფთიაქი
-        </button>
+      <div className="lg:hidden">
+        <Header title={t('header_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
       </div>
 
+      {/* Store Type Tabs — დროებით მხოლოდ სასურსათო, დანარჩენი ტაბები დაბრუნდება მოგვიანებით */}
+
       {/* Top Savings */}
-      {storeType === 'grocery' && topSavings.length > 0 && !debouncedQuery && (
+      {storeType === 'grocery' && topSavings.length > 0 && !debouncedQuery && (() => {
+        const savingsData = topSavings.map((product) => {
+          const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
+          if (priceEntries.length < 2) return null;
+          const bestPrice = priceEntries[0][1] as number;
+          const worstPrice = priceEntries[priceEntries.length - 1][1] as number;
+          const savings = worstPrice - bestPrice;
+          if (savings < 0.1) return null;
+          return { product, priceEntries, bestPrice, worstPrice, savings };
+        }).filter(Boolean) as { product: Product; priceEntries: [string, number][]; bestPrice: number; worstPrice: number; savings: number }[];
+        const totalCheap = savingsData.reduce((sum, d) => sum + d.bestPrice, 0);
+        const totalExpensive = savingsData.reduce((sum, d) => sum + d.worstPrice, 0);
+        const totalSavings = totalExpensive - totalCheap;
+        const savingsPercent = totalExpensive > 0 ? Math.round((totalSavings / totalExpensive) * 100) : 0;
+        return (
         <section className="mb-5">
           <div className="flex items-center gap-2 mb-3">
             <TrendingDown size={16} className="text-emerald-500" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">დღის დანაზოგი</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{t('top_savings_title')}</h2>
           </div>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-            {topSavings.map((product) => {
-              const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
-              if (priceEntries.length < 2) return null;
-              const bestPrice = priceEntries[0][1] as number;
-              const worstPrice = priceEntries[priceEntries.length - 1][1] as number;
-              const savings = worstPrice - bestPrice;
-              if (savings < 0.1) return null;
-              return (
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1 lg:grid lg:grid-cols-4 lg:overflow-hidden">
+            {savingsData.map(({ product, priceEntries, bestPrice, worstPrice, savings }) => (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
-                  className="flex-shrink-0 w-[155px] bg-white dark:bg-slate-900 rounded-xl p-3 cursor-pointer active:scale-[0.97] transition-transform border border-slate-100 dark:border-slate-800"
+                  className="flex-shrink-0 w-[155px] lg:w-auto bg-white dark:bg-slate-900 rounded-xl p-3 cursor-pointer active:scale-[0.97] transition-transform border border-slate-100 dark:border-slate-800 flex flex-col"
                 >
                   <div className="relative w-full h-20 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800 mb-2">
                     <SmartImage filename="" imageUrl={product.image} alt={product.name} className="w-full h-full object-contain p-1" fallbackLetter={product.name[0]} />
-                    {product.priceTrend && (
-                      <div className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center ${product.priceTrend === 'down' ? 'bg-emerald-500' : 'bg-red-400'}`}>
-                        {product.priceTrend === 'down' ? <TrendingDown size={11} className="text-white" /> : <TrendingUp size={11} className="text-white" />}
-                      </div>
-                    )}
+                    <div className="absolute top-1 right-1 bg-[#F04770] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      -{savings.toFixed(1)}₾
+                    </div>
                   </div>
-                  <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white leading-tight line-clamp-2 mb-2" style={{ minHeight: '34px' }}>{product.name}</h3>
-                  <div className="flex flex-col gap-1">
-                    {priceEntries.map(([store, price], i) => (
-                      <span key={store} className={`inline-flex items-center gap-1.5 text-[12px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-400'}`}>
-                        <img src={STORE_CONFIG[store]?.logo} alt={store} className="w-3.5 h-3.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        {(price as number).toFixed(2)}₾
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-2">
-                    <span className={`text-[11px] font-bold px-2 py-1 rounded ${
-                      savings >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
-                      savings >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
-                      'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                    }`}>
-                      დაზოგე {savings.toFixed(2)}₾
-                    </span>
+                  <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white leading-tight line-clamp-2 mb-2 min-h-[36px]">{product.name}</h3>
+                  <div className="mt-auto">
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-[15px] font-bold text-[#06D7A0]">{bestPrice.toFixed(2)}₾</span>
+                      <span className="text-[12px] text-slate-400 line-through">{worstPrice.toFixed(2)}₾</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <img src={STORE_CONFIG[priceEntries[0][0]]?.logo} alt={priceEntries[0][0]} className="w-3.5 h-3.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">{priceEntries[0][0]}</span>
+                    </div>
                   </div>
                 </motion.div>
-              );
-            })}
+            ))}
           </div>
+          {/* Total savings bar — დროებით გამორთული */}
+          {false && savingsData.length > 1 && (
+            <div className="mt-3 bg-gradient-to-r from-[#108AB1] to-[#073A4B] rounded-xl p-3.5 lg:max-w-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[11px] text-white/90 font-medium">{savingsData.length} {t('top_savings_products')}</span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-[18px] font-bold text-white">{totalCheap.toFixed(0)}₾</span>
+                    <span className="text-[13px] text-white/80 line-through">{totalExpensive.toFixed(0)}₾</span>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[11px] text-white/90 font-medium">{t('savings_label')}</span>
+                  <span className="text-[20px] font-bold text-white">{totalSavings.toFixed(0)}₾</span>
+                  <span className="text-[11px] text-white/80 font-medium">-{savingsPercent}%</span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  let added = 0;
+                  for (const { product } of savingsData) {
+                    if (!basket.find(item => item.id === product.id)) {
+                      basket.push(product);
+                      added++;
+                    }
+                  }
+                  if (added > 0) {
+                    setBasket([...basket]);
+                    setToastProduct(`${added} ${t('toast_products_added')}`);
+                    setTimeout(() => setToastProduct(null), 2500);
+                  }
+                }}
+                className="mt-3 w-full bg-white/20 hover:bg-white/30 active:scale-[0.98] transition-all text-white font-bold text-[13px] py-2.5 rounded-lg flex items-center justify-center gap-2"
+              >
+                <ShoppingBasket size={16} />
+                {t('add_to_basket_bulk')}
+              </button>
+            </div>
+          )}
         </section>
-      )}
+        );
+      })()}
 
-      {/* Search */}
-      <div className="relative mb-5 flex gap-2.5">
+      {/* Search — hidden on desktop (search is in top header) */}
+      <div className="relative mb-5 flex gap-2.5 lg:hidden">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} strokeWidth={1.8} />
           <input
             type="text"
-            placeholder="მოძებნე პროდუქტი..."
+            placeholder={t('search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setSearchFocused(true)}
@@ -655,8 +816,8 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           {searchFocused && !searchQuery && searchHistory.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg z-20 overflow-hidden">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">ბოლო ძიებები</span>
-                <button onClick={() => { setSearchHistory([]); localStorage.removeItem('pasebi-search-history'); }} className="text-[10px] font-medium text-slate-400 hover:text-red-400">გასუფთავება</button>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('search_history')}</span>
+                <button onClick={() => { setSearchHistory([]); localStorage.removeItem('pasebi-search-history'); }} className="text-[10px] font-medium text-slate-400 hover:text-red-400">{t('search_clear')}</button>
               </div>
               {searchHistory.map((q, i) => (
                 <button
@@ -674,14 +835,14 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
         <button
           onClick={() => cameraInputRef.current?.click()}
           className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shrink-0"
-          aria-label="ფოტოთი ძებნა"
+          aria-label={t('search_by_photo')}
         >
           <Camera size={20} className="text-white" />
         </button>
         <button
           onClick={() => setScreen('scanner')}
           className="w-12 h-12 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center shrink-0"
-          aria-label="ბარკოდის სკანერი"
+          aria-label={t('search_barcode')}
         >
           <ScanLine size={20} className="text-white dark:text-slate-900" />
         </button>
@@ -689,90 +850,140 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           type="file"
           ref={cameraInputRef}
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64 = reader.result as string;
-              setLoading(true);
+            // Reset all state for fresh search
+            setPhotoScanning(true);
+            setLoading(true);
+            setProducts([]);
+            setSearchQuery('');
+            setSelectedCategory('ყველა');
+            setIsAiResult(false);
+            // Compress image — higher quality for better recognition
+            const img = new Image();
+            img.onload = () => {
+              const MAX = 1600;
+              let w = img.width, h = img.height;
+              if (w > MAX || h > MAX) {
+                if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                else { w = Math.round(w * MAX / h); h = MAX; }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+              const base64 = canvas.toDataURL('image/jpeg', 0.9);
               fetch('/api/ai/image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: base64 }),
               })
-                .then(r => r.json())
+                .then(r => {
+                  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                  return r.json();
+                })
                 .then(data => {
+                  if (data.error) {
+                    alert(data.error);
+                    return;
+                  }
                   if (data.products?.length > 0) {
                     const withPrices = data.products.filter((p: Product) => Object.keys(p.prices).length > 0);
                     setProducts(withPrices);
                     setIsAiResult(true);
-                    if (data.identified) setSearchQuery(data.identified);
+                  } else {
+                    alert(data.text || t('products_not_found'));
                   }
                 })
-                .catch(() => {})
-                .finally(() => setLoading(false));
+                .catch((err) => {
+                  alert(err.message);
+                })
+                .finally(() => { setPhotoScanning(false); setLoading(false); });
             };
-            reader.readAsDataURL(file);
+            img.src = URL.createObjectURL(file);
             e.target.value = '';
           }}
         />
       </div>
 
-      {/* Categories */}
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-5">
-        {(storeType === 'grocery' ? [
-          { name: 'ყველა', emoji: '🛒' },
-          { name: 'რძე', emoji: '🥛' },
-          { name: 'ხორცი', emoji: '🥩' },
-          { name: 'პური', emoji: '🍞' },
-          { name: 'ხილი', emoji: '🍎' },
-          { name: 'სასმელი', emoji: '🥤' },
-          { name: 'ლუდი', emoji: '🍺' },
-          { name: 'ტკბილეული', emoji: '🍫' },
-          { name: 'სნექი', emoji: '🥜' },
-          { name: 'ყავა/ჩაი', emoji: '☕' },
-          { name: 'ჰიგიენა', emoji: '🧴' },
-        ] : storeType === 'electronics' ? [
-          { name: 'ყველა', emoji: '📱' },
-          { name: 'ტელეფონები', emoji: '📲' },
-          { name: 'ლეპტოპები', emoji: '💻' },
-          { name: 'ტაბლეტები', emoji: '📋' },
-          { name: 'ტელევიზორები', emoji: '📺' },
-          { name: 'აუდიო', emoji: '🎧' },
-          { name: 'გეიმინგი', emoji: '🎮' },
-        ] : [
-          { name: 'ყველა', emoji: '💊' },
-          { name: 'ტკივილი', emoji: '🩹' },
-          { name: 'ვიტამინი', emoji: '🍊' },
-          { name: 'გული', emoji: '❤️' },
-          { name: 'ანტიბიოტიკი', emoji: '💉' },
-          { name: 'დიაბეტი', emoji: '🩸' },
-          { name: 'ალერგია', emoji: '🤧' },
-        ]).map((cat) => (
-          <button
-            key={cat.name}
-            onClick={() => setSelectedCategory(cat.name)}
-            className={`px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0 ${
-              selectedCategory === cat.name
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            <span className="text-base">{cat.emoji}</span>
-            {cat.name}
-          </button>
-        ))}
-      </div>
+      {/* Fullscreen photo scanning overlay */}
+      {photoScanning && <PhotoScanOverlay />}
 
-      {/* Products */}
-      <section>
+      {/* Categories + Products layout */}
+      {(() => {
+        const categories = storeType === 'grocery' ? [
+          { key: 'ყველა', name: t('cat_all'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> },
+          { key: 'რძის პროდუქტი', name: t('cat_dairy'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2h8l1 5H7L8 2z"/><path d="M7 7h10v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7z"/><path d="M12 11v4"/></svg> },
+          { key: 'ხორცი', name: t('cat_meat'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15.5 2.5c3 1.5 5 5 4.5 9s-4 7.5-8 7.5-7-3-7.5-6.5 1.5-7 4.5-8.5"/><circle cx="12" cy="12" r="3"/></svg> },
+          { key: 'პური', name: t('cat_bread'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8c0-3 2.5-5 7-5s7 2 7 5c0 2-1 3-1 3H6s-1-1-1-3z"/><rect x="5" y="11" width="14" height="7" rx="1"/><path d="M5 18h14v2a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-2z"/></svg> },
+          { key: 'ხილი/ბოსტანი', name: t('cat_fruit'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c3 2 6 5.5 6 10a6 6 0 0 1-12 0c0-4.5 3-8 6-10z"/><path d="M12 2v6"/></svg> },
+          { key: 'სასმელი', name: t('cat_beverage'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg> },
+          { key: 'ლუდი', name: t('cat_beer'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 11h1a3 3 0 0 1 0 6h-1"/><path d="M5 7h12v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7z"/><path d="M8 2v3"/><path d="M12 2v3"/></svg> },
+          { key: 'ტკბილეული', name: t('cat_sweets'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 4v16"/></svg> },
+          { key: 'სნექი', name: t('cat_snacks'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3l5 5-2 7 6-3 5 5"/><path d="M3 17l4-4"/></svg> },
+          { key: 'ყავა/ჩაი', name: t('cat_coffee_tea'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><path d="M6 1v3"/><path d="M10 1v3"/></svg> },
+          { key: 'ჰიგიენა', name: t('cat_hygiene'), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2v4a2 2 0 0 0 4 0V2"/><rect x="8" y="6" width="8" height="14" rx="2"/><path d="M12 10v4"/></svg> },
+        ] : [];
+
+        return (
+          <>
+            {/* Mobile: horizontal scroll categories */}
+            <div className="lg:hidden flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-5">
+              {categories.map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => { setSelectedCategory(cat.key); setSearchQuery(''); }}
+                  aria-pressed={selectedCategory === cat.key}
+                  className={`px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 ${
+                    selectedCategory === cat.key
+                      ? 'bg-[#108AB1] text-white shadow-sm'
+                      : 'bg-white text-[#073A4B]/60 border border-slate-200'
+                  }`}
+                >
+                  <span className="opacity-70">{cat.icon}</span>
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Desktop: sidebar categories + products */}
+            <div className="lg:flex lg:gap-6">
+              {/* Sidebar */}
+              <div className="hidden lg:block w-56 xl:w-60 shrink-0">
+                <div className="sticky top-24 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-4 pt-4 pb-3 flex items-center gap-2">
+                    <SlidersHorizontal size={16} className="text-[#108AB1]" />
+                    <span className="text-sm font-bold text-slate-900">კატეგორიები</span>
+                  </div>
+                  <div className="px-3 pb-2">
+                    {categories.map((cat, idx) => (
+                      <button
+                        key={cat.key}
+                        onClick={() => { setSelectedCategory(cat.key); setSearchQuery(''); }}
+                        aria-pressed={selectedCategory === cat.key}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left focus:outline-none ${
+                          selectedCategory === cat.key
+                            ? 'bg-[#108AB1] text-white shadow-sm mb-1'
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <span className={`shrink-0 ${selectedCategory === cat.key ? 'opacity-100' : 'opacity-40'}`}>{cat.icon}</span>
+                        <span className="flex-1">{cat.name}</span>
+                        {selectedCategory === cat.key && <ChevronRight size={14} className="opacity-70" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Products */}
+              <section className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400">
-              {selectedCategory === 'ყველა' ? 'პოპულარული' : selectedCategory}
+              {selectedCategory === 'ყველა' ? t('products_popular') : selectedCategory}
+              <span className="text-xs text-slate-400 font-normal ml-1">{filteredProducts.length} ნივთი</span>
             </h2>
             {isAiResult && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 text-white">
@@ -780,9 +991,53 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
               </span>
             )}
           </div>
+          {/* Grid view switcher */}
+          <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-1">
+            {([2, 3, 4, 5] as const).map(cols => (
+              <button
+                key={cols}
+                onClick={() => { setGridCols(cols); localStorage.setItem('pasebi-grid-cols', String(cols)); }}
+                className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${gridCols === cols ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  {cols === 2 && <>
+                    <rect x="1" y="1" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="9" y="1" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="1" y="9" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="9" y="9" width="6" height="6" rx="1.5" className={gridCols === 2 ? 'fill-slate-700' : 'fill-slate-400'} />
+                  </>}
+                  {cols === 3 && <>
+                    <rect x="0.5" y="1" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="6" y="1" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="11.5" y="1" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="0.5" y="9" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="6" y="9" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    <rect x="11.5" y="9" width="4" height="6" rx="1" className={gridCols === 3 ? 'fill-slate-700' : 'fill-slate-400'} />
+                  </>}
+                  {cols === 4 && <>
+                    {[0, 4.5, 9, 13.5].map((x, i) => <React.Fragment key={i}>
+                      <rect x={x} y="1" width="2.5" height="6" rx="0.75" className={gridCols === 4 ? 'fill-slate-700' : 'fill-slate-400'} />
+                      <rect x={x} y="9" width="2.5" height="6" rx="0.75" className={gridCols === 4 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    </React.Fragment>)}
+                  </>}
+                  {cols === 5 && <>
+                    {[0, 3.2, 6.4, 9.6, 12.8].map((x, i) => <React.Fragment key={i}>
+                      <rect x={x} y="1" width="2" height="6" rx="0.5" className={gridCols === 5 ? 'fill-slate-700' : 'fill-slate-400'} />
+                      <rect x={x} y="9" width="2" height="6" rx="0.5" className={gridCols === 5 ? 'fill-slate-700' : 'fill-slate-400'} />
+                    </React.Fragment>)}
+                  </>}
+                </svg>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 lg:gap-4 ${
+          gridCols === 2 ? 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' :
+          gridCols === 3 ? 'grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4' :
+          gridCols === 4 ? 'grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5' :
+          'grid-cols-5 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-6'
+        }`}>
           {loading && filteredProducts.length === 0 && [1,2,3,4,5,6].map(i => (
             <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
               <div className="w-full aspect-square skeleton" />
@@ -809,23 +1064,27 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
                 onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
-                className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform border border-slate-100 dark:border-slate-800"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProduct(product); setScreen('compare'); } }}
+                role="button"
+                aria-label={product.name}
+                className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 flex flex-col h-full"
               >
-                {/* Image - full width top */}
-                <div className="relative w-full aspect-square bg-slate-50 dark:bg-slate-800 overflow-hidden">
+                {/* Image - full width top, fixed aspect ratio */}
+                <div className="relative w-full aspect-[4/3] overflow-hidden bg-slate-50 rounded-t-2xl flex items-center justify-center">
                   <SmartImage
                     filename=""
                     imageUrl={product.image}
                     alt={product.name}
-                    className="w-full h-full object-contain p-4"
+                    className="w-full h-full object-contain p-3"
                     fallbackLetter={product.name[0]}
                   />
                   {/* Savings badge - top left */}
                   {priceEntries.length >= 2 && savePct >= 5 && (
                     <div className={`absolute top-2 left-2 text-white text-[10px] font-black px-2 py-0.5 rounded-full ${
-                      savePct >= 30 ? 'bg-gradient-to-r from-orange-500 to-red-500' :
-                      savePct >= 15 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' :
-                      'bg-gradient-to-r from-blue-500 to-blue-400'
+                      savePct >= 30 ? 'bg-gradient-to-r from-[#F04770] to-[#F78C6A]' :
+                      savePct >= 15 ? 'bg-gradient-to-r from-[#06D7A0] to-[#108AB1]' :
+                      'bg-[#108AB1]'
                     }`}>
                       -{savePct}%
                     </div>
@@ -834,25 +1093,26 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
                   <div className="absolute top-2 right-2 flex flex-col gap-1.5">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleBasket(e, product); }}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                      aria-label={isInBasket ? 'Remove from basket' : 'Add to basket'}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 ${
                         isInBasket
-                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                          ? 'bg-[#108AB1] text-white'
                           : 'bg-white/80 dark:bg-slate-900/80 text-slate-400 backdrop-blur-sm'
                       }`}
                     >
                       <ShoppingBasket size={14} strokeWidth={isInBasket ? 2.5 : 1.8} />
                     </button>
-                    {isFavorite && <Heart size={14} className="text-pink-500 fill-pink-500 mx-auto" />}
+                    {isFavorite && <Heart size={14} className="text-pink-500 fill-pink-500 mx-auto" aria-label="Add to favorites" />}
                   </div>
                 </div>
                 {/* Info - below image */}
-                <div className="p-3">
-                  <h3 className="font-bold text-slate-900 dark:text-white text-[13px] leading-tight line-clamp-2">{product.name}</h3>
-                  {product.size && <p className="text-slate-400 text-[11px] mt-0.5">{product.size}</p>}
-                  {/* Store prices as rows */}
+                <div className="p-3 flex flex-col flex-1">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-[12px] sm:text-[13px] leading-tight line-clamp-2">{product.name}</h3>
+                  {product.size && <p className="text-slate-400 text-[11px] mt-0.5 line-clamp-1">{product.size}</p>}
+                  {/* Store prices - show max 3 */}
                   <div className="mt-2 space-y-1">
-                    {priceEntries.map(([store, price], i) => (
-                      <div key={store} className={`flex items-center justify-between text-[12px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-medium text-slate-400'}`}>
+                    {priceEntries.slice(0, 3).map(([store, price], i) => (
+                      <div key={store} className={`flex items-center justify-between text-[12px] ${i === 0 ? 'font-bold text-[#06D7A0]' : 'font-medium text-slate-400'}`}>
                         <span className="flex items-center gap-1.5">
                           <img src={STORE_CONFIG[store]?.logo} alt="" className="w-4 h-4 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           <span className="text-[10px]">{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store === 'Megatechnica' ? 'Mega' : store}</span>
@@ -860,17 +1120,26 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
                         <span>{(price as number).toFixed(2)}₾</span>
                       </div>
                     ))}
+                    {priceEntries.length > 3 && (
+                      <div className="text-[10px] text-slate-400 text-center">+{priceEntries.length - 3} {priceEntries.length - 3 === 1 ? 'store' : 'stores'}</div>
+                    )}
                   </div>
-                  {/* Save amount */}
-                  {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 && (
-                    <div className={`mt-2 text-center text-[11px] font-bold py-1 rounded-lg ${
-                      (worstPrice - bestPrice) >= 5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' :
-                      (worstPrice - bestPrice) >= 1 ? 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' :
-                      'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                    }`}>
-                      დაზოგე {saveAmount}₾
-                    </div>
-                  )}
+                  {/* Save amount - pushed to bottom */}
+                  <div className="mt-auto pt-2">
+                    {priceEntries.length >= 2 && (worstPrice - bestPrice) >= 0.1 ? (
+                      <div className={`text-center text-[11px] font-bold py-1.5 rounded-lg ${
+                        (worstPrice - bestPrice) >= 5 ? 'bg-[#06D7A0]/10 text-[#06D7A0]' :
+                        (worstPrice - bestPrice) >= 1 ? 'bg-[#108AB1]/10 text-[#108AB1]' :
+                        'bg-[#073A4B]/5 text-[#073A4B]/50'
+                      }`}>
+                        {t('savings_label')} {saveAmount}₾
+                      </div>
+                    ) : (
+                      <div className="text-center text-[11px] font-bold py-1.5 rounded-lg bg-[#073A4B]/5 text-[#073A4B]/30">
+                        {bestPrice.toFixed(2)}₾
+                      </div>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             );
@@ -878,17 +1147,22 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, bask
           {!loading && filteredProducts.length === 0 && (
             <div className="text-center py-16">
               <Search size={36} className="text-slate-200 dark:text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-400 font-semibold text-base">პროდუქტები არ მოიძებნა</p>
-              <p className="text-slate-300 dark:text-slate-600 text-sm mt-1">სცადე სხვა საძიებო სიტყვა</p>
+              <p className="text-slate-400 font-semibold text-base">{t('products_not_found')}</p>
+              <p className="text-slate-300 dark:text-slate-600 text-sm mt-1">{t('products_try_different')}</p>
             </div>
           )}
         </div>
       </section>
+            </div>{/* end lg:flex */}
+          </>
+        );
+      })()}
     </div>
   );
 };
 
 const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void }) => {
+  const { t } = useLanguage();
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [scanning, setScanning] = useState(true);
@@ -897,7 +1171,7 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
   const [lastScanned, setLastScanned] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lookingUp = useRef(false);
-  const quaggaStarted = useRef(false);
+  const scannerRef = useRef<InstanceType<typeof Html5Qrcode> | null>(null);
 
   const [scanSuccess, setScanSuccess] = useState(false);
 
@@ -925,6 +1199,14 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
     } catch(_e) { /* */ }
   }, []);
 
+  const stopScanner = useCallback(() => {
+    if (scannerRef.current) {
+      try { scannerRef.current.stop().catch(() => {}); } catch(_e) { /* */ }
+      try { scannerRef.current.clear(); } catch(_e) { /* */ }
+      scannerRef.current = null;
+    }
+  }, []);
+
   const lookupBarcode = useCallback((code: string) => {
     if (lookingUp.current) return;
     lookingUp.current = true;
@@ -935,6 +1217,7 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
     setLastScanned(code);
     playBeep();
     try { navigator.vibrate?.([100, 50, 100]); } catch(_e) { /* */ }
+    stopScanner();
     fetch(`/api/search/barcode/${encodeURIComponent(code)}`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -950,198 +1233,81 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
       })
       .catch((err) => {
         console.error('Barcode lookup failed:', err);
-        setError(`ბარკოდის ძებნა ვერ მოხერხდა: ${code}`);
+        setError(`${t('barcode_lookup_error')} ${code}`);
       })
       .finally(() => { setSearching(false); lookingUp.current = false; });
-  }, [setSelectedProduct, setScreen]);
+  }, [setSelectedProduct, setScreen, stopScanner]);
 
   useEffect(() => {
+    if (!scanning) return;
     let mounted = true;
-    let detected = false;
 
-    const startQuagga = async () => {
-      const Quagga = (await import('@ericblade/quagga2')).default;
-      if (!mounted) return;
+    const startScanner = async () => {
+      const el = document.getElementById('barcode-reader');
+      if (!el || !mounted) return;
 
-      Quagga.init({
-        inputStream: {
-          name: 'Live',
-          type: 'LiveStream',
-          target: document.getElementById('barcode-reader')!,
-          constraints: {
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
+      const scanner = new Html5Qrcode('barcode-reader', {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+        ],
+        verbose: false,
+      });
+      scannerRef.current = scanner;
+
+      try {
+        await scanner.start(
+          { facingMode: 'environment' },
+          {
+            fps: 15,
+            qrbox: (vw, vh) => ({ width: Math.floor(Math.min(vw, vh) * 0.8), height: Math.floor(Math.min(vw, vh) * 0.4) }),
+            aspectRatio: 1.0,
           },
-        },
-        decoder: {
-          readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
-          multiple: false,
-        },
-        locate: true,
-        frequency: 20,
-      }, (err: Error | null) => {
-        if (err || !mounted) {
-          // Try user-facing camera
-          Quagga.init({
-            inputStream: {
-              name: 'Live',
-              type: 'LiveStream',
-              target: document.getElementById('barcode-reader')!,
-              constraints: {
-                facingMode: 'user',
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-            },
-            decoder: {
-              readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
-              multiple: false,
-            },
-            locate: true,
-            frequency: 20,
-          }, (err2: Error | null) => {
-            if (err2 || !mounted) {
-              if (mounted) setError('კამერაზე წვდომა ვერ მოხერხდა');
-              return;
+          (decodedText) => {
+            if (!mounted || lookingUp.current) return;
+            if (decodedText && decodedText.length >= 8) {
+              setScanning(false);
+              lookupBarcode(decodedText);
             }
-            Quagga.start();
-            quaggaStarted.current = true;
-          });
-          return;
+          },
+          () => {},
+        );
+      } catch (err) {
+        // Try front camera
+        try {
+          await scanner.start(
+            { facingMode: 'user' },
+            { fps: 15, qrbox: (vw, vh) => ({ width: Math.floor(Math.min(vw, vh) * 0.8), height: Math.floor(Math.min(vw, vh) * 0.4) }) },
+            (decodedText) => {
+              if (!mounted || lookingUp.current) return;
+              if (decodedText && decodedText.length >= 8) {
+                setScanning(false);
+                lookupBarcode(decodedText);
+              }
+            },
+            () => {},
+          );
+        } catch(_e) {
+          if (mounted) setError(t('barcode_camera_error'));
         }
-        Quagga.start();
-        quaggaStarted.current = true;
-      });
-
-      Quagga.onDetected((result: { codeResult?: { code?: string } }) => {
-        if (detected || !mounted) return;
-        const code = result?.codeResult?.code;
-        if (!code || code.length < 8) return;
-        detected = true;
-        Quagga.stop();
-        quaggaStarted.current = false;
-        setScanning(false);
-        lookupBarcode(code);
-      });
+      }
     };
 
-    startQuagga();
+    startScanner();
 
     return () => {
       mounted = false;
-      import('@ericblade/quagga2').then(m => {
-        try { if (quaggaStarted.current) m.default.stop(); } catch(_e) { /* */ }
-      });
+      stopScanner();
     };
-  }, [lookupBarcode]);
-
-  const captureAndScan = async () => {
-    const container = document.getElementById('barcode-reader');
-    const video = container?.querySelector('video');
-    if (!video) return;
-    setError(null);
-
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    const Quagga = (await import('@ericblade/quagga2')).default;
-
-    // Try multiple image processing approaches
-    const attempts = [
-      { crop: false, threshold: 0 },      // raw image
-      { crop: true, threshold: 0 },        // center crop
-      { crop: false, threshold: 128 },     // B&W threshold
-      { crop: true, threshold: 128 },      // center crop + B&W
-      { crop: false, threshold: 100 },     // lower threshold
-      { crop: true, threshold: 160 },      // higher threshold
-    ];
-
-    for (const attempt of attempts) {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
-
-      if (attempt.crop) {
-        // Crop center 60% of image
-        const cw = Math.floor(w * 0.7);
-        const ch = Math.floor(h * 0.5);
-        const cx = Math.floor((w - cw) / 2);
-        const cy = Math.floor((h - ch) / 2);
-        canvas.width = cw;
-        canvas.height = ch;
-        ctx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
-      } else {
-        canvas.width = w;
-        canvas.height = h;
-        ctx.drawImage(video, 0, 0);
-      }
-
-      // Apply B&W thresholding if specified
-      if (attempt.threshold > 0) {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imageData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-          const val = gray > attempt.threshold ? 255 : 0;
-          d[i] = d[i+1] = d[i+2] = val;
-        }
-        ctx.putImageData(imageData, 0, 0);
-      }
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-      const code = await new Promise<string | null>((resolve) => {
-        Quagga.decodeSingle({
-          src: dataUrl,
-          numOfWorkers: 0,
-          decoder: { readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'] },
-          locate: true,
-        }, (result) => {
-          resolve(result?.codeResult?.code || null);
-        });
-      });
-
-      if (code && code.length >= 8) {
-        import('@ericblade/quagga2').then(m => {
-          try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
-        });
-        setScanning(false);
-        lookupBarcode(code);
-        return;
-      }
-    }
-
-    // All attempts failed — also try html5-qrcode on the raw frame
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d')!.drawImage(video, 0, 0);
-      const blob = await new Promise<Blob>((r) => canvas.toBlob(b => r(b!), 'image/jpeg', 1.0));
-      const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
-      const scanner = new Html5Qrcode('barcode-reader-file', {
-        formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.UPC_A],
-        verbose: false,
-      });
-      const decoded = await scanner.scanFile(file, false);
-      if (decoded) {
-        import('@ericblade/quagga2').then(m => {
-          try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
-        });
-        setScanning(false);
-        lookupBarcode(decoded);
-        return;
-      }
-    } catch(_e) { /* */ }
-
-    setError('ბარკოდი ვერ ამოიცნო. სცადე კამერა პირდაპირ ბარკოდზე მიუშვირო.');
-    setTimeout(() => setError(null), 4000);
-  };
+  }, [scanning, lookupBarcode, stopScanner]);
 
   const handleManualSubmit = () => {
     const code = manualCode.trim();
     if (code.length < 8 || searching) return;
-    import('@ericblade/quagga2').then(m => {
-      try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
-    });
+    stopScanner();
     setScanning(false);
     lookupBarcode(code);
   };
@@ -1149,62 +1315,57 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    import('@ericblade/quagga2').then(m => {
-      try { if (quaggaStarted.current) { m.default.stop(); quaggaStarted.current = false; } } catch(_e) { /* */ }
-    });
+    stopScanner();
     setScanning(false);
-    const scanner = new Html5Qrcode('barcode-reader-file', {
+    const fileScanner = new Html5Qrcode('barcode-reader-file', {
       formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.UPC_A],
       verbose: false,
     });
-    scanner.scanFile(file, false)
+    fileScanner.scanFile(file, false)
       .then(decodedText => lookupBarcode(decodedText))
-      .catch(() => setError('ბარკოდი ვერ ამოიცნო ფოტოდან'));
+      .catch(() => setError(t('barcode_not_found_photo')));
   };
 
   const retry = () => {
     setNotFound(false);
     setError(null);
-    setScanning(true);
+    setScanSuccess(false);
     setSearching(false);
     lookingUp.current = false;
-    setScreen('home');
-    setTimeout(() => setScreen('scanner'), 50);
+    setScanning(true);
   };
 
   return (
-    <div className="pb-24 pt-14 px-5 min-h-screen">
+    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => setScreen('home')} className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-          <ArrowLeft size={20} className="text-slate-700 dark:text-slate-300" />
+        <button onClick={() => { stopScanner(); setScreen('home'); }} className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+          <ArrowLeft size={20} className="text-slate-700" />
         </button>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white">ბარკოდის სკანერი</h1>
+        <h1 className="text-xl font-bold text-slate-900">{t('barcode_title')}</h1>
       </div>
 
       <div id="barcode-reader-file" className="hidden" />
-      <div className="rounded-2xl overflow-hidden bg-black relative">
-        <div id="barcode-reader" className="w-full [&>video]:w-full [&>canvas]:absolute [&>canvas]:top-0 [&>canvas]:left-0" />
+      <div className="rounded-2xl overflow-hidden bg-black relative" style={{ minHeight: 300 }}>
+        <div id="barcode-reader" className="w-full" />
 
-        {/* Scanning laser line */}
+        {/* Scanning overlay */}
         {scanning && !error && !scanSuccess && (
           <>
             <div className="absolute inset-0 pointer-events-none border-2 border-white/20 rounded-2xl" />
             <div className="absolute left-4 right-4 h-0.5 bg-red-500 pointer-events-none animate-[scanline_2s_ease-in-out_infinite]"
               style={{ boxShadow: '0 0 8px 2px rgba(239,68,68,0.6), 0 0 20px 4px rgba(239,68,68,0.3)' }} />
-            {/* Corner markers */}
             <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-white/70 rounded-tl pointer-events-none" />
             <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-white/70 rounded-tr pointer-events-none" />
             <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-white/70 rounded-bl pointer-events-none" />
             <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-white/70 rounded-br pointer-events-none" />
             <div className="absolute bottom-4 left-0 right-0 text-center">
               <span className="bg-black/60 text-white text-xs px-4 py-2 rounded-full">
-                მიმართე კამერა ბარკოდისკენ
+                {t('barcode_instruction')}
               </span>
             </div>
           </>
         )}
 
-        {/* Success flash */}
         {scanSuccess && (
           <div className="absolute inset-0 bg-green-500/30 animate-[flash_0.6s_ease-out_forwards] pointer-events-none rounded-2xl" />
         )}
@@ -1219,28 +1380,20 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
           0% { opacity: 1; }
           100% { opacity: 0; }
         }
+        #barcode-reader video { width: 100% !important; border-radius: 1rem; }
+        #barcode-reader img[alt="Info icon"] { display: none !important; }
+        #barcode-reader__dashboard { display: none !important; }
       `}</style>
-
-      {/* Capture & scan button */}
-      {scanning && (
-        <button
-          onClick={captureAndScan}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-4 bg-blue-600 text-white rounded-xl font-bold text-base"
-        >
-          <Camera size={20} />
-          გადაღება და სკანირება
-        </button>
-      )}
 
       {/* File upload option */}
       <div className="mt-3 flex gap-3">
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-semibold text-sm"
+          className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm"
         >
           <Camera size={18} />
-          ფოტოს ატვირთვა
+          {t('barcode_upload')}
         </button>
       </div>
 
@@ -1250,27 +1403,27 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
           <input
             type="text"
             inputMode="numeric"
-            placeholder="ბარკოდის ნომერი (მაგ. 5449000133335)"
+            placeholder={t('barcode_manual_placeholder')}
             value={manualCode}
             onChange={e => setManualCode(e.target.value.replace(/[^0-9]/g, ''))}
             onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
-            className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl text-sm placeholder:text-slate-400"
+            className="flex-1 px-4 py-3 bg-slate-100 text-slate-900 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50"
           />
           <button
             onClick={handleManualSubmit}
             disabled={manualCode.trim().length < 8 || searching}
-            className="px-5 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm disabled:opacity-40"
+            className="px-5 py-3 bg-[#108AB1] text-white rounded-xl font-semibold text-sm disabled:opacity-40"
           >
-            {searching ? '...' : 'ძებნა'}
+            {searching ? '...' : t('barcode_search')}
           </button>
         </div>
       </div>
 
       {searching && (
         <div className="mt-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl">
-            <div className="w-4 h-4 border-2 border-slate-400 border-t-slate-900 dark:border-t-white rounded-full animate-spin" />
-            <span className="text-sm text-slate-600 dark:text-slate-300">იძებნება: {lastScanned}...</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl">
+            <div className="w-4 h-4 border-2 border-slate-400 border-t-slate-900 rounded-full animate-spin" />
+            <span className="text-sm text-slate-600">{t('barcode_searching')} {lastScanned}...</span>
           </div>
         </div>
       )}
@@ -1278,21 +1431,21 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
       {error && (
         <div className="mt-6 text-center">
           <p className="text-red-500 font-medium mb-3">{error}</p>
-          <button onClick={retry} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm">
-            თავიდან ცდა
+          <button onClick={retry} className="px-6 py-2.5 bg-[#108AB1] text-white rounded-xl font-semibold text-sm">
+            {t('barcode_retry')}
           </button>
         </div>
       )}
 
       {notFound && (
         <div className="mt-6 text-center">
-          <p className="text-slate-500 dark:text-slate-400 font-medium mb-3">პროდუქტი ვერ მოიძებნა{lastScanned ? ` (${lastScanned})` : ''}</p>
+          <p className="text-slate-500 font-medium mb-3">{t('barcode_not_found')}{lastScanned ? ` (${lastScanned})` : ''}</p>
           <div className="flex gap-3 justify-center">
-            <button onClick={retry} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold text-sm">
-              თავიდან სკანირება
+            <button onClick={retry} className="px-6 py-2.5 bg-[#108AB1] text-white rounded-xl font-semibold text-sm">
+              {t('barcode_retry_scan')}
             </button>
-            <button onClick={() => setScreen('home')} className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-semibold text-sm">
-              უკან
+            <button onClick={() => { stopScanner(); setScreen('home'); }} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm">
+              {t('barcode_back')}
             </button>
           </div>
         </div>
@@ -1301,7 +1454,8 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
   );
 };
 
-const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, basket, setBasket, setTargetStore }: { selectedProduct: Product | null, setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
+const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, alertCount, onAlertTap, basket, setBasket, setTargetStore }: { selectedProduct: Product | null, setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
+  const { t } = useLanguage();
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [targetPrice, setTargetPrice] = useState('2.20');
   const [compareData, setCompareData] = useState<{ stores: StorePrice[]; priceTrend?: 'up' | 'down' } | null>(null);
@@ -1366,12 +1520,12 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
     } else {
       setBasket([...basket, product]);
       setToastProduct(product.name);
-      setTimeout(() => setToastProduct(null), 1500);
+      setTimeout(() => setToastProduct(null), 2500);
     }
   };
 
   return (
-    <div className="pb-24 pt-14 px-5 min-h-screen">
+    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
 
       {/* Confetti animation for big savings */}
@@ -1400,7 +1554,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
         </>
       )}
 
-      <Header title="შედარება" showBack onBack={() => setScreen('home')} darkMode={darkMode} setDarkMode={setDarkMode} />
+      <Header title={t('compare_title')} showBack onBack={() => setScreen('home')} />
 
       {/* Product card - clean */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 mb-6 border border-slate-100 dark:border-slate-800">
@@ -1421,7 +1575,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
               <p className="text-lg font-bold text-slate-900 dark:text-white">
                 {bestPrice?.price?.toFixed(2) || '—'}₾
               </p>
-              {bestPrice && <span className="text-xs text-slate-400 font-normal">საუკეთესო</span>}
+              {bestPrice && <span className="text-xs text-slate-400 font-normal">{t('compare_best')}</span>}
               {(compareData?.priceTrend || product.priceTrend) && (
                 <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
                   (compareData?.priceTrend || product.priceTrend) === 'down'
@@ -1429,8 +1583,8 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
                     : 'bg-red-50 text-red-500 dark:bg-red-950 dark:text-red-400'
                 }`}>
                   {(compareData?.priceTrend || product.priceTrend) === 'down'
-                    ? <><TrendingDown size={10} /> გაიაფდა</>
-                    : <><TrendingUp size={10} /> გაძვირდა</>}
+                    ? <><TrendingDown size={10} /> {t('compare_price_down')}</>
+                    : <><TrendingUp size={10} /> {t('compare_price_up')}</>}
                 </span>
               )}
             </div>
@@ -1442,18 +1596,18 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
             className="flex-1 flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium bg-slate-50 dark:bg-slate-800 px-4 py-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             <Bell size={16} />
-            ალერტი
+            {t('compare_alert')}
           </button>
           <button
             onClick={toggleBasket}
             className={`flex-1 flex items-center justify-center gap-2 text-sm font-semibold px-4 py-3.5 rounded-xl transition-colors ${
               isInBasket
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                ? 'bg-[#108AB1] text-white'
                 : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
             }`}
           >
             <ShoppingBasket size={16} />
-            {isInBasket ? 'კალათაშია' : 'კალათაში'}
+            {isInBasket ? t('compare_in_basket') : t('compare_add_basket')}
           </button>
         </div>
       </div>
@@ -1467,6 +1621,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAlertModal(false)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setShowAlertModal(false); }}
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
             <motion.div
@@ -1475,11 +1630,11 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
               exit={{ y: 100, opacity: 0 }}
               className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-xl border border-slate-100 dark:border-slate-800"
             >
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">ფასის ალერტი</h3>
-              <p className="text-slate-400 text-xs mb-5">შეგატყობინებთ ფასის ჩამოსვლისას</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{t('compare_alert_title')}</h3>
+              <p className="text-slate-400 text-xs mb-5">{t('compare_alert_desc')}</p>
 
               <div className="mb-6">
-                <label className="text-[11px] font-medium text-slate-400 mb-2 block">სასურველი ფასი (₾)</label>
+                <label className="text-[11px] font-medium text-slate-400 mb-2 block">{t('compare_alert_label')}</label>
                 <input
                   type="number"
                   value={targetPrice}
@@ -1491,9 +1646,9 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
 
               <button
                 onClick={() => setShowAlertModal(false)}
-                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3.5 rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
+                className="w-full bg-[#108AB1] text-white py-3.5 rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
               >
-                ალერტის გააქტიურება
+                {t('compare_alert_activate')}
               </button>
             </motion.div>
           </div>
@@ -1501,8 +1656,9 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
       </AnimatePresence>
 
       {/* Store prices */}
-      <div className="space-y-2.5">
-        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-3">ფასები მაღაზიებში</h3>
+      <div>
+        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-3">{t('compare_prices_header')}</h3>
+        <div className="space-y-2.5 lg:grid lg:grid-cols-2 lg:space-y-0 lg:gap-3">
         {storeComparison.map((item, idx) => (
           <motion.div
             key={idx}
@@ -1529,48 +1685,123 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
               </div>
               <div>
                 <span className="font-bold text-slate-900 dark:text-white text-[15px]">{item.store}</span>
-                {idx === 0 && <span className="text-[12px] text-emerald-600 dark:text-emerald-400 font-semibold block">ყველაზე იაფი</span>}
+                {idx === 0 && <span className="text-[12px] text-[#06D7A0] font-semibold block">{t('compare_cheapest')}</span>}
               </div>
             </div>
             <div className="text-right">
-              <p className={`font-bold text-lg ${idx === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}`}>{item.price?.toFixed(2)}₾</p>
+              <p className={`font-bold text-lg ${idx === 0 ? 'text-[#06D7A0]' : 'text-slate-900 dark:text-white'}`}>{item.price?.toFixed(2)}₾</p>
               {item.delta && item.delta > 0 && <p className="text-[12px] text-slate-400 font-medium">+{item.delta.toFixed(2)}₾</p>}
             </div>
           </motion.div>
         ))}
+        </div>
       </div>
 
       {/* Price History */}
       {priceHistory.length > 1 && (() => {
         const stores = Array.from(new Set(priceHistory.map(h => h.store))) as string[];
-        const storeColors: Record<string, string> = { 'SPAR': '#00703C', '2 Nabiji': '#EE3124', 'Goodwill': '#0054A6' };
-        const sorted = [...priceHistory].sort((a, b) => a.date.localeCompare(b.date));
+        const storeColors: Record<string, string> = { 'SPAR': '#00703C', '2 Nabiji': '#F59E0B', 'Goodwill': '#0054A6', 'Agrohub': '#8B5CF6', 'Europroduct': '#E30613' };
+        // Deduplicate: keep last price per store per day
+        const dayMap = new Map<string, { store: string; price: number; date: string }>();
+        for (const h of [...priceHistory].sort((a, b) => a.date.localeCompare(b.date))) {
+          const day = h.date.slice(0, 10);
+          dayMap.set(`${h.store}|${day}`, { ...h, date: day });
+        }
+        const sorted = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+        const dates = Array.from(new Set(sorted.map(h => h.date))).sort();
         const allPrices = sorted.map(h => h.price);
         const minP = Math.min(...allPrices);
         const maxP = Math.max(...allPrices);
         const range = maxP - minP || 1;
-        const W = 300, H = 80, pad = 8;
+        const padded = range * 0.1;
+        const W = 400, H = 160, padL = 45, padR = 15, padT = 15, padB = 30;
+        const chartW = W - padL - padR;
+        const chartH = H - padT - padB;
+        const yMin = minP - padded;
+        const yMax = maxP + padded;
+        const yRange = yMax - yMin || 1;
+
+        // Y axis ticks
+        const yTicks = 4;
+        const yStep = yRange / yTicks;
 
         return (
-          <div className="mt-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-4">
-            <h3 className="text-xs font-semibold text-slate-400 mb-3">ფასის ისტორია</h3>
-            <svg viewBox={`0 0 ${W} ${H + 15}`} className="w-full">
+          <div className="mt-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-4 lg:max-w-2xl">
+            <h3 className="text-xs font-semibold text-slate-400 mb-3">{t('compare_price_history')}</h3>
+            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+              {/* Grid lines */}
+              {Array.from({ length: yTicks + 1 }).map((_, i) => {
+                const val = yMin + i * yStep;
+                const y = padT + chartH - (i * yStep / yRange) * chartH;
+                return (
+                  <g key={`grid-${i}`}>
+                    <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#e2e8f0" strokeWidth="0.5" />
+                    <text x={padL - 5} y={y + 3} textAnchor="end" fill="#94a3b8" fontSize="8" fontWeight="500">{val.toFixed(1)}₾</text>
+                  </g>
+                );
+              })}
+
+              {/* X axis dates */}
+              {(() => {
+                const maxLabels = 5;
+                const step = Math.max(1, Math.ceil(dates.length / maxLabels));
+                const indices = dates.map((_, i) => i).filter(i => i % step === 0 || i === dates.length - 1);
+                return indices.map(i => {
+                  const x = padL + (i / Math.max(dates.length - 1, 1)) * chartW;
+                  const d = dates[i];
+                  const label = d.length >= 10 ? `${d.slice(8, 10)}.${d.slice(5, 7)}` : d;
+                  return <text key={`date-${i}`} x={x} y={H - 5} textAnchor="middle" fill="#94a3b8" fontSize="7.5" fontWeight="500">{label}</text>;
+                });
+              })()}
+
+              {/* Lines + dots per store */}
               {stores.map(store => {
                 const pts = sorted.filter(h => h.store === store);
                 if (pts.length < 2) return null;
-                const path = pts.map((p, i) => {
-                  const x = pad + (i / (pts.length - 1)) * (W - pad * 2);
-                  const y = pad + (1 - (p.price - minP) / range) * (H - pad * 2);
-                  return `${i === 0 ? 'M' : 'L'}${x},${y}`;
-                }).join(' ');
-                return <path key={store} d={path} fill="none" stroke={storeColors[store] || '#888'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />;
+                const coords = pts.map((p) => {
+                  const dateIdx = dates.indexOf(p.date);
+                  const x = padL + (dateIdx / Math.max(dates.length - 1, 1)) * chartW;
+                  const y = padT + chartH - ((p.price - yMin) / yRange) * chartH;
+                  return { x, y, price: p.price, date: p.date };
+                });
+                const path = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x},${c.y}`).join(' ');
+                const color = storeColors[store] || '#888';
+                return (
+                  <g key={store}>
+                    <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Start and end labels */}
+                    {coords.filter((_, i) => i === 0 || i === coords.length - 1).map((c, i) => {
+                      const isLast = i === 1 || coords.length === 1;
+                      return (
+                        <g key={`label-${i}`}>
+                          <circle cx={c.x} cy={c.y} r="3.5" fill="white" stroke={color} strokeWidth="2" />
+                          <text x={isLast ? c.x - 4 : c.x + 4} y={c.y - 7} textAnchor={isLast ? 'end' : 'start'} fill={color} fontSize="8" fontWeight="700">{c.price.toFixed(2)}</text>
+                        </g>
+                      );
+                    })}
+                    {/* Hover dots on all points */}
+                    {coords.map((c, i) => (
+                      <g key={`dot-${i}`} className="group">
+                        <circle cx={c.x} cy={c.y} r="8" fill="transparent" className="cursor-pointer" />
+                        <circle cx={c.x} cy={c.y} r="0" fill={color} className="transition-all group-hover:r-[4]" style={{ pointerEvents: 'none' }}>
+                          <animate attributeName="r" from="0" to="4" dur="0.15s" begin="indefinite" fill="freeze" />
+                        </circle>
+                        <g className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ pointerEvents: 'none' }}>
+                          <rect x={c.x - 28} y={c.y - 22} width="56" height="18" rx="4" fill={color} />
+                          <text x={c.x} y={c.y - 10} textAnchor="middle" fill="white" fontSize="8" fontWeight="700">{c.price.toFixed(2)}₾</text>
+                        </g>
+                      </g>
+                    ))}
+                  </g>
+                );
               })}
             </svg>
-            <div className="flex gap-4 mt-1 justify-center">
+            {/* Legend */}
+            <div className="flex flex-wrap gap-3 mt-2 justify-center">
               {stores.map(store => (
                 <div key={store} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: storeColors[store] || '#888' }} />
-                  <span className="text-[10px] text-slate-400">{store}</span>
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: storeColors[store] || '#888' }} />
+                  <span className="text-[11px] font-medium text-slate-500">{store}</span>
                 </div>
               ))}
             </div>
@@ -1578,17 +1809,13 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
         );
       })()}
 
-      <div className="mt-8 grid grid-cols-2 gap-3">
+      <div className="mt-8">
         <button
           onClick={() => { setTargetStore(bestPrice?.store || null); setScreen('map'); }}
-          className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+          className="w-full bg-[#108AB1] text-white py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         >
           <MapIcon size={18} />
-          რუკაზე ნახვა
-        </button>
-        <button className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-          <ExternalLink size={18} />
-          საიტზე
+          {t('compare_show_map')}
         </button>
       </div>
     </div>
@@ -1599,17 +1826,20 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, bask
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-const createPulsingIcon = (color: string, label?: string) => L.divIcon({
-  className: 'custom-div-icon',
-  html: `
-    <div class="flex flex-col items-center">
-      <div class="w-3.5 h-3.5 bg-${color} rounded-full border-2 border-white shadow-md"></div>
-      ${label ? `<div class="mt-0.5 bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[7px] font-semibold text-slate-700 whitespace-nowrap">${label}</div>` : ''}
-    </div>
-  `,
-  iconSize: [24, 36],
-  iconAnchor: [12, 18],
-});
+const createPulsingIcon = (color: string, label?: string) => {
+  const hex = color === 'cobalt' ? '#3B82F6' : color === 'emerald' ? '#10B981' : '#3B82F6';
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:14px;height:14px;background:${hex};border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>
+        ${label ? `<div style="margin-top:2px;background:white;border:1px solid #e2e8f0;padding:1px 6px;border-radius:4px;font-size:7px;font-weight:600;color:#334155;white-space:nowrap">${label}</div>` : ''}
+      </div>
+    `,
+    iconSize: [24, 36],
+    iconAnchor: [12, 18],
+  });
+};
 
 const RecenterMap = ({ coords }: { coords: { lat: number; lng: number } }) => {
   const map = useMap();
@@ -1628,7 +1858,8 @@ const FitRouteBounds = ({ coords, branch }: { coords: { lat: number; lng: number
 
 interface BranchResult { store: string; name: string; lat: number; lng: number; address: string; distanceKm: number; }
 
-const MapScreen = ({ setScreen, darkMode, setDarkMode, targetStore, setTargetStore, selectedProduct }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, targetStore: string | null, setTargetStore: (s: string | null) => void, selectedProduct: Product | null }) => {
+const MapScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, targetStore, setTargetStore, selectedProduct }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void, targetStore: string | null, setTargetStore: (s: string | null) => void, selectedProduct: Product | null }) => {
+  const { t } = useLanguage();
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [nearbyBranches, setNearbyBranches] = useState<BranchResult[]>([]);
@@ -1690,11 +1921,11 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, targetStore, setTargetSto
           </button>
           <div className="flex-1">
             <h2 className="font-semibold text-slate-900 dark:text-white text-sm">
-              {targetStore ? `უახლოესი ${targetStore}` : 'მაღაზიები ახლოს'}
+              {targetStore ? `${t('map_title_closest')} ${targetStore}` : t('map_title_nearby')}
             </h2>
           </div>
           {!targetStore && nearbyBranches.length > 0 && (
-            <span className="text-xs text-slate-400">{nearbyBranches.length} ნაპოვნი</span>
+            <span className="text-xs text-slate-400">{nearbyBranches.length} {t('map_branches_found')}</span>
           )}
         </div>
       </div>
@@ -1716,8 +1947,8 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, targetStore, setTargetSto
           {coords && (
             <>
               {selectedBranch ? <FitRouteBounds coords={coords} branch={selectedBranch} /> : <RecenterMap coords={coords} />}
-              <Marker position={[coords.lat, coords.lng]} icon={createPulsingIcon('cobalt', 'თქვენ')}>
-                <Popup>თქვენ აქ ხართ</Popup>
+              <Marker position={[coords.lat, coords.lng]} icon={createPulsingIcon('cobalt', t('map_you'))}>
+                <Popup>{t('map_you_here')}</Popup>
               </Marker>
             </>
           )}
@@ -1742,18 +1973,18 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, targetStore, setTargetSto
             {selectedBranch && (
               <>
                 <div className="flex gap-2 mt-3">
-                  <button onClick={() => setRouteMode('foot')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${routeMode === 'foot' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                    <Footprints size={13} /> ფეხით
+                  <button onClick={() => setRouteMode('foot')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${routeMode === 'foot' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                    <Footprints size={13} /> {t('map_route_foot')}
                   </button>
-                  <button onClick={() => setRouteMode('driving')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${routeMode === 'driving' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                    <Car size={13} /> მანქანით
+                  <button onClick={() => setRouteMode('driving')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${routeMode === 'driving' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                    <Car size={13} /> {t('map_route_car')}
                   </button>
                 </div>
 
                 {routeLoading ? (
                   <div className="flex items-center justify-center gap-2 py-2 mt-2">
                     <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                    <span className="text-[11px] text-slate-400">მარშრუტი...</span>
+                    <span className="text-[11px] text-slate-400">{t('map_route_loading')}</span>
                   </div>
                 ) : routeInfo ? (
                   <div className="flex items-center gap-4 mt-2.5">
@@ -1765,10 +1996,10 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, targetStore, setTargetSto
                 <div className="flex gap-2 mt-3">
                   <button onClick={() => { setSelectedBranch(null); setRouteCoords([]); setRouteInfo(null); }}
                     className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 py-2.5 rounded-lg text-[11px] font-medium">
-                    დახურვა
+                    {t('map_route_close')}
                   </button>
                   <button onClick={() => { window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeBranch.lat},${activeBranch.lng}&travelmode=${routeMode === 'foot' ? 'walking' : 'driving'}`, '_blank'); }}
-                    className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-2.5 rounded-lg text-[11px] font-medium">
+                    className="flex-1 bg-[#108AB1] text-white py-2.5 rounded-lg text-[11px] font-medium">
                     Google Maps
                   </button>
                 </div>
@@ -1777,14 +2008,14 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, targetStore, setTargetSto
 
             {!selectedBranch && (
               <button onClick={() => setSelectedBranch(activeBranch)}
-                className="w-full mt-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-2.5 rounded-lg font-medium text-xs">
-                მარშრუტის ჩვენება
+                className="w-full mt-3 bg-[#108AB1] text-white py-2.5 rounded-lg font-medium text-xs">
+                {t('map_route_show')}
               </button>
             )}
           </div>
         ) : (
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 inline-block pointer-events-auto">
-            <p className="text-xs text-slate-500">აირჩიეთ მაღაზია</p>
+            <p className="text-xs text-slate-500">{t('map_select_store')}</p>
           </div>
         )}
       </div>
@@ -1792,39 +2023,74 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, targetStore, setTargetSto
   );
 };
 
-const ProfileScreen = ({ setScreen, darkMode, setDarkMode }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void }) => (
-  <div className="pb-24 pt-14 px-5 min-h-screen">
-    <Header title="პროფილი" darkMode={darkMode} setDarkMode={setDarkMode} />
-    <div className="flex items-center gap-4 mb-10 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
-      <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
-        <User size={28} />
+const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void }) => {
+  const { t, lang, setLang } = useLanguage();
+  return (
+    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+      <Header title={t('profile_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
+      <div className="flex items-center gap-4 mb-10 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
+        <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+          <User size={28} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('profile_name')}</h2>
+          <p className="text-xs text-slate-400">{t('profile_member')}</p>
+        </div>
       </div>
-      <div>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white">მარიამი</h2>
-        <p className="text-xs text-slate-400">Premium წევრი</p>
-      </div>
-    </div>
-    <div className="space-y-2">
-      {[
-        { label: 'შეტყობინებები', icon: Bell, id: 'alerts' },
-        { label: 'ჩემი კალათა', icon: ShoppingBasket, id: 'basket' },
-        { label: 'პარამეტრები', icon: Settings, id: 'profile' },
-        { label: 'დახმარება', icon: Info, id: 'profile' },
-      ].map((item, idx) => (
-        <button key={idx} onClick={() => setScreen(item.id as Screen)}
-          className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-          <div className="flex items-center gap-3">
-            <item.icon size={18} className="text-slate-400" />
-            <span className="font-medium text-slate-900 dark:text-white text-sm">{item.label}</span>
-          </div>
-          <ChevronRight size={16} className="text-slate-300" />
-        </button>
-      ))}
-    </div>
-  </div>
-);
 
-const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setTargetStore }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
+      {/* Language Selection */}
+      <div className="mb-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Globe size={18} className="text-slate-400" />
+          <span className="font-medium text-slate-900 dark:text-white text-sm">{t('profile_language')}</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLang('ka')}
+            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+              lang === 'ka'
+                ? 'bg-[#108AB1] text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            ქართული
+          </button>
+          <button
+            onClick={() => setLang('en')}
+            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+              lang === 'en'
+                ? 'bg-[#108AB1] text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            English
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {[
+          { label: t('profile_alerts'), icon: Bell, id: 'alerts' },
+          { label: t('profile_my_basket'), icon: ShoppingBasket, id: 'basket' },
+          { label: t('profile_settings'), icon: Settings, id: 'profile' },
+          { label: t('profile_help'), icon: Info, id: 'profile' },
+        ].map((item, idx) => (
+          <button key={idx} onClick={() => setScreen(item.id as Screen)}
+            className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <div className="flex items-center gap-3">
+              <item.icon size={18} className="text-slate-400" />
+              <span className="font-medium text-slate-900 dark:text-white text-sm">{item.label}</span>
+            </div>
+            <ChevronRight size={16} className="text-slate-300" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, basket, setBasket, setTargetStore }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
+  const { t } = useLanguage();
   const [viewStore, setViewStore] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
@@ -1870,24 +2136,24 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
   const activeStoreData = storeTotals.find(s => s.store === activeStore) || bestStore;
 
   return (
-    <div className="pb-24 pt-14 px-5 min-h-screen">
-      <Header title="კალათა" darkMode={darkMode} setDarkMode={setDarkMode} />
+    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+      <Header title={t('basket_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
 
       {basket.length === 0 ? (
         <div className="text-center py-20">
           <ShoppingBasket size={36} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
-          <p className="text-slate-900 dark:text-white font-semibold">კალათა ცარიელია</p>
-          <p className="text-slate-400 text-xs mt-1">დაამატე პროდუქტები შედარებისთვის</p>
+          <p className="text-slate-900 dark:text-white font-semibold">{t('basket_empty')}</p>
+          <p className="text-slate-400 text-xs mt-1">{t('basket_empty_desc')}</p>
           <button onClick={() => setScreen('home')}
-            className="mt-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-2.5 rounded-xl font-medium text-xs">
-            პროდუქტების დამატება
+            className="mt-5 bg-[#108AB1] text-white px-5 py-2.5 rounded-xl font-medium text-xs">
+            {t('basket_add_products')}
           </button>
         </div>
       ) : (
         <>
           {/* Store tabs */}
           <div className="space-y-2 mb-6">
-            <h3 className="text-xs font-semibold text-slate-400 mb-2">აირჩიე მაღაზია</h3>
+            <h3 className="text-xs font-semibold text-slate-400 mb-2">{t('basket_select_store')}</h3>
             {storeTotals.map((item, idx) => (
               <button key={item.store} onClick={() => setViewStore(item.store)}
                 className={`w-full p-3.5 rounded-xl transition-colors flex items-center justify-between border ${
@@ -1904,14 +2170,14 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
                   <div className="text-left">
                     <span className="font-semibold text-sm text-slate-900 dark:text-white">{item.store}</span>
                     <span className={`text-[10px] block ${item.hasAll ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {item.availableCount}/{basket.length} პროდუქტი
+                      {item.availableCount}/{basket.length} {t('basket_in_stock')}
                     </span>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-slate-900 dark:text-white">{item.total.toFixed(2)}₾</span>
                   {idx === 0 ? (
-                    <span className="text-[10px] text-emerald-500 block">ყველაზე იაფი</span>
+                    <span className="text-[10px] text-emerald-500 block">{t('basket_best_choice')}</span>
                   ) : (
                     <span className="text-[10px] text-slate-400 block">+{(item.fullCost - storeTotals[0].fullCost).toFixed(2)}₾</span>
                   )}
@@ -1945,7 +2211,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
                     )}
                   </div>
                   <span className={`font-semibold text-sm flex-shrink-0 ${available ? 'text-slate-900 dark:text-white' : 'text-red-400 text-xs'}`}>
-                    {available ? `${price.toFixed(2)}₾` : 'არ არის'}
+                    {available ? `${price.toFixed(2)}₾` : t('basket_not_available')}
                   </span>
                   <button onClick={() => setBasket(basket.filter(p => p.id !== item.id))}
                     className="text-slate-300 hover:text-red-400 p-1 flex-shrink-0">
@@ -1961,36 +2227,36 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
             <div className="flex justify-between items-center mb-4">
               <div>
                 <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-                  {activeStore === bestStore?.store ? 'საუკეთესო არჩევანი' : 'არჩეული'}
+                  {activeStore === bestStore?.store ? t('basket_best_option') : t('basket_selected')}
                 </span>
                 <h4 className="text-lg font-bold mt-0.5">{activeStore}</h4>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider">ჯამი</span>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('basket_total')}</span>
                 <p className="text-2xl font-bold">{activeStoreData?.total.toFixed(2)}₾</p>
               </div>
             </div>
             {activeStoreData && !activeStoreData.hasAll && (
-              <p className="text-xs text-slate-400 mb-3">{basket.length - activeStoreData.availableCount} ნივთი არ არის ამ მაღაზიაში</p>
+              <p className="text-xs text-slate-400 mb-3">{basket.length - activeStoreData.availableCount} {t('basket_unavailable')}</p>
             )}
             <div className="flex gap-2">
               <button onClick={() => { setTargetStore(activeStore); setScreen('map'); }}
                 className="flex-1 bg-white text-slate-900 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
                 <Navigation size={16} />
-                მაჩვენე გზა
+                {t('basket_show_direction')}
               </button>
               <button
                 onClick={() => {
                   const lines = basket.map(item => {
                     const price = item.prices[activeStore];
-                    return `${item.name}${item.size ? ' ' + item.size : ''} — ${price > 0 ? price.toFixed(2) + '₾' : 'არ არის'}`;
+                    return `${item.name}${item.size ? ' ' + item.size : ''} — ${price > 0 ? price.toFixed(2) + '₾' : t('basket_not_available')}`;
                   });
-                  const text = `🛒 საყიდლების სია (${activeStore})\n\n${lines.join('\n')}\n\nჯამი: ${activeStoreData?.total.toFixed(2)}₾\n\n— SHEADARE`;
+                  const text = `${t('basket_shopping_list')} (${activeStore})\n\n${lines.join('\n')}\n\n${t('basket_total')}: ${activeStoreData?.total.toFixed(2)}₾\n\n— SHEADARE`;
                   if (navigator.share) {
-                    navigator.share({ title: 'საყიდლების სია', text }).catch(() => {});
+                    navigator.share({ title: t('basket_shopping_list'), text }).catch(() => {});
                   } else {
                     navigator.clipboard.writeText(text).then(() => {
-                      alert('სია დაკოპირდა!');
+                      alert(t('basket_list_copied'));
                     });
                   }
                 }}
@@ -2021,6 +2287,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowQR(false)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setShowQR(false); }}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             />
             <motion.div
@@ -2032,8 +2299,8 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
               <button onClick={() => setShowQR(false)} className="absolute top-3 right-3 p-1 text-slate-400 hover:text-slate-600">
                 <X size={18} />
               </button>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 text-center">QR კოდი</h3>
-              <p className="text-xs text-slate-400 text-center mb-5">დაასკანერე კალათის გასაზიარებლად</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 text-center">{t('basket_qr_title')}</h3>
+              <p className="text-xs text-slate-400 text-center mb-5">{t('basket_qr_desc')}</p>
               <div className="flex justify-center mb-5">
                 <img src={qrImage} alt="QR Code" className="w-48 h-48 rounded-xl" />
               </div>
@@ -2042,11 +2309,11 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
                   onClick={() => {
                     const ids = basket.map(item => item.id).join(',');
                     const url = `${window.location.origin}?basket=${ids}`;
-                    navigator.clipboard.writeText(url).then(() => alert('ლინკი დაკოპირდა!'));
+                    navigator.clipboard.writeText(url).then(() => alert(t('basket_link_copied')));
                   }}
                   className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-medium text-sm active:scale-[0.98] transition-transform"
                 >
-                  ლინკის კოპირება
+                  {t('basket_copy_link')}
                 </button>
                 <button
                   onClick={() => {
@@ -2056,9 +2323,9 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
                       navigator.share({ title: 'SHEADARE კალათა', url }).catch(() => {});
                     }
                   }}
-                  className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
+                  className="flex-1 bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
                 >
-                  გაზიარება
+                  {t('basket_share')}
                 </button>
               </div>
             </motion.div>
@@ -2069,27 +2336,29 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, set
   );
 };
 
-const AlertsScreen = ({ setScreen, darkMode, setDarkMode }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void }) => (
-  <div className="pb-24 pt-14 px-5 min-h-screen">
-    <Header title="შეტყობინებები" showBack onBack={() => setScreen('profile')} darkMode={darkMode} setDarkMode={setDarkMode} />
+const AlertsScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void }) => {
+  const { t } = useLanguage();
+  return (
+  <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+    <Header title={t('alerts_title')} showBack onBack={() => setScreen('profile')} alertCount={alertCount} onAlertTap={onAlertTap} />
     <div className="space-y-6">
       <section>
-        <h3 className="text-xs font-semibold text-slate-400 mb-3">აქტიური ალერტები</h3>
+        <h3 className="text-xs font-semibold text-slate-400 mb-3">{t('alerts_active')}</h3>
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-3">
           <Bell size={18} className="text-slate-400 flex-shrink-0" />
           <div className="flex-1">
             <h4 className="font-semibold text-slate-900 dark:text-white text-sm">ლუდი ყაზბეგი</h4>
-            <p className="text-[10px] text-slate-400">სამიზნე: 2.20₾</p>
+            <p className="text-[10px] text-slate-400">{t('alerts_target')} 2.20₾</p>
           </div>
-          <button className="text-[10px] font-medium text-red-400">წაშლა</button>
+          <button className="text-[10px] font-medium text-red-400">{t('alerts_delete')}</button>
         </div>
       </section>
       <section>
-        <h3 className="text-xs font-semibold text-slate-400 mb-3">ისტორია</h3>
+        <h3 className="text-xs font-semibold text-slate-400 mb-3">{t('alerts_history')}</h3>
         <div className="space-y-2">
           {[
-            { title: 'ფასის კლება!', desc: 'ლუდი ყაზბეგი ახლა 2.40₾ ღირს 2 ნაბიჯში', time: '10 წთ წინ', type: 'price' },
-            { title: 'ახალი აქცია', desc: 'SPAR-ში დაიწყო კვირეული, -20% ქეშბექი', time: '1 სთ წინ', type: 'promo' },
+            { title: t('alerts_price_drop'), desc: 'ლუდი ყაზბეგი ახლა 2.40₾ ღირს 2 ნაბიჯში', time: '10 წთ წინ', type: 'price' },
+            { title: t('alerts_new_promo'), desc: 'SPAR-ში დაიწყო კვირეული, -20% ქეშბექი', time: '1 სთ წინ', type: 'promo' },
           ].map((alert, idx) => (
             <div key={idx} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex gap-3">
               <TrendingDown size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
@@ -2106,22 +2375,26 @@ const AlertsScreen = ({ setScreen, darkMode, setDarkMode }: { setScreen: (s: Scr
       </section>
     </div>
   </div>
-);
+  );
+};
 
 // --- Chat Screen ---
-const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSelectedProduct }: {
+const ChatScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, basket, setBasket, setSelectedProduct }: {
   setScreen: (s: Screen) => void;
   darkMode: boolean;
   setDarkMode: (v: boolean) => void;
+  alertCount?: number;
+  onAlertTap?: () => void;
   basket: Product[];
   setBasket: React.Dispatch<React.SetStateAction<Product[]>>;
   setSelectedProduct: (p: Product) => void;
 }) => {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'გამარჯობა! მე ვარ შეადარე-ს AI ასისტენტი. დამიწერე რა პროდუქტები გაინტერესებს და მოვძებნი საუკეთესო ფასებს! 🛒',
+      text: t('chat_welcome'),
       timestamp: Date.now(),
     },
   ]);
@@ -2140,7 +2413,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      text: text.trim() || 'ფოტოთი ძებნა',
+      text: text.trim() || t('chat_image_search'),
       timestamp: Date.now(),
       image,
     };
@@ -2184,7 +2457,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
       setMessages(prev => [...prev, {
         id: `err-${Date.now()}`,
         role: 'assistant',
-        text: 'კავშირის შეცდომა. სცადე თავიდან.',
+        text: t('chat_error'),
         timestamp: Date.now(),
       }]);
     } finally {
@@ -2220,7 +2493,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
   return (
     <div className="pb-20 pt-14 px-0 min-h-screen flex flex-col">
       <div className="px-5">
-        <Header title="AI ასისტენტი" showBack onBack={() => setScreen('home')} darkMode={darkMode} setDarkMode={setDarkMode} />
+        <Header title={t('chat_title')} showBack onBack={() => setScreen('home')} alertCount={alertCount} onAlertTap={onAlertTap} />
       </div>
 
       {/* Messages */}
@@ -2231,7 +2504,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
               {/* Message bubble */}
               <div className={`rounded-2xl px-4 py-3 ${
                 msg.role === 'user'
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-br-md'
+                  ? 'bg-[#108AB1] text-white rounded-br-md'
                   : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-md border border-slate-100 dark:border-slate-700'
               }`}>
                 {msg.image && (
@@ -2258,7 +2531,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
                         </div>
                         <h4 className="text-[12px] font-semibold text-slate-900 dark:text-white leading-tight line-clamp-2 mb-1.5" style={{ minHeight: '30px' }}>{product.name}</h4>
                         {priceEntries.slice(0, 2).map(([store, price], i) => (
-                          <div key={store} className={`text-[11px] ${i === 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                          <div key={store} className={`text-[11px] ${i === 0 ? 'font-bold text-[#06D7A0]' : 'text-slate-400'}`}>
                             {store}: {(price as number).toFixed(2)}₾
                           </div>
                         ))}
@@ -2270,10 +2543,10 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
                           className={`mt-2 w-full py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
                             isInBasket
                               ? 'bg-slate-200 dark:bg-slate-700 text-slate-500'
-                              : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                              : 'bg-[#108AB1] text-white'
                           }`}
                         >
-                          {isInBasket ? 'კალათაშია' : '+ კალათა'}
+                          {isInBasket ? t('chat_in_basket') : t('chat_add_basket')}
                         </button>
                       </div>
                     );
@@ -2288,7 +2561,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
                     <button
                       key={i}
                       onClick={() => handleAction(action, msg.products)}
-                      className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-lg text-[12px] font-semibold active:scale-95 transition-transform"
+                      className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950 text-[#06D7A0] rounded-lg text-[12px] font-semibold active:scale-95 transition-transform"
                     >
                       <ShoppingBasket size={12} className="inline mr-1" />
                       {action.label}
@@ -2321,7 +2594,8 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
           <input type="file" ref={fileInputRef} accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
           <button
             onClick={handleImagePick}
-            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0 active:scale-90 transition-transform"
+            aria-label="Upload image"
+            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0 active:scale-90 transition-transform focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50"
           >
             <ImagePlus size={20} />
           </button>
@@ -2330,15 +2604,16 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, basket, setBasket, setSe
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-            placeholder="დაწერე რა გაინტერესებს..."
+            placeholder={t('chat_placeholder')}
             className="flex-1 bg-white dark:bg-slate-800 rounded-xl py-3 px-4 text-[14px] font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-600"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={loading || (!input.trim())}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90 ${
+            aria-label="Send message"
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 ${
               input.trim() && !loading
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                ? 'bg-[#108AB1] text-white'
                 : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
             }`}
           >
@@ -2359,7 +2634,7 @@ const VoiceToast = ({ text, type }: { text: string; type: 'command' | 'listening
     className={`fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-xs font-medium ${
       type === 'listening' ? 'bg-red-500 text-white' :
       type === 'error' ? 'bg-slate-700 text-slate-300' :
-      'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+      'bg-[#108AB1] text-white'
     }`}
   >
     {type === 'listening' && <Mic size={13} className="animate-pulse" />}
@@ -2380,45 +2655,47 @@ function processVoiceCommand(
     basket: Product[];
     setBasket: React.Dispatch<React.SetStateAction<Product[]>>;
     products: Product[];
+    t: (key: string) => string;
   }
 ): string | null {
-  const t = text.toLowerCase().trim();
+  const t = actions.t as any;
+  const cmd = text.toLowerCase().trim();
 
   // --- Navigation ---
-  if (/^(მთავარი|სახლ|სახლში|დასაწყის|home)/.test(t)) {
+  if (/^(მთავარი|სახლ|სახლში|დასაწყის|home)/.test(cmd)) {
     actions.setScreen('home');
-    return 'მთავარი გვერდი';
+    return t('voice_home');
   }
-  if (/^(კალათა|კალათ|basket|cart)/.test(t)) {
+  if (/^(კალათა|კალათ|basket|cart)/.test(cmd)) {
     actions.setScreen('basket');
-    return 'კალათა';
+    return t('voice_basket');
   }
-  if (/^(რუკა|მეფ|map|რუკაზე)/.test(t)) {
+  if (/^(რუკა|მეფ|map|რუკაზე)/.test(cmd)) {
     actions.setTargetStore(null);
     actions.setScreen('map');
-    return 'რუკა';
+    return t('voice_map');
   }
-  if (/^(პროფილი|profile|ანგარიშ|ჩემი)/.test(t)) {
+  if (/^(პროფილი|profile|ანგარიშ|ჩემი)/.test(cmd)) {
     actions.setScreen('profile');
-    return 'პროფილი';
+    return t('voice_profile');
   }
-  if (/^(შეტყობინებ|ალერტ|notification)/.test(t)) {
+  if (/^(შეტყობინებ|ალერტ|notification)/.test(cmd)) {
     actions.setScreen('alerts');
-    return 'შეტყობინებები';
+    return t('voice_alerts');
   }
-  if (/^(უკან|back|დაბრუნება)/.test(t)) {
+  if (/^(უკან|back|დაბრუნება)/.test(cmd)) {
     actions.setScreen('home');
-    return 'უკან';
+    return t('barcode_back');
   }
 
   // --- Dark/Light Mode ---
-  if (/(ბნელი|ღამის|dark|მუქი)/.test(t)) {
+  if (/(ბნელი|ღამის|dark|მუქი)/.test(cmd)) {
     actions.setDarkMode(true);
-    return 'ღამის რეჟიმი';
+    return t('voice_dark_mode');
   }
-  if (/(ნათელი|დღის|light|თეთრ)/.test(t)) {
+  if (/(ნათელი|დღის|light|თეთრ)/.test(cmd)) {
     actions.setDarkMode(false);
-    return 'ნათელი რეჟიმი';
+    return t('voice_light_mode');
   }
 
   // --- Categories ---
@@ -2429,60 +2706,75 @@ function processVoiceCommand(
     'ჩაი': 'ყავა/ჩაი', 'ჰიგიენა': 'ჰიგიენა',
   };
   for (const [keyword, category] of Object.entries(categoryMap)) {
-    if (t === keyword || t === `${keyword} კატეგორია` || t === `მაჩვენე ${keyword}`) {
+    if (cmd === keyword || cmd === `${keyword} კატეგორია` || cmd === `მაჩვენე ${keyword}`) {
       actions.setScreen('home');
       actions.setSelectedCategory(category);
-      return `კატეგორია: ${category}`;
+      return `${t('voice_category')} ${category}`;
     }
   }
 
   // --- Basket actions ---
-  if (/(დაამატე|კალათაში დაამატე|ჩაამატე)/.test(t)) {
+  if (/(დაამატე|კალათაში დაამატე|ჩაამატე)/.test(cmd)) {
     if (actions.products.length > 0) {
       const product = actions.products[0];
       if (!actions.basket.find(b => b.id === product.id)) {
         actions.setBasket(prev => [...prev, product]);
-        return `${product.name} კალათაში დაემატა`;
+        return `${product.name} ${t('voice_added_basket')}`;
       }
-      return `${product.name} უკვე კალათაშია`;
+      return `${product.name} ${t('voice_already_in_basket')}`;
     }
-    return 'პროდუქტი ვერ მოიძებნა';
+    return t('voice_product_not_found');
   }
-  if (/(კალათა გაასუფთავე|წაშალე ყველა|კალათა წაშალე|გაასუფთავე)/.test(t)) {
+  if (/(კალათა გაასუფთავე|წაშალე ყველა|კალათა წაშალე|გაასუფთავე)/.test(cmd)) {
     actions.setBasket([]);
-    return 'კალათა გასუფთავდა';
+    return t('voice_basket_cleared');
   }
 
   // --- Store on map ---
-  if (/(სპარი|spar)/.test(t) && /(რუკა|მაჩვენე|სადაა|სად არის|უახლოეს)/.test(t)) {
+  if (/(სპარი|spar)/.test(cmd) && /(რუკა|მაჩვენე|სადაა|სად არის|უახლოეს)/.test(cmd)) {
     actions.setTargetStore('SPAR');
     actions.setScreen('map');
-    return 'უახლოესი SPAR რუკაზე';
+    return `${t('voice_nearest_on_map')} SPAR ${t('voice_on_map')}`;
   }
-  if (/(ნაბიჯი|nabiji|2 ნაბიჯ)/.test(t) && /(რუკა|მაჩვენე|სადაა|სად არის|უახლოეს)/.test(t)) {
+  if (/(ნაბიჯი|nabiji|2 ნაბიჯ)/.test(cmd) && /(რუკა|მაჩვენე|სადაა|სად არის|უახლოეს)/.test(cmd)) {
     actions.setTargetStore('2 Nabiji');
     actions.setScreen('map');
-    return 'უახლოესი 2 Nabiji რუკაზე';
+    return `${t('voice_nearest_on_map')} 2 Nabiji ${t('voice_on_map')}`;
   }
-  if (/(გუდვილ|goodwill)/.test(t) && /(რუკა|მაჩვენე|სადაა|სად არის|უახლოეს)/.test(t)) {
+  if (/(გუდვილ|goodwill)/.test(cmd) && /(რუკა|მაჩვენე|სადაა|სად არის|უახლოეს)/.test(cmd)) {
     actions.setTargetStore('Goodwill');
     actions.setScreen('map');
-    return 'უახლოესი Goodwill რუკაზე';
+    return `${t('voice_nearest_on_map')} Goodwill ${t('voice_on_map')}`;
   }
 
   // --- Fallback: treat as search ---
-  if (t.length >= 2) {
+  if (cmd.length >= 2) {
     actions.setScreen('home');
-    actions.setSearchQuery(t);
-    return `ძიება: ${t}`;
+    actions.setSearchQuery(cmd);
+    return `${t('voice_search')} ${cmd}`;
   }
 
   return null;
 }
 
 export default function App() {
+  const languageState = useLanguageState();
+
+  return (
+    <LanguageContext.Provider value={languageState}>
+      <AppInner />
+    </LanguageContext.Provider>
+  );
+}
+
+function AppInner() {
+  const { t } = useLanguage();
   const [currentScreen, setScreen] = useState<Screen>('home');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Force light mode
+    document.documentElement.classList.remove('dark');
+    return false;
+  });
   const [basket, setBasket] = useState<Product[]>(() => {
     try { const saved = localStorage.getItem('pasebi-basket'); return saved ? JSON.parse(saved) : []; } catch { return []; }
   });
@@ -2498,10 +2790,37 @@ export default function App() {
     try { const saved = localStorage.getItem('pasebi-favorites'); return saved ? JSON.parse(saved) : []; } catch { return []; }
   });
 
+  // Alert count
+  const [alertCount, setAlertCount] = useState(0);
+  useEffect(() => {
+    const deviceId = localStorage.getItem('pasebi-device-id') || (() => {
+      const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('pasebi-device-id', id);
+      return id;
+    })();
+    const fetchAlerts = () => {
+      fetch(`/api/alerts?device_id=${deviceId}`)
+        .then(r => r.json())
+        .then(data => {
+          const triggered = (data.alerts || []).filter((a: any) => a.triggered_at && a.active === false);
+          const unseen = triggered.filter((a: any) => {
+            const seen = localStorage.getItem(`pasebi-alert-seen-${a.id}`);
+            return !seen;
+          });
+          setAlertCount(unseen.length);
+        })
+        .catch(() => {});
+    };
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Global voice state
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceToast, setVoiceToast] = useState<{ text: string; type: 'command' | 'listening' | 'error' } | null>(null);
-  // Shared state for voice → HomeScreen communication
+  // Shared state for voice/desktop search → HomeScreen communication
+  const [desktopSearchQuery, setDesktopSearchQuery] = useState('');
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string | null>(null);
   const [voiceCategory, setVoiceCategory] = useState<string | null>(null);
   const [voiceProducts, setVoiceProducts] = useState<Product[]>([]);
@@ -2540,8 +2859,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('pasebi-basket', JSON.stringify(basket)); }, [basket]);
   useEffect(() => { localStorage.setItem('pasebi-favorites', JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => {
-    if (darkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
   const showToast = (text: string, type: 'command' | 'listening' | 'error' = 'command') => {
@@ -2551,7 +2869,7 @@ export default function App() {
 
   const startVoiceCommand = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) { showToast('ხმოვანი ძიება მიუწვდომელია', 'error'); return; }
+    if (!SpeechRecognition) { showToast(t('voice_unavailable'), 'error'); return; }
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'ka-GE';
@@ -2560,7 +2878,7 @@ export default function App() {
 
     recognition.onstart = () => {
       setVoiceListening(true);
-      showToast('მოუსმენს...', 'listening');
+      showToast(t('voice_listening'), 'listening');
     };
 
     recognition.onresult = (e: any) => {
@@ -2575,25 +2893,27 @@ export default function App() {
         basket,
         setBasket,
         products: voiceProducts,
+        t,
       });
       if (result) {
         showToast(result, 'command');
       } else {
-        showToast(`"${text}" - ვერ გავიგე`, 'error');
+        showToast(`"${text}" - ${t('voice_not_understood')}`, 'error');
       }
     };
 
     recognition.onerror = () => {
       setVoiceListening(false);
-      showToast('ვერ მოისმინა', 'error');
+      showToast(t('voice_not_heard'), 'error');
     };
     recognition.onend = () => setVoiceListening(false);
     recognition.start();
   };
 
+  const onAlertTap = () => setScreen('alerts');
   const renderScreen = () => {
-    const props = { setScreen, darkMode, setDarkMode, basket, setBasket };
-    const homeProps = { ...props, favorites, setFavorites, setSelectedProduct, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded: setVoiceProducts };
+    const props = { setScreen, darkMode, setDarkMode, basket, setBasket, alertCount, onAlertTap };
+    const homeProps = { ...props, favorites, setFavorites, setSelectedProduct, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded: setVoiceProducts, desktopSearchQuery, setDesktopSearchQuery };
     switch (currentScreen) {
       case 'home': return <HomeScreen {...homeProps} />;
       case 'compare': return <CompareScreen {...props} selectedProduct={selectedProduct} setTargetStore={setTargetStore} />;
@@ -2608,7 +2928,7 @@ export default function App() {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen relative">
+    <div className="w-full lg:pt-16 bg-slate-50 dark:bg-slate-950 min-h-screen relative">
       {/* Splash Screen */}
       <AnimatePresence>
         {showSplash && <SplashScreen />}
@@ -2642,21 +2962,21 @@ export default function App() {
           {/* Floating buttons */}
           {currentScreen !== 'map' && currentScreen !== 'chat' && (
             <>
-              {/* AI Chat button */}
+              {/* AI Chat button — mobile only */}
               <button
                 onClick={() => setScreen('chat')}
-                className="fixed bottom-[8.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90"
+                className="lg:hidden fixed bottom-[8.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90"
                 style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
               >
                 <Sparkles size={20} className="text-white" />
               </button>
-              {/* Voice mic button */}
+              {/* Voice mic button — mobile only */}
               <button
                 onClick={startVoiceCommand}
-                className={`fixed bottom-[5.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+                className={`lg:hidden fixed bottom-[5.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
                   voiceListening
                     ? 'bg-red-500 text-white animate-pulse'
-                    : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                    : 'bg-[#108AB1] text-white'
                 }`}
               >
                 <Mic size={20} />
@@ -2664,7 +2984,7 @@ export default function App() {
             </>
           )}
 
-          <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} />
+          <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
         </>
       )}
     </div>
