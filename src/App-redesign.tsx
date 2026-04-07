@@ -2616,6 +2616,16 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
           </div>
           <ChevronRight size={16} className="text-slate-300" />
         </button>
+        {authUser?.email === 'dzikiii.j@gmail.com' && (
+          <button onClick={() => setScreen('admin')}
+            className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <div className="flex items-center gap-3">
+              <Settings size={18} className="text-slate-400" />
+              <span className="font-medium text-slate-900 dark:text-white text-sm">Admin Panel</span>
+            </div>
+            <ChevronRight size={16} className="text-slate-300" />
+          </button>
+        )}
         {authUser && (
           <button onClick={() => setShowDeleteConfirm(true)}
             className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
@@ -3469,6 +3479,152 @@ function processVoiceCommand(
   return null;
 }
 
+const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (!token) { setError('შესვლა საჭიროა'); setLoading(false); return; }
+    fetch('/api/admin/stats', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => { if (!r.ok) throw new Error('Access denied'); return r.json(); })
+      .then(data => setStats(data))
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-4">
+      <p className="text-red-500 font-medium">{error}</p>
+      <button onClick={() => setScreen('profile')} className="text-blue-500 text-sm">← უკან</button>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24">
+      {/* Header */}
+      <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800">
+        <div className="max-w-3xl mx-auto flex items-center gap-3 px-4 py-3">
+          <button onClick={() => setScreen('profile')} className="p-2 -ml-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <ArrowLeft size={20} className="text-slate-700 dark:text-slate-300" />
+          </button>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white">Admin Panel</h1>
+        </div>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {/* Overview Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {[
+            { label: 'პროდუქტები', value: stats?.totalProducts ?? 0 },
+            { label: 'შეთავაზებები', value: stats?.totalOffers ?? 0 },
+            { label: 'მომხმარებლები', value: stats?.totalUsers ?? 0 },
+            { label: 'დღეს აქტიური', value: stats?.todayUsers ?? 0 },
+            { label: 'შეტყობინებები', value: `${stats?.activeAlerts ?? 0}/${stats?.triggeredAlerts ?? 0}` },
+            { label: 'ანალიზი', value: `${stats?.analysisProgress ?? 0}%` },
+          ].map((card, i) => (
+            <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+              <p className="text-xs text-slate-400 mb-1">{card.label}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">{card.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Store Breakdown */}
+        {stats?.stores && stats.stores.length > 0 && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">მაღაზიები</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                  <th className="px-4 py-2">მაღაზია</th><th className="px-4 py-2">პროდუქტები</th><th className="px-4 py-2">შეთავაზებები</th>
+                </tr></thead>
+                <tbody>
+                  {stats.stores.map((s: any, i: number) => (
+                    <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
+                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">{s.name}</td>
+                      <td className="px-4 py-2 text-slate-500">{s.products}</td>
+                      <td className="px-4 py-2 text-slate-500">{s.offers}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Scraper Runs */}
+        {stats?.recentRuns && stats.recentRuns.length > 0 && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">ბოლო სკრეიპინგები</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                  <th className="px-4 py-2">მაღაზია</th><th className="px-4 py-2">სტატუსი</th><th className="px-4 py-2">ნაპოვნი</th><th className="px-4 py-2">განახლებული</th><th className="px-4 py-2">თარიღი</th>
+                </tr></thead>
+                <tbody>
+                  {stats.recentRuns.map((r: any, i: number) => (
+                    <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
+                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">{r.store}</td>
+                      <td className="px-4 py-2">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${r.status === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {r.status === 'success' ? '✓' : '✗'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-slate-500">{r.productsFound}</td>
+                      <td className="px-4 py-2 text-slate-500">{r.pricesUpdated}</td>
+                      <td className="px-4 py-2 text-slate-400 text-xs">{new Date(r.date).toLocaleDateString('ka-GE')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Users */}
+        {stats?.recentUsers && stats.recentUsers.length > 0 && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">ახალი მომხმარებლები</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                  <th className="px-4 py-2">ელფოსტა</th><th className="px-4 py-2">სახელი</th><th className="px-4 py-2">ვერიფ.</th><th className="px-4 py-2">თარიღი</th>
+                </tr></thead>
+                <tbody>
+                  {stats.recentUsers.map((u: any, i: number) => (
+                    <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
+                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white text-xs">{u.email}</td>
+                      <td className="px-4 py-2 text-slate-500">{u.name || '—'}</td>
+                      <td className="px-4 py-2">
+                        <span className={`inline-block w-2 h-2 rounded-full ${u.verified ? 'bg-green-500' : 'bg-slate-300'}`} />
+                      </td>
+                      <td className="px-4 py-2 text-slate-400 text-xs">{new Date(u.date).toLocaleDateString('ka-GE')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const languageState = useLanguageState();
 
@@ -3719,6 +3875,7 @@ function AppInner() {
       case 'alerts': return <AlertsScreen {...props} />;
       case 'scanner': return <BarcodeScannerScreen setScreen={setScreen} setSelectedProduct={setSelectedProduct} />;
       case 'chat': return <ChatScreen {...props} setSelectedProduct={setSelectedProduct} />;
+      case 'admin': return <AdminScreen setScreen={setScreen} />;
       default: return <HomeScreen {...homeProps} />;
     }
   };

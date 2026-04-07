@@ -8,7 +8,8 @@ export type Screen =
   | 'alerts'
   | 'profile'
   | 'scanner'
-  | 'chat';
+  | 'chat'
+  | 'admin';
 
 export interface Product {
   id: string;
