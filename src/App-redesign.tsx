@@ -1544,15 +1544,15 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
         #barcode-reader__dashboard { display: none !important; }
       `}</style>
 
-      {/* File upload option */}
-      <div className="mt-3 flex gap-3">
+      {/* Camera capture — works on all phones */}
+      <div className="mt-3">
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm"
+          className="w-full flex items-center justify-center gap-2 py-4 bg-[#108AB1] text-white rounded-xl font-bold text-base active:scale-[0.98] transition-transform touch-manipulation"
         >
-          <Camera size={18} />
-          {t('barcode_upload')}
+          <Camera size={20} />
+          გადაიღე ბარკოდის ფოტო
         </button>
       </div>
 
