@@ -3523,12 +3523,12 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
         {/* Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
-            { label: 'პროდუქტები', value: stats?.totalProducts ?? 0 },
-            { label: 'შეთავაზებები', value: stats?.totalOffers ?? 0 },
-            { label: 'მომხმარებლები', value: stats?.totalUsers ?? 0 },
-            { label: 'დღეს აქტიური', value: stats?.todayUsers ?? 0 },
-            { label: 'შეტყობინებები', value: `${stats?.activeAlerts ?? 0}/${stats?.triggeredAlerts ?? 0}` },
-            { label: 'ანალიზი', value: `${stats?.analysisProgress ?? 0}%` },
+            { label: 'პროდუქტები', value: stats?.overview?.totalProducts ?? 0 },
+            { label: 'შეთავაზებები', value: stats?.overview?.totalOffers ?? 0 },
+            { label: 'მომხმარებლები', value: stats?.overview?.totalUsers ?? 0 },
+            { label: 'დღეს აქტიური', value: stats?.overview?.todayUsers ?? 0 },
+            { label: 'შეტყობინებები', value: `${stats?.overview?.activeAlerts ?? 0}/${stats?.overview?.triggeredAlerts ?? 0}` },
+            { label: 'ანალიზი', value: `${stats?.overview?.analysisProgress ?? 0}%` },
           ].map((card, i) => (
             <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
               <p className="text-xs text-slate-400 mb-1">{card.label}</p>
@@ -3538,7 +3538,7 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
         </div>
 
         {/* Store Breakdown */}
-        {stats?.stores && stats.stores.length > 0 && (
+        {stats?.storeBreakdown && stats.storeBreakdown.length > 0 && (
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
               <h2 className="font-semibold text-sm text-slate-900 dark:text-white">მაღაზიები</h2>
@@ -3549,9 +3549,9 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
                   <th className="px-4 py-2">მაღაზია</th><th className="px-4 py-2">პროდუქტები</th><th className="px-4 py-2">შეთავაზებები</th>
                 </tr></thead>
                 <tbody>
-                  {stats.stores.map((s: any, i: number) => (
+                  {stats.storeBreakdown.map((s: any, i: number) => (
                     <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
-                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">{s.name}</td>
+                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">{s.store}</td>
                       <td className="px-4 py-2 text-slate-500">{s.products}</td>
                       <td className="px-4 py-2 text-slate-500">{s.offers}</td>
                     </tr>
@@ -3578,13 +3578,13 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
                     <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
                       <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">{r.store}</td>
                       <td className="px-4 py-2">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${r.status === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                          {r.status === 'success' ? '✓' : '✗'}
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${r.status === 'completed' ? 'bg-green-100 text-green-700' : r.status === 'running' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                          {r.status === 'completed' ? '✓' : r.status === 'running' ? '⟳' : '✗'}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-slate-500">{r.productsFound}</td>
-                      <td className="px-4 py-2 text-slate-500">{r.pricesUpdated}</td>
-                      <td className="px-4 py-2 text-slate-400 text-xs">{new Date(r.date).toLocaleDateString('ka-GE')}</td>
+                      <td className="px-4 py-2 text-slate-500">{r.products_found || 0}</td>
+                      <td className="px-4 py-2 text-slate-500">{r.prices_updated || 0}</td>
+                      <td className="px-4 py-2 text-slate-400 text-xs">{r.started_at ? new Date(r.started_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3610,9 +3610,9 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
                       <td className="px-4 py-2 font-medium text-slate-900 dark:text-white text-xs">{u.email}</td>
                       <td className="px-4 py-2 text-slate-500">{u.name || '—'}</td>
                       <td className="px-4 py-2">
-                        <span className={`inline-block w-2 h-2 rounded-full ${u.verified ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        <span className={`inline-block w-2 h-2 rounded-full ${u.email_verified ? 'bg-green-500' : 'bg-slate-300'}`} />
                       </td>
-                      <td className="px-4 py-2 text-slate-400 text-xs">{new Date(u.date).toLocaleDateString('ka-GE')}</td>
+                      <td className="px-4 py-2 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
