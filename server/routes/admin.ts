@@ -100,4 +100,115 @@ router.get('/stats', (req: Request, res: Response) => {
   });
 });
 
+// === Run scraper manually ===
+router.post('/scraper/run/:store', async (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+
+  const store = req.params.store;
+  const validStores = ['spar', 'nabiji', 'goodwill', 'europroduct'];
+  if (!validStores.includes(store)) {
+    res.status(400).json({ error: 'Invalid store: ' + store });
+    return;
+  }
+
+  try {
+    // Import and run discover job for specific store
+    const { exec } = await import('child_process');
+    exec(`cd /opt/pasebi && npx tsx server/jobs/run-discover.ts ${store} &`, (err) => {
+      if (err) console.error('[Admin] Scraper start error:', err.message);
+    });
+    res.json({ success: true, message: `${store} scraper started` });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message });
+  }
+});
+
+// === Error logs ===
+router.get('/errors', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+
+  const db = getDb();
+  const errors = db.prepare(`
+    SELECT store, error_message, started_at, finished_at
+    FROM scraper_runs
+    WHERE status = 'failed' AND error_message IS NOT NULL
+    ORDER BY started_at DESC LIMIT 30
+  `).all();
+
+  res.json({ errors });
+});
+
+// === Delete product ===
+router.delete('/product/:id', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+
+  const id = Number(req.params.id);
+  const db = getDb();
+  try {
+    db.prepare('DELETE FROM store_offers WHERE product_id = ?').run(id);
+    db.prepare('DELETE FROM price_history WHERE product_id = ?').run(id);
+    db.prepare('DELETE FROM products WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message });
+  }
+});
+
+// === Delete user ===
+router.delete('/user/:id', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+
+  const id = Number(req.params.id);
+  const db = getDb();
+  try {
+    db.prepare('DELETE FROM alerts WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM favorites WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message });
+  }
+});
+
+// === Search products (for admin) ===
+router.get('/products', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+
+  const q = String(req.query.q || '');
+  const db = getDb();
+  if (!q) { res.json({ products: [] }); return; }
+
+  const products = db.prepare(`
+    SELECT p.id, p.name, p.barcode, p.category, p.store_type, p.source,
+      (SELECT GROUP_CONCAT(so.store || ':' || so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1) as prices
+    FROM products p
+    WHERE p.name LIKE ? OR p.barcode = ?
+    LIMIT 20
+  `).all(`%${q}%`, q);
+
+  res.json({ products });
+});
+
+// === Server health ===
+router.get('/health', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+
+  const db = getDb();
+  const dbSize = db.prepare("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()").get() as any;
+
+  res.json({
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    dbSizeMB: Math.round((dbSize?.size || 0) / 1024 / 1024),
+    nodeVersion: process.version,
+    platform: process.platform,
+  });
+});
+
 export default router;

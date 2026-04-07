@@ -3620,6 +3620,118 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
             </div>
           </div>
         )}
+
+        {/* Scraper Controls */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <h2 className="font-semibold text-sm text-slate-900 mb-3">Scraper მართვა</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {['spar', 'nabiji', 'goodwill', 'europroduct'].map(store => (
+              <button key={store}
+                onClick={() => {
+                  const token = localStorage.getItem('pasebi-auth-token');
+                  fetch(`/api/admin/scraper/run/${store}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+                    .then(r => r.json())
+                    .then(d => alert(d.message || d.error));
+                }}
+                className="px-3 py-2.5 bg-slate-50 hover:bg-[#108AB1] hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 border border-slate-200"
+              >
+                {store.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Server Health */}
+        {(() => {
+          const [health, setHealth] = useState<any>(null);
+          useEffect(() => {
+            const token = localStorage.getItem('pasebi-auth-token');
+            fetch('/api/admin/health', { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => r.json()).then(setHealth).catch(() => {});
+          }, []);
+          if (!health) return null;
+          return (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <h2 className="font-semibold text-sm text-slate-900 mb-3">სერვერი</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div><span className="text-slate-400">Uptime</span><p className="font-semibold text-slate-700">{Math.floor(health.uptime / 3600)}სთ {Math.floor((health.uptime % 3600) / 60)}წთ</p></div>
+                <div><span className="text-slate-400">RAM</span><p className="font-semibold text-slate-700">{Math.round(health.memory?.rss / 1024 / 1024)}MB</p></div>
+                <div><span className="text-slate-400">DB ზომა</span><p className="font-semibold text-slate-700">{health.dbSizeMB}MB</p></div>
+                <div><span className="text-slate-400">Node</span><p className="font-semibold text-slate-700">{health.nodeVersion}</p></div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Product Search + Delete */}
+        {(() => {
+          const [searchQ, setSearchQ] = useState('');
+          const [results, setResults] = useState<any[]>([]);
+          const searchProducts = () => {
+            if (!searchQ.trim()) return;
+            const token = localStorage.getItem('pasebi-auth-token');
+            fetch(`/api/admin/products?q=${encodeURIComponent(searchQ)}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => r.json()).then(d => setResults(d.products || [])).catch(() => {});
+          };
+          const deleteProduct = (id: number) => {
+            if (!confirm('წაშალო პროდუქტი?')) return;
+            const token = localStorage.getItem('pasebi-auth-token');
+            fetch(`/api/admin/product/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+              .then(() => setResults(r => r.filter(p => p.id !== id)));
+          };
+          return (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <h2 className="font-semibold text-sm text-slate-900 mb-3">პროდუქტის ძიება</h2>
+              <div className="flex gap-2 mb-3">
+                <input value={searchQ} onChange={e => setSearchQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchProducts()}
+                  placeholder="სახელი ან ბარკოდი" className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                <button onClick={searchProducts} className="px-4 py-2 bg-[#108AB1] text-white rounded-lg text-sm font-semibold">ძიება</button>
+              </div>
+              {results.length > 0 && (
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {results.map((p: any) => (
+                    <div key={p.id} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-slate-800 truncate">{p.name}</p>
+                        <p className="text-[10px] text-slate-400">{p.category} · {p.source} · {p.barcode || 'no barcode'}</p>
+                      </div>
+                      <button onClick={() => deleteProduct(p.id)} className="text-red-400 hover:text-red-600 p-1 shrink-0">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Error Log */}
+        {(() => {
+          const [errors, setErrors] = useState<any[]>([]);
+          useEffect(() => {
+            const token = localStorage.getItem('pasebi-auth-token');
+            fetch('/api/admin/errors', { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => r.json()).then(d => setErrors(d.errors || [])).catch(() => {});
+          }, []);
+          if (errors.length === 0) return null;
+          return (
+            <div className="bg-white rounded-xl border border-red-100 p-4">
+              <h2 className="font-semibold text-sm text-red-600 mb-3">შეცდომები ({errors.length})</h2>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {errors.map((e: any, i: number) => (
+                  <div key={i} className="px-3 py-2 bg-red-50 rounded-lg">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-semibold text-red-700">{e.store}</span>
+                      <span className="text-[10px] text-red-400">{e.started_at ? new Date(e.started_at + 'Z').toLocaleString('ka-GE') : ''}</span>
+                    </div>
+                    <p className="text-[11px] text-red-600 mt-0.5 line-clamp-2">{e.error_message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
