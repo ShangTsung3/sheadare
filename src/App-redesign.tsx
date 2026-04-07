@@ -1384,55 +1384,74 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
   useEffect(() => {
     if (!scanning) return;
     let mounted = true;
-    let detected = false;
 
     const startScanner = async () => {
-      const Quagga = (await import('@ericblade/quagga2')).default;
-      if (!mounted) return;
+      const el = document.getElementById('barcode-reader');
+      if (!el || !mounted) return;
 
-      const target = document.getElementById('barcode-reader');
-      if (!target) return;
+      // Try Html5Qrcode first (better on mobile)
+      try {
+        const scanner = new Html5Qrcode('barcode-reader', {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128,
+          ],
+          verbose: false,
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        } as any);
+        scannerRef.current = scanner as any;
 
-      const config = {
-        inputStream: {
-          name: 'Live',
-          type: 'LiveStream' as const,
-          target,
-          constraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-          area: { top: '20%', right: '10%', left: '10%', bottom: '20%' },
-        },
-        decoder: {
-          readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'] as any,
-          multiple: false,
-        },
-        locator: { patchSize: 'medium' as const, halfSample: true },
-        locate: true,
-        frequency: 20,
-      };
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 280, height: 150 } },
+          (decodedText) => {
+            if (!mounted || lookingUp.current) return;
+            if (decodedText && decodedText.length >= 8) {
+              setScanning(false);
+              lookupBarcode(decodedText);
+            }
+          },
+          () => {},
+        );
+        return; // Html5Qrcode started successfully
+      } catch (e) {
+        console.log('[Scanner] Html5Qrcode failed, trying Quagga2...', e);
+      }
 
-      Quagga.init(config, (err: Error | null) => {
-        if (err || !mounted) {
-          // Try user camera
-          Quagga.init({ ...config, inputStream: { ...config.inputStream, constraints: { ...config.inputStream.constraints, facingMode: 'user' } } }, (err2: Error | null) => {
-            if (err2 || !mounted) { if (mounted) setError(t('barcode_camera_error')); return; }
-            Quagga.start();
-            scannerRef.current = Quagga as any;
-          });
-          return;
-        }
-        Quagga.start();
-        scannerRef.current = Quagga as any;
-      });
+      // Fallback: Quagga2
+      try {
+        const Quagga = (await import('@ericblade/quagga2')).default;
+        if (!mounted) return;
+        let detected = false;
 
-      Quagga.onDetected((result: any) => {
-        if (detected || !mounted) return;
-        const code = result?.codeResult?.code;
-        if (!code || code.length < 8) return;
-        detected = true;
-        try { Quagga.stop(); } catch(_e) {}
-        setScanning(false);
-        lookupBarcode(code);
-      });
+        Quagga.init({
+          inputStream: {
+            name: 'Live', type: 'LiveStream' as const, target: el,
+            constraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+            area: { top: '20%', right: '10%', left: '10%', bottom: '20%' },
+          },
+          decoder: { readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'] as any, multiple: false },
+          locator: { patchSize: 'medium' as const, halfSample: true },
+          locate: true, frequency: 20,
+        }, (err: Error | null) => {
+          if (err || !mounted) { if (mounted) setError(t('barcode_camera_error')); return; }
+          Quagga.start();
+          scannerRef.current = Quagga as any;
+        });
+
+        Quagga.onDetected((result: any) => {
+          if (detected || !mounted) return;
+          const code = result?.codeResult?.code;
+          if (!code || code.length < 8) return;
+          detected = true;
+          try { Quagga.stop(); } catch(_e) {}
+          setScanning(false);
+          lookupBarcode(code);
+        });
+      } catch (e2) {
+        if (mounted) setError(t('barcode_camera_error'));
+      }
     };
 
     startScanner();
