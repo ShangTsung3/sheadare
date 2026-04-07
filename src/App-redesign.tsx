@@ -3966,6 +3966,7 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState<'overview' | 'scrapers' | 'products' | 'users' | 'analytics'>('overview');
 
   useEffect(() => {
     const token = localStorage.getItem('pasebi-auth-token');
@@ -3978,19 +3979,17 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-      <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-8 h-8 border-2 border-[#108AB1] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
   if (error) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
       <p className="text-red-500 font-medium">{error}</p>
-      <button onClick={() => setScreen('profile')} className="text-blue-500 text-sm">← უკან</button>
+      <button onClick={() => setScreen('profile')} className="text-[#108AB1] text-sm">← უკან</button>
     </div>
   );
-
-  const [tab, setTab] = useState<'overview' | 'scrapers' | 'products' | 'users' | 'analytics'>('overview');
 
   const tabs = [
     { id: 'overview' as const, label: 'მიმოხილვა' },
