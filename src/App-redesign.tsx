@@ -1345,7 +1345,8 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
 
   const stopScanner = useCallback(() => {
     if (scannerRef.current) {
-      try { (scannerRef.current as any).stop(); } catch(_e) { /* */ }
+      try { scannerRef.current.stop().catch(() => {}); } catch(_e) { /* */ }
+      try { scannerRef.current.clear(); } catch(_e) { /* */ }
       scannerRef.current = null;
     }
   }, []);
@@ -1389,22 +1390,26 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
       const el = document.getElementById('barcode-reader');
       if (!el || !mounted) return;
 
-      // Try Html5Qrcode first (better on mobile)
-      try {
-        const scanner = new Html5Qrcode('barcode-reader', {
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_128,
-          ],
-          verbose: false,
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-        } as any);
-        scannerRef.current = scanner as any;
+      const scanner = new Html5Qrcode('barcode-reader', {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+        ],
+        verbose: false,
+      });
+      scannerRef.current = scanner;
 
+      try {
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 280, height: 150 } },
+          {
+            fps: 15,
+            qrbox: (vw, vh) => ({ width: Math.floor(Math.min(vw, vh) * 0.8), height: Math.floor(Math.min(vw, vh) * 0.4) }),
+            aspectRatio: 1.0,
+          },
           (decodedText) => {
             if (!mounted || lookingUp.current) return;
             if (decodedText && decodedText.length >= 8) {
@@ -1414,43 +1419,23 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
           },
           () => {},
         );
-        return; // Html5Qrcode started successfully
-      } catch (e) {
-        console.log('[Scanner] Html5Qrcode failed, trying Quagga2...', e);
-      }
-
-      // Fallback: Quagga2
-      try {
-        const Quagga = (await import('@ericblade/quagga2')).default;
-        if (!mounted) return;
-        let detected = false;
-
-        Quagga.init({
-          inputStream: {
-            name: 'Live', type: 'LiveStream' as const, target: el,
-            constraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-            area: { top: '20%', right: '10%', left: '10%', bottom: '20%' },
-          },
-          decoder: { readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'] as any, multiple: false },
-          locator: { patchSize: 'medium' as const, halfSample: true },
-          locate: true, frequency: 20,
-        }, (err: Error | null) => {
-          if (err || !mounted) { if (mounted) setError(t('barcode_camera_error')); return; }
-          Quagga.start();
-          scannerRef.current = Quagga as any;
-        });
-
-        Quagga.onDetected((result: any) => {
-          if (detected || !mounted) return;
-          const code = result?.codeResult?.code;
-          if (!code || code.length < 8) return;
-          detected = true;
-          try { Quagga.stop(); } catch(_e) {}
-          setScanning(false);
-          lookupBarcode(code);
-        });
-      } catch (e2) {
-        if (mounted) setError(t('barcode_camera_error'));
+      } catch (err) {
+        try {
+          await scanner.start(
+            { facingMode: 'user' },
+            { fps: 15, qrbox: (vw, vh) => ({ width: Math.floor(Math.min(vw, vh) * 0.8), height: Math.floor(Math.min(vw, vh) * 0.4) }) },
+            (decodedText) => {
+              if (!mounted || lookingUp.current) return;
+              if (decodedText && decodedText.length >= 8) {
+                setScanning(false);
+                lookupBarcode(decodedText);
+              }
+            },
+            () => {},
+          );
+        } catch(_e) {
+          if (mounted) setError(t('barcode_camera_error'));
+        }
       }
     };
 
@@ -1506,7 +1491,6 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
       <div className="rounded-2xl overflow-hidden bg-black relative" style={{ minHeight: 300 }}>
         <div id="barcode-reader" className="w-full" />
 
-        {/* Scanning overlay */}
         {scanning && !error && !scanSuccess && (
           <>
             <div className="absolute inset-0 pointer-events-none border-2 border-white/20 rounded-2xl" />
@@ -1544,19 +1528,17 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
         #barcode-reader__dashboard { display: none !important; }
       `}</style>
 
-      {/* Camera capture — works on all phones */}
-      <div className="mt-3">
+      <div className="mt-3 flex gap-3">
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full flex items-center justify-center gap-2 py-4 bg-[#108AB1] text-white rounded-xl font-bold text-base active:scale-[0.98] transition-transform touch-manipulation"
+          className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm"
         >
-          <Camera size={20} />
-          გადაიღე ბარკოდის ფოტო
+          <Camera size={18} />
+          {t('barcode_upload')}
         </button>
       </div>
 
-      {/* Manual barcode input */}
       <div className="mt-4">
         <div className="flex gap-2">
           <input
