@@ -1,5 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { getDb } from '../db/connection.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const router = Router();
 
@@ -282,10 +287,8 @@ router.get('/top-searches', (req: Request, res: Response) => {
 router.get('/banners', (req: Request, res: Response) => {
   const user = requireAdmin(req, res);
   if (!user) return;
-  const fs = require('fs');
-  const path = require('path');
-  const bannerDir = path.resolve(__dirname, '../../dist/banners');
   try {
+    const bannerDir = path.resolve(__dirname, '../../dist/banners');
     const files = fs.existsSync(bannerDir) ? fs.readdirSync(bannerDir) : [];
     res.json({ banners: files.map((f: string) => ({ filename: f, url: `/banners/${f}` })) });
   } catch { res.json({ banners: [] }); }
