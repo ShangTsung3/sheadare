@@ -33,6 +33,9 @@ import {
   Shield,
   FileText,
   Trash2,
+  Check,
+  Upload,
+  Pencil,
 } from 'lucide-react';
 import { motion, AnimatePresence, type PanInfo } from 'motion/react';
 import QRCode from 'qrcode';
@@ -3561,11 +3564,23 @@ const AdminUserManager = () => {
                     <td className="px-4 py-2"><span className={`inline-block w-2 h-2 rounded-full ${u.email_verified ? 'bg-green-500' : 'bg-slate-300'}`} /></td>
                     <td className="px-4 py-2 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
                     <td className="px-4 py-2">
-                      {u.email !== 'dzikiii.j@gmail.com' && (
-                        <button onClick={() => deleteUser(u.id, u.email)} className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="წაშლა">
-                          <X size={14} />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {!u.email_verified && (
+                          <button onClick={() => {
+                            const token = localStorage.getItem('pasebi-auth-token');
+                            if (!token) return;
+                            fetch(`/api/admin/user/${u.id}/verify`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+                              .then(r => r.json()).then(d => { if (d.success) setUsers(prev => prev.map(x => x.id === u.id ? { ...x, email_verified: 1 } : x)); });
+                          }} className="p-1 rounded hover:bg-green-50 text-green-400 hover:text-green-600 transition-colors" title="ვერიფიკაცია">
+                            <Check size={14} />
+                          </button>
+                        )}
+                        {u.email !== 'dzikiii.j@gmail.com' && (
+                          <button onClick={() => deleteUser(u.id, u.email)} className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="წაშლა">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -3590,23 +3605,65 @@ const AdminUserManager = () => {
 
 const AdminBanners = () => {
   const [banners, setBanners] = useState<any[]>([]);
-  useEffect(() => {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fetchBanners = () => {
     const token = localStorage.getItem('pasebi-auth-token');
     if (token) fetch('/api/admin/banners', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setBanners(d.banners || [])).catch(() => {});
-  }, []);
-  if (banners.length === 0) return null;
+  };
+  useEffect(() => { fetchBanners(); }, []);
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      const token = localStorage.getItem('pasebi-auth-token');
+      if (!token) { setUploading(false); return; }
+      fetch('/api/admin/banner/upload', {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, data: base64 })
+      }).then(r => r.json()).then(d => {
+        if (d.success) fetchBanners();
+        else alert(d.error || 'Error');
+      }).catch(() => {}).finally(() => { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; });
+    };
+    reader.readAsDataURL(file);
+  };
+  const deleteBanner = (filename: string) => {
+    if (!confirm(`წაშალოთ ${filename}?`)) return;
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (!token) return;
+    fetch(`/api/admin/banner/${encodeURIComponent(filename)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { if (d.success) setBanners(prev => prev.filter(b => b.filename !== filename)); });
+  };
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
-      <h2 className="font-semibold text-sm text-slate-900 dark:text-white mb-3">ბანერები ({banners.length})</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {banners.map((b: any) => (
-          <div key={b.filename} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <img src={b.url} alt={b.filename} className="w-full h-24 object-cover" />
-            <p className="text-[10px] text-slate-400 px-2 py-1 truncate">{b.filename}</p>
-          </div>
-        ))}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold text-sm text-slate-900 dark:text-white">ბანერები ({banners.length})</h2>
+        <label className={`flex items-center gap-1.5 px-3 py-1.5 bg-[#108AB1] text-white rounded-lg text-xs font-semibold cursor-pointer hover:bg-[#0d7a9e] transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+          <Upload size={14} />
+          {uploading ? '...' : 'ატვირთვა'}
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+        </label>
       </div>
+      {banners.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {banners.map((b: any) => (
+            <div key={b.filename} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden relative group">
+              <img src={b.url} alt={b.filename} className="w-full h-24 object-cover" />
+              <div className="flex items-center justify-between px-2 py-1">
+                <p className="text-[10px] text-slate-400 truncate flex-1">{b.filename}</p>
+                <button onClick={() => deleteBanner(b.filename)} className="p-0.5 rounded text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="წაშლა">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -3635,6 +3692,8 @@ const AdminHealth = () => {
 const AdminProductSearch = () => {
   const [searchQ, setSearchQ] = useState('');
   const [results, setResults] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', category: '', barcode: '' });
   const searchProducts = () => {
     if (!searchQ.trim()) return;
     const token = localStorage.getItem('pasebi-auth-token');
@@ -3647,6 +3706,23 @@ const AdminProductSearch = () => {
     if (token) fetch(`/api/admin/product/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       .then(() => setResults(r => r.filter(p => p.id !== id)));
   };
+  const startEdit = (p: any) => {
+    setEditingId(p.id);
+    setEditForm({ name: p.name || '', category: p.category || '', barcode: p.barcode || '' });
+  };
+  const saveEdit = (id: number) => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (!token) return;
+    fetch(`/api/admin/product/${id}`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm)
+    }).then(r => r.json()).then(d => {
+      if (d.success) {
+        setResults(prev => prev.map(p => p.id === id ? { ...p, ...editForm } : p));
+        setEditingId(null);
+      } else alert(d.error || 'Error');
+    });
+  };
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <h2 className="font-semibold text-sm text-slate-900 mb-3">პროდუქტის ძიება</h2>
@@ -3656,16 +3732,40 @@ const AdminProductSearch = () => {
         <button onClick={searchProducts} className="px-4 py-2 bg-[#108AB1] text-white rounded-lg text-sm font-semibold">ძიება</button>
       </div>
       {results.length > 0 && (
-        <div className="space-y-1 max-h-60 overflow-y-auto">
+        <div className="space-y-1 max-h-80 overflow-y-auto">
           {results.map((p: any) => (
-            <div key={p.id} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-slate-800 truncate">{p.name}</p>
-                <p className="text-[10px] text-slate-400">{p.category} · {p.source} · {p.barcode || 'no barcode'}</p>
-              </div>
-              <button onClick={() => deleteProduct(p.id)} className="text-red-400 hover:text-red-600 p-1 shrink-0">
-                <X size={14} />
-              </button>
+            <div key={p.id} className="px-3 py-2 bg-slate-50 rounded-lg">
+              {editingId === p.id ? (
+                <div className="space-y-2">
+                  <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="სახელი" className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs" />
+                  <div className="flex gap-2">
+                    <input value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                      placeholder="კატეგორია" className="flex-1 px-2 py-1 bg-white border border-slate-200 rounded text-xs" />
+                    <input value={editForm.barcode} onChange={e => setEditForm(f => ({ ...f, barcode: e.target.value }))}
+                      placeholder="ბარკოდი" className="flex-1 px-2 py-1 bg-white border border-slate-200 rounded text-xs" />
+                  </div>
+                  <div className="flex gap-1 justify-end">
+                    <button onClick={() => setEditingId(null)} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700">გაუქმება</button>
+                    <button onClick={() => saveEdit(p.id)} className="px-3 py-1 bg-green-500 text-white rounded text-xs font-semibold hover:bg-green-600">შენახვა</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-slate-800 truncate">{p.name}</p>
+                    <p className="text-[10px] text-slate-400">{p.category} · {p.source} · {p.barcode || 'no barcode'}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => startEdit(p)} className="text-slate-400 hover:text-blue-600 p-1" title="რედაქტირება">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => deleteProduct(p.id)} className="text-red-400 hover:text-red-600 p-1">
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -3730,6 +3830,59 @@ const AdminAnalysis = ({ stats }: { stats: any }) => {
         >
           {running ? '...' : 'გაშვება'}
         </button>
+      </div>
+    </div>
+  );
+};
+
+const AdminAlerts = () => {
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (token) fetch('/api/admin/alerts', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setAlerts(d.alerts || [])).catch(() => {})
+      .finally(() => setLoading(false));
+    else setLoading(false);
+  }, []);
+  const deleteAlert = (id: number) => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (!token) return;
+    fetch(`/api/admin/alert/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { if (d.success) setAlerts(prev => prev.filter(a => a.id !== id)); });
+  };
+  if (loading) return <div className="p-4 text-center text-xs text-slate-400">იტვირთება...</div>;
+  if (alerts.length === 0) return null;
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+        <h2 className="font-semibold text-sm text-slate-900 dark:text-white">შეტყობინებები ({alerts.length})</h2>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
+            <th className="px-4 py-2">პროდუქტი</th><th className="px-4 py-2">მომხმარებელი</th><th className="px-4 py-2">სამიზნე ფასი</th><th className="px-4 py-2">სტატუსი</th><th className="px-4 py-2"></th>
+          </tr></thead>
+          <tbody>
+            {alerts.map((a: any) => (
+              <tr key={a.id} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
+                <td className="px-4 py-2 text-xs font-medium text-slate-800 dark:text-white truncate max-w-[180px]">{a.product_name || `#${a.product_id}`}</td>
+                <td className="px-4 py-2 text-xs text-slate-500">{a.email || `user#${a.user_id}`}</td>
+                <td className="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{a.target_price != null ? `${a.target_price} GEL` : '—'}</td>
+                <td className="px-4 py-2">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${a.triggered_at ? 'bg-green-100 text-green-700' : a.active ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {a.triggered_at ? 'triggered' : a.active ? 'active' : 'inactive'}
+                  </span>
+                </td>
+                <td className="px-4 py-2">
+                  <button onClick={() => deleteAlert(a.id)} className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="წაშლა">
+                    <X size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -3934,6 +4087,9 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
 
         {/* Product Search + Delete */}
         <AdminProductSearch />
+
+        {/* Alerts */}
+        <AdminAlerts />
 
         {/* Error Log */}
         <AdminErrors />

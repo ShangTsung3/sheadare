@@ -294,4 +294,81 @@ router.get('/banners', (req: Request, res: Response) => {
   } catch { res.json({ banners: [] }); }
 });
 
+// === Verify user manually ===
+router.post('/user/:id/verify', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const db = getDb();
+  db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(Number(req.params.id));
+  res.json({ success: true });
+});
+
+// === Get all alerts ===
+router.get('/alerts', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const db = getDb();
+  const alerts = db.prepare(`
+    SELECT a.*, u.email, p.name as product_name
+    FROM alerts a
+    LEFT JOIN users u ON u.id = a.user_id
+    LEFT JOIN products p ON p.id = a.product_id
+    ORDER BY a.created_at DESC LIMIT 50
+  `).all();
+  res.json({ alerts });
+});
+
+// === Delete alert ===
+router.delete('/alert/:id', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const db = getDb();
+  db.prepare('DELETE FROM alerts WHERE id = ?').run(Number(req.params.id));
+  res.json({ success: true });
+});
+
+// === Update product price ===
+router.put('/offer/:productId/:store', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const { price } = req.body;
+  const db = getDb();
+  db.prepare('UPDATE store_offers SET price = ? WHERE product_id = ? AND store = ?')
+    .run(Number(price), Number(req.params.productId), req.params.store);
+  res.json({ success: true });
+});
+
+// === Upload banner (base64) ===
+router.post('/banner/upload', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const { filename, data } = req.body; // data = base64
+  if (!filename || !data) { res.status(400).json({ error: 'filename and data required' }); return; }
+  try {
+    const buffer = Buffer.from(data, 'base64');
+    const bannerDir = path.resolve(__dirname, '../../dist/banners');
+    if (!fs.existsSync(bannerDir)) fs.mkdirSync(bannerDir, { recursive: true });
+    fs.writeFileSync(path.join(bannerDir, filename), buffer);
+    // Also save to public/banners
+    const publicDir = path.resolve(__dirname, '../../public/banners');
+    if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+    fs.writeFileSync(path.join(publicDir, filename), buffer);
+    res.json({ success: true, url: `/banners/${filename}` });
+  } catch (err: any) { res.status(500).json({ error: err?.message }); }
+});
+
+// === Delete banner ===
+router.delete('/banner/:filename', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  try {
+    const f = req.params.filename;
+    const distPath = path.resolve(__dirname, '../../dist/banners', f);
+    const pubPath = path.resolve(__dirname, '../../public/banners', f);
+    if (fs.existsSync(distPath)) fs.unlinkSync(distPath);
+    if (fs.existsSync(pubPath)) fs.unlinkSync(pubPath);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err?.message }); }
+});
+
 export default router;
