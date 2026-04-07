@@ -122,6 +122,24 @@ export function initDb(): void {
   try { db.exec('ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT \'local\''); } catch {}
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 
+  // Analytics tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS search_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      query TEXT NOT NULL,
+      results_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS product_views (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_search_log_date ON search_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_product_views_date ON product_views(created_at);
+    CREATE INDEX IF NOT EXISTS idx_product_views_product ON product_views(product_id);
+  `);
+
   // Analysis cache table
   db.exec(`
     CREATE TABLE IF NOT EXISTS analysis_cache (

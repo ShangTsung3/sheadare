@@ -3835,6 +3835,80 @@ const AdminAnalysis = ({ stats }: { stats: any }) => {
   );
 };
 
+const AdminAnalytics = () => {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (token) fetch('/api/admin/analytics', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(setData).catch(() => {});
+  }, []);
+  if (!data) return null;
+  const maxSearch = Math.max(...(data.searchesPerDay || []).map((d: any) => d.count), 1);
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-400">ძიებები დღეს</p>
+          <p className="text-2xl font-bold text-[#108AB1]">{data.searchesToday}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-400">ნახვები დღეს</p>
+          <p className="text-2xl font-bold text-violet-500">{data.viewsToday}</p>
+        </div>
+      </div>
+      {data.searchesPerDay?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <h2 className="font-semibold text-sm text-slate-900 mb-3">ძიებები / დღეში</h2>
+          <div className="flex items-end gap-1 h-24">
+            {data.searchesPerDay.map((d: any, i: number) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                <div className="w-full bg-[#108AB1] rounded-t-sm" style={{ height: `${Math.max(4, (d.count / maxSearch) * 80)}px` }} />
+                <span className="text-[8px] text-slate-400">{d.date?.slice(5)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {data.topSearches?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <h2 className="font-semibold text-sm text-slate-900 mb-3">ტოპ ძიებები (7 დღე)</h2>
+          <div className="space-y-1.5">{data.topSearches.slice(0, 10).map((s: any, i: number) => (
+            <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-slate-50 rounded-lg">
+              <span className="text-xs font-medium text-slate-700">{s.query}</span>
+              <span className="text-xs text-slate-400">{s.count}x</span>
+            </div>
+          ))}</div>
+        </div>
+      )}
+      {data.popularProducts?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <h2 className="font-semibold text-sm text-slate-900 mb-3">პოპულარული პროდუქტები (7 დღე)</h2>
+          <div className="space-y-1.5">{data.popularProducts.slice(0, 10).map((p: any, i: number) => (
+            <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-slate-50 rounded-lg">
+              <span className="text-xs font-medium text-slate-700 truncate flex-1">{p.name}</span>
+              <span className="text-xs text-slate-400 shrink-0 ml-2">{p.views} ნახვა</span>
+            </div>
+          ))}</div>
+        </div>
+      )}
+      {data.userGrowth?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <h2 className="font-semibold text-sm text-slate-900 mb-3">მომხმარებლების ზრდა (30 დღე)</h2>
+          <div className="space-y-1">{data.userGrowth.map((d: any, i: number) => (
+            <div key={i} className="flex items-center gap-3">
+              <span className="text-[10px] text-slate-400 w-16">{d.date?.slice(5)}</span>
+              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, d.count * 20)}%` }} />
+              </div>
+              <span className="text-[10px] font-semibold text-slate-600 w-6 text-right">{d.count}</span>
+            </div>
+          ))}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AdminAlerts = () => {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -4089,6 +4163,9 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
         <AdminProductSearch />
 
         {/* Alerts */}
+        {/* Analytics */}
+        <AdminAnalytics />
+
         <AdminAlerts />
 
         {/* Error Log */}

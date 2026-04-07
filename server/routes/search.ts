@@ -54,6 +54,10 @@ router.get('/', (req: Request, res: Response) => {
   const storeType = req.query.storeType ? String(req.query.storeType) : undefined;
   const sort = req.query.sort ? String(req.query.sort) : undefined;
   const { results, total } = searchProducts(q, category, page, limit, allStores, storeType, sort);
+  // Track search
+  if (q && page === 1) {
+    try { const db = getDb(); db.prepare('INSERT INTO search_log (query, results_count) VALUES (?, ?)').run(q, total); } catch {}
+  }
   res.json({ results, total, page, limit });
 });
 

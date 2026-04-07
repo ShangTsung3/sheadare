@@ -371,4 +371,49 @@ router.delete('/banner/:filename', (req: Request, res: Response) => {
   } catch (err: any) { res.status(500).json({ error: err?.message }); }
 });
 
+// === Analytics ===
+router.get('/analytics', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const db = getDb();
+
+  // Users growth (last 30 days)
+  const userGrowth = db.prepare(`
+    SELECT DATE(created_at) as date, COUNT(*) as count
+    FROM users WHERE email IS NOT NULL AND created_at >= datetime('now', '-30 days')
+    GROUP BY DATE(created_at) ORDER BY date
+  `).all();
+
+  // Searches per day (last 14 days)
+  const searchesPerDay = db.prepare(`
+    SELECT DATE(created_at) as date, COUNT(*) as count
+    FROM search_log WHERE created_at >= datetime('now', '-14 days')
+    GROUP BY DATE(created_at) ORDER BY date
+  `).all();
+
+  // Top searches (last 7 days)
+  const topSearches = db.prepare(`
+    SELECT query, COUNT(*) as count, AVG(results_count) as avg_results
+    FROM search_log WHERE created_at >= datetime('now', '-7 days')
+    GROUP BY LOWER(query) ORDER BY count DESC LIMIT 20
+  `).all();
+
+  // Popular products (most viewed, last 7 days)
+  const popularProducts = db.prepare(`
+    SELECT pv.product_id, p.name, COUNT(*) as views
+    FROM product_views pv
+    JOIN products p ON p.id = pv.product_id
+    WHERE pv.created_at >= datetime('now', '-7 days')
+    GROUP BY pv.product_id ORDER BY views DESC LIMIT 20
+  `).all();
+
+  // Total searches today
+  const searchesToday = (db.prepare("SELECT COUNT(*) as c FROM search_log WHERE created_at >= date('now')").get() as any)?.c || 0;
+
+  // Total views today
+  const viewsToday = (db.prepare("SELECT COUNT(*) as c FROM product_views WHERE created_at >= date('now')").get() as any)?.c || 0;
+
+  res.json({ userGrowth, searchesPerDay, topSearches, popularProducts, searchesToday, viewsToday });
+});
+
 export default router;

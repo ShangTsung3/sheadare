@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { compareProduct } from '../services/price-service.js';
+import { getDb } from '../db/connection.js';
 
 const router = Router();
 
@@ -15,6 +16,9 @@ router.get('/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Product not found' });
     return;
   }
+
+  // Track view
+  try { const db = getDb(); db.prepare('INSERT INTO product_views (product_id) VALUES (?)').run(id); } catch {}
 
   res.json(result);
 });
