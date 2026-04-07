@@ -124,6 +124,21 @@ router.post('/scraper/run/:store', async (req: Request, res: Response) => {
   }
 });
 
+// === Run analysis ===
+router.post('/run-analysis', async (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  try {
+    const { exec } = await import('child_process');
+    exec('cd /opt/pasebi && npx tsx server/jobs/pre-analyze.ts &', (err) => {
+      if (err) console.error('[Admin] Analysis start error:', err.message);
+    });
+    res.json({ success: true, message: 'Analysis started' });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message });
+  }
+});
+
 // === Error logs ===
 router.get('/errors', (req: Request, res: Response) => {
   const user = requireAdmin(req, res);

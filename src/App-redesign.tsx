@@ -3568,6 +3568,41 @@ const AdminErrors = () => {
   );
 };
 
+const AdminAnalysis = ({ stats }: { stats: any }) => {
+  const [running, setRunning] = useState(false);
+
+  const runAnalysis = () => {
+    setRunning(true);
+    const token = localStorage.getItem('pasebi-auth-token');
+    fetch('/api/admin/run-analysis', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => alert(d.message || d.error))
+      .catch(e => alert(e.message))
+      .finally(() => setRunning(false));
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <h2 className="font-semibold text-sm text-slate-900 mb-3">ანალიზი</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-slate-500">გაანალიზებული: {stats?.overview?.analysisCache || 0} / {stats?.overview?.totalProducts || 0}</p>
+          <div className="w-48 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
+            <div className="h-full bg-[#108AB1] rounded-full" style={{ width: `${stats?.overview?.analysisProgress || 0}%` }} />
+          </div>
+        </div>
+        <button
+          onClick={runAnalysis}
+          disabled={running}
+          className="px-4 py-2 bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all"
+        >
+          {running ? '...' : 'გაშვება'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -3691,7 +3726,7 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
-                  <th className="px-4 py-2">ელფოსტა</th><th className="px-4 py-2">სახელი</th><th className="px-4 py-2">ვერიფ.</th><th className="px-4 py-2">თარიღი</th>
+                  <th className="px-4 py-2">ელფოსტა</th><th className="px-4 py-2">სახელი</th><th className="px-4 py-2">ვერიფ.</th><th className="px-4 py-2">თარიღი</th><th className="px-4 py-2"></th>
                 </tr></thead>
                 <tbody>
                   {stats.recentUsers.map((u: any, i: number) => (
@@ -3702,6 +3737,26 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
                         <span className={`inline-block w-2 h-2 rounded-full ${u.email_verified ? 'bg-green-500' : 'bg-slate-300'}`} />
                       </td>
                       <td className="px-4 py-2 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
+                      <td className="px-4 py-2">
+                        {u.email !== 'dzikiii.j@gmail.com' && (
+                          <button
+                            onClick={() => {
+                              if (!confirm(`წაშალოთ ${u.email}?`)) return;
+                              const token = localStorage.getItem('pasebi-auth-token');
+                              fetch(`/api/admin/user/${u.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+                                .then(r => r.json())
+                                .then(d => {
+                                  if (d.success) setStats((prev: any) => ({ ...prev, recentUsers: prev.recentUsers.filter((x: any) => x.id !== u.id) }));
+                                  else alert(d.error || 'შეცდომა');
+                                });
+                            }}
+                            className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                            title="წაშლა"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -3729,6 +3784,9 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
             ))}
           </div>
         </div>
+
+        {/* Analysis Control */}
+        <AdminAnalysis stats={stats} />
 
         {/* Server Health */}
         <AdminHealth />
