@@ -1475,7 +1475,7 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
   };
 
   return (
-    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+    <div className="pb-24 lg:pb-8 pt-4 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => { stopScanner(); setScreen('home'); }} className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
           <ArrowLeft size={20} className="text-slate-700" />
@@ -1668,7 +1668,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
   };
 
   return (
-    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+    <div className="pb-24 lg:pb-8 pt-4 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
 
       {/* Confetti animation for big savings */}
@@ -2462,7 +2462,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
   };
 
   return (
-    <div className="pb-24 lg:pb-8 pt-14 lg:pt-3 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+    <div className="pb-24 lg:pb-8 pt-4 lg:pt-3 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
       <div className="lg:hidden"><Header title={t('profile_title')} /></div>
       <div className="lg:max-w-lg lg:mx-auto">
 
@@ -2775,7 +2775,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
   const activeStoreData = storeTotals.find(s => s.store === activeStore) || bestStore;
 
   return (
-    <div className="pb-24 lg:pb-8 pt-14 lg:pt-3 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen" style={{ overflow: 'visible' }}>
+    <div className="pb-24 lg:pb-8 pt-4 lg:pt-3 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen" style={{ overflow: 'visible' }}>
       <div className="lg:hidden">
         <Header title={t('basket_title')} />
       </div>
@@ -3050,7 +3050,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
 const AlertsScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void }) => {
   const { t } = useLanguage();
   return (
-  <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+  <div className="pb-24 lg:pb-8 pt-4 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
     <Header title={t('alerts_title')} showBack onBack={() => setScreen('profile')} alertCount={alertCount} onAlertTap={onAlertTap} />
     <div className="space-y-6">
       <section>
