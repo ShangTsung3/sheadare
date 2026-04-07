@@ -3990,186 +3990,137 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
     </div>
   );
 
+  const [tab, setTab] = useState<'overview' | 'scrapers' | 'products' | 'users' | 'analytics'>('overview');
+
+  const tabs = [
+    { id: 'overview' as const, label: 'მიმოხილვა' },
+    { id: 'scrapers' as const, label: 'სკრეიპერები' },
+    { id: 'products' as const, label: 'პროდუქტები' },
+    { id: 'users' as const, label: 'მომხმარებლები' },
+    { id: 'analytics' as const, label: 'ანალიტიკა' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24">
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800">
-        <div className="max-w-3xl mx-auto flex items-center gap-3 px-4 py-3">
-          <button onClick={() => setScreen('profile')} className="p-2 -ml-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            <ArrowLeft size={20} className="text-slate-700 dark:text-slate-300" />
-          </button>
-          <h1 className="text-lg font-bold text-slate-900 dark:text-white">Admin Panel</h1>
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        {/* Overview Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {[
-            { label: 'პროდუქტები', value: stats?.overview?.totalProducts ?? 0 },
-            { label: 'შეთავაზებები', value: stats?.overview?.totalOffers ?? 0 },
-            { label: 'მომხმარებლები', value: stats?.overview?.totalUsers ?? 0 },
-            { label: 'დღეს აქტიური', value: stats?.overview?.todayUsers ?? 0 },
-            { label: 'შეტყობინებები', value: `${stats?.overview?.activeAlerts ?? 0}/${stats?.overview?.triggeredAlerts ?? 0}` },
-            { label: 'ანალიზი', value: `${stats?.overview?.analysisProgress ?? 0}%` },
-          ].map((card, i) => (
-            <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
-              <p className="text-xs text-slate-400 mb-1">{card.label}</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{card.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Store Breakdown */}
-        {stats?.storeBreakdown && stats.storeBreakdown.length > 0 && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">მაღაზიები</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
-                  <th className="px-4 py-2">მაღაზია</th><th className="px-4 py-2">პროდუქტები</th><th className="px-4 py-2">შეთავაზებები</th>
-                </tr></thead>
-                <tbody>
-                  {stats.storeBreakdown.map((s: any, i: number) => (
-                    <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
-                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">{s.store}</td>
-                      <td className="px-4 py-2 text-slate-500">{s.products}</td>
-                      <td className="px-4 py-2 text-slate-500">{s.offers}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      {/* Header + Tabs */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-100">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex items-center gap-3 py-3">
+            <button onClick={() => setScreen('profile')} className="p-2 -ml-2 rounded-xl hover:bg-slate-100 transition-colors">
+              <ArrowLeft size={20} className="text-slate-700" />
+            </button>
+            <h1 className="text-lg font-bold text-slate-900">Admin Panel</h1>
           </div>
-        )}
-
-        {/* Recent Scraper Runs */}
-        {stats?.recentRuns && stats.recentRuns.length > 0 && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">ბოლო სკრეიპინგები</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
-                  <th className="px-4 py-2">მაღაზია</th><th className="px-4 py-2">სტატუსი</th><th className="px-4 py-2">ნაპოვნი</th><th className="px-4 py-2">განახლებული</th><th className="px-4 py-2">თარიღი</th>
-                </tr></thead>
-                <tbody>
-                  {stats.recentRuns.map((r: any, i: number) => (
-                    <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
-                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">{r.store}</td>
-                      <td className="px-4 py-2">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${r.status === 'completed' ? 'bg-green-100 text-green-700' : r.status === 'running' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                          {r.status === 'completed' ? '✓' : r.status === 'running' ? '⟳' : '✗'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-slate-500">{r.products_found || 0}</td>
-                      <td className="px-4 py-2 text-slate-500">{r.prices_updated || 0}</td>
-                      <td className="px-4 py-2 text-slate-400 text-xs">{r.started_at ? new Date(r.started_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Recent Users */}
-        {stats?.recentUsers && stats.recentUsers.length > 0 && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">ახალი მომხმარებლები</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
-                  <th className="px-4 py-2">ელფოსტა</th><th className="px-4 py-2">სახელი</th><th className="px-4 py-2">ვერიფ.</th><th className="px-4 py-2">თარიღი</th><th className="px-4 py-2"></th>
-                </tr></thead>
-                <tbody>
-                  {stats.recentUsers.map((u: any, i: number) => (
-                    <tr key={i} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
-                      <td className="px-4 py-2 font-medium text-slate-900 dark:text-white text-xs">{u.email}</td>
-                      <td className="px-4 py-2 text-slate-500">{u.name || '—'}</td>
-                      <td className="px-4 py-2">
-                        <span className={`inline-block w-2 h-2 rounded-full ${u.email_verified ? 'bg-green-500' : 'bg-slate-300'}`} />
-                      </td>
-                      <td className="px-4 py-2 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
-                      <td className="px-4 py-2">
-                        {u.email !== 'dzikiii.j@gmail.com' && (
-                          <button
-                            onClick={() => {
-                              if (!confirm(`წაშალოთ ${u.email}?`)) return;
-                              const token = localStorage.getItem('pasebi-auth-token');
-                              fetch(`/api/admin/user/${u.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-                                .then(r => r.json())
-                                .then(d => {
-                                  if (d.success) setStats((prev: any) => ({ ...prev, recentUsers: prev.recentUsers.filter((x: any) => x.id !== u.id) }));
-                                  else alert(d.error || 'შეცდომა');
-                                });
-                            }}
-                            className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
-                            title="წაშლა"
-                          >
-                            <X size={14} />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Scraper Controls */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <h2 className="font-semibold text-sm text-slate-900 mb-3">Scraper მართვა</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {['spar', 'nabiji', 'goodwill', 'europroduct'].map(store => (
-              <button key={store}
-                onClick={() => {
-                  const token = localStorage.getItem('pasebi-auth-token');
-                  fetch(`/api/admin/scraper/run/${store}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
-                    .then(r => r.json())
-                    .then(d => alert(d.message || d.error));
-                }}
-                className="px-3 py-2.5 bg-slate-50 hover:bg-[#108AB1] hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 border border-slate-200"
-              >
-                {store.toUpperCase()}
+          <div className="flex gap-1 pb-2 overflow-x-auto no-scrollbar">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${tab === t.id ? 'bg-[#108AB1] text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+                {t.label}
               </button>
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Scraper Toggle On/Off */}
-        <AdminScraperToggle />
+      <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
+        {/* Overview Tab */}
+        {tab === 'overview' && (
+          <>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {[
+                { label: 'პროდუქტები', value: stats?.overview?.totalProducts ?? 0 },
+                { label: 'ფასები', value: stats?.overview?.totalOffers ?? 0 },
+                { label: 'იუზერები', value: stats?.overview?.totalUsers ?? 0 },
+                { label: 'დღეს', value: stats?.overview?.todayUsers ?? 0 },
+                { label: 'ალერტები', value: `${stats?.overview?.activeAlerts ?? 0}/${stats?.overview?.triggeredAlerts ?? 0}` },
+                { label: 'ანალიზი', value: `${stats?.overview?.analysisProgress ?? 0}%` },
+              ].map((c, i) => (
+                <div key={i} className="bg-white rounded-xl border border-slate-100 p-3 text-center">
+                  <p className="text-[10px] text-slate-400">{c.label}</p>
+                  <p className="text-lg font-bold text-slate-900">{c.value}</p>
+                </div>
+              ))}
+            </div>
+            {stats?.storeBreakdown && (
+              <div className="bg-white rounded-xl border border-slate-100 p-4">
+                <h2 className="font-semibold text-sm text-slate-900 mb-2">მაღაზიები</h2>
+                <div className="grid grid-cols-5 gap-2">
+                  {stats.storeBreakdown.map((s: any, i: number) => (
+                    <div key={i} className="text-center bg-slate-50 rounded-lg p-2">
+                      <p className="text-xs font-semibold text-slate-700">{s.store}</p>
+                      <p className="text-sm font-bold text-[#108AB1]">{s.products}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <AdminHealth />
+            <AdminAnalysis stats={stats} />
+          </>
+        )}
 
-        {/* Analysis Control */}
-        <AdminAnalysis stats={stats} />
+        {/* Scrapers Tab */}
+        {tab === 'scrapers' && (
+          <>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <h2 className="font-semibold text-sm text-slate-900 mb-3">ხელით გაშვება</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {['spar', 'nabiji', 'goodwill', 'europroduct'].map(store => (
+                  <button key={store}
+                    onClick={() => {
+                      const token = localStorage.getItem('pasebi-auth-token');
+                      fetch(`/api/admin/scraper/run/${store}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+                        .then(r => r.json()).then(d => alert(d.message || d.error));
+                    }}
+                    className="px-3 py-2.5 bg-slate-50 hover:bg-[#108AB1] hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 border border-slate-200">
+                    {store.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <AdminScraperToggle />
+            {stats?.recentRuns && (
+              <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100"><h2 className="font-semibold text-sm">ბოლო runs</h2></div>
+                <div className="overflow-x-auto max-h-80">
+                  <table className="w-full text-xs">
+                    <thead><tr className="text-left text-slate-400 border-b border-slate-50">
+                      <th className="px-3 py-2">მაღაზია</th><th className="px-3 py-2">სტატუსი</th><th className="px-3 py-2">ნაპოვნი</th><th className="px-3 py-2">თარიღი</th>
+                    </tr></thead>
+                    <tbody>{stats.recentRuns.map((r: any, i: number) => (
+                      <tr key={i} className="border-b border-slate-50 last:border-0">
+                        <td className="px-3 py-1.5 font-medium">{r.store}</td>
+                        <td className="px-3 py-1.5"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${r.status === 'completed' ? 'bg-green-100 text-green-700' : r.status === 'running' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{r.status === 'completed' ? '✓' : r.status === 'running' ? '⟳' : '✗'}</span></td>
+                        <td className="px-3 py-1.5 text-slate-500">{r.products_found || 0}</td>
+                        <td className="px-3 py-1.5 text-slate-400">{r.started_at ? new Date(r.started_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <AdminErrors />
+          </>
+        )}
 
-        {/* Server Health */}
-        <AdminHealth />
+        {/* Products Tab */}
+        {tab === 'products' && (
+          <>
+            <AdminProductSearch />
+            <AdminBanners />
+          </>
+        )}
 
-        {/* Banner Management */}
-        <AdminBanners />
+        {/* Users Tab */}
+        {tab === 'users' && (
+          <>
+            <AdminUserManager />
+            <AdminAlerts />
+          </>
+        )}
 
-        {/* Full User Manager */}
-        <AdminUserManager />
-
-        {/* Product Search + Delete */}
-        <AdminProductSearch />
-
-        {/* Alerts */}
-        {/* Analytics */}
-        <AdminAnalytics />
-
-        <AdminAlerts />
-
-        {/* Error Log */}
-        <AdminErrors />
+        {/* Analytics Tab */}
+        {tab === 'analytics' && <AdminAnalytics />}
       </div>
     </div>
   );
