@@ -226,4 +226,69 @@ router.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Store scraper status in memory (persists until restart)
+const scraperStatus: Record<string, boolean> = {
+  spar: true, nabiji: true, goodwill: true, europroduct: true
+};
+
+router.get('/scraper/status', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  res.json({ status: scraperStatus });
+});
+
+router.post('/scraper/toggle/:store', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const store = req.params.store;
+  if (!(store in scraperStatus)) { res.status(400).json({ error: 'Invalid store' }); return; }
+  scraperStatus[store] = !scraperStatus[store];
+  res.json({ store, enabled: scraperStatus[store] });
+});
+
+// === Edit product ===
+router.put('/product/:id', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const { name, category, barcode } = req.body;
+  const db = getDb();
+  try {
+    db.prepare('UPDATE products SET name = COALESCE(?, name), category = COALESCE(?, category), barcode = COALESCE(?, barcode) WHERE id = ?')
+      .run(name || null, category || null, barcode || null, Number(req.params.id));
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err?.message }); }
+});
+
+// === Get all users with pagination ===
+router.get('/users', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const page = Number(req.query.page) || 1;
+  const limit = 20;
+  const db = getDb();
+  const users = db.prepare('SELECT id, email, name, email_verified, created_at, device_id FROM users WHERE email IS NOT NULL ORDER BY created_at DESC LIMIT ? OFFSET ?').all(limit, (page - 1) * limit);
+  const total = (db.prepare('SELECT COUNT(*) as c FROM users WHERE email IS NOT NULL').get() as any).c;
+  res.json({ users, total, page });
+});
+
+// === Top searches (placeholder) ===
+router.get('/top-searches', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  res.json({ searches: [] }); // TODO: implement search tracking
+});
+
+// === Banner management ===
+router.get('/banners', (req: Request, res: Response) => {
+  const user = requireAdmin(req, res);
+  if (!user) return;
+  const fs = require('fs');
+  const path = require('path');
+  const bannerDir = path.resolve(__dirname, '../../dist/banners');
+  try {
+    const files = fs.existsSync(bannerDir) ? fs.readdirSync(bannerDir) : [];
+    res.json({ banners: files.map((f: string) => ({ filename: f, url: `/banners/${f}` })) });
+  } catch { res.json({ banners: [] }); }
+});
+
 export default router;

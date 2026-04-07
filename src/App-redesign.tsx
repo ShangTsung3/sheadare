@@ -3479,6 +3479,138 @@ function processVoiceCommand(
   return null;
 }
 
+const AdminScraperToggle = () => {
+  const [status, setStatus] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (token) fetch('/api/admin/scraper/status', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setStatus(d.status || {})).catch(() => {}).finally(() => setLoading(false));
+    else setLoading(false);
+  }, []);
+  const toggle = (store: string) => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (!token) return;
+    fetch(`/api/admin/scraper/toggle/${store}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { if ('enabled' in d) setStatus(prev => ({ ...prev, [store]: d.enabled })); });
+  };
+  if (loading) return null;
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+      <h2 className="font-semibold text-sm text-slate-900 dark:text-white mb-3">Scraper On/Off</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {Object.entries(status).map(([store, enabled]) => (
+          <button key={store} onClick={() => toggle(store)}
+            className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold transition-all border ${enabled ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'}`}>
+            <span>{store.toUpperCase()}</span>
+            <span className={`inline-block w-8 h-4 rounded-full relative transition-colors ${enabled ? 'bg-green-400' : 'bg-slate-300 dark:bg-slate-600'}`}>
+              <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${enabled ? 'right-0.5' : 'left-0.5'}`} />
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const AdminUserManager = () => {
+  const [users, setUsers] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [searchQ, setSearchQ] = useState('');
+  const [loading, setLoading] = useState(true);
+  const fetchUsers = (p: number) => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (!token) return;
+    setLoading(true);
+    fetch(`/api/admin/users?page=${p}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { setUsers(d.users || []); setTotal(d.total || 0); setPage(d.page || 1); })
+      .catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { fetchUsers(1); }, []);
+  const deleteUser = (id: number, email: string) => {
+    if (!confirm(`წაშალოთ ${email}?`)) return;
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (!token) return;
+    fetch(`/api/admin/user/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { if (d.success) setUsers(prev => prev.filter(u => u.id !== id)); else alert(d.error || 'Error'); });
+  };
+  const filtered = searchQ ? users.filter(u => (u.email || '').toLowerCase().includes(searchQ.toLowerCase()) || (u.name || '').toLowerCase().includes(searchQ.toLowerCase())) : users;
+  const totalPages = Math.ceil(total / 20);
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+        <h2 className="font-semibold text-sm text-slate-900 dark:text-white">მომხმარებლები ({total})</h2>
+        <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="ძიება..."
+          className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs w-40" />
+      </div>
+      {loading ? (
+        <div className="p-4 text-center text-xs text-slate-400">იტვირთება...</div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                <th className="px-4 py-2">ელფოსტა</th><th className="px-4 py-2">სახელი</th><th className="px-4 py-2">ვერიფ.</th><th className="px-4 py-2">თარიღი</th><th className="px-4 py-2"></th>
+              </tr></thead>
+              <tbody>
+                {filtered.map((u: any) => (
+                  <tr key={u.id} className="border-b border-slate-50 dark:border-slate-800 last:border-0">
+                    <td className="px-4 py-2 font-medium text-slate-900 dark:text-white text-xs">{u.email}</td>
+                    <td className="px-4 py-2 text-slate-500 text-xs">{u.name || '—'}</td>
+                    <td className="px-4 py-2"><span className={`inline-block w-2 h-2 rounded-full ${u.email_verified ? 'bg-green-500' : 'bg-slate-300'}`} /></td>
+                    <td className="px-4 py-2 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at + 'Z').toLocaleString('ka-GE') : '—'}</td>
+                    <td className="px-4 py-2">
+                      {u.email !== 'dzikiii.j@gmail.com' && (
+                        <button onClick={() => deleteUser(u.id, u.email)} className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="წაშლა">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && <tr><td colSpan={5} className="px-4 py-3 text-center text-xs text-slate-400">ვერ მოიძებნა</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+              <button onClick={() => fetchUsers(page - 1)} disabled={page <= 1}
+                className="px-3 py-1 text-xs rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30">←</button>
+              <span className="text-xs text-slate-500">{page} / {totalPages}</span>
+              <button onClick={() => fetchUsers(page + 1)} disabled={page >= totalPages}
+                className="px-3 py-1 text-xs rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30">→</button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+const AdminBanners = () => {
+  const [banners, setBanners] = useState<any[]>([]);
+  useEffect(() => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (token) fetch('/api/admin/banners', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setBanners(d.banners || [])).catch(() => {});
+  }, []);
+  if (banners.length === 0) return null;
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+      <h2 className="font-semibold text-sm text-slate-900 dark:text-white mb-3">ბანერები ({banners.length})</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {banners.map((b: any) => (
+          <div key={b.filename} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <img src={b.url} alt={b.filename} className="w-full h-24 object-cover" />
+            <p className="text-[10px] text-slate-400 px-2 py-1 truncate">{b.filename}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const AdminHealth = () => {
   const [health, setHealth] = useState<any>(null);
   useEffect(() => {
@@ -3785,11 +3917,20 @@ const AdminScreen = ({ setScreen }: { setScreen: (s: Screen) => void }) => {
           </div>
         </div>
 
+        {/* Scraper Toggle On/Off */}
+        <AdminScraperToggle />
+
         {/* Analysis Control */}
         <AdminAnalysis stats={stats} />
 
         {/* Server Health */}
         <AdminHealth />
+
+        {/* Banner Management */}
+        <AdminBanners />
+
+        {/* Full User Manager */}
+        <AdminUserManager />
 
         {/* Product Search + Delete */}
         <AdminProductSearch />
