@@ -753,7 +753,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   };
 
   return (
-    <div ref={containerRef} className="pb-24 lg:pb-8 pt-10 lg:pt-3 px-5 md:px-8 lg:px-8 xl:px-10 min-h-screen" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div ref={containerRef} className="pb-24 lg:pb-8 pt-4 lg:pt-3 px-5 md:px-8 lg:px-8 xl:px-10 min-h-screen" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
       <AnimatePresence>
         {favoriteToast && (
