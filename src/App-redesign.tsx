@@ -431,7 +431,7 @@ const Header = ({ title, showBack, onBack, alertCount, onAlertTap }: { title: st
 const BANNER_SLIDES = [
   { bg: 'from-[#108AB1] to-[#073A4B]', title: 'შეადარე ფასები', desc: '5 მაღაზიის ფასები ერთ ადგილას', emoji: '🔍', image: '/banners/slide1.png' },
   { bg: 'from-emerald-500 to-teal-600', title: 'დაზოგე ფული', desc: 'იპოვე ყველაზე იაფი ვარიანტი', emoji: '💰', image: '/banners/slide2.png' },
-  { bg: 'from-violet-500 to-purple-600', title: 'გააანალიზე პროდუქტი', desc: 'შეამოწმე რამდენად ჯანსაღია', emoji: '🔬' },
+  { bg: 'from-violet-500 to-purple-600', title: 'გააანალიზე პროდუქტი', desc: 'შეამოწმე რამდენად ჯანსაღია', emoji: '🔬', image: '/banners/slide3.png' },
   { bg: 'from-amber-500 to-orange-600', title: 'იპოვე მაღაზია', desc: 'უახლოესი ფილიალი რუკაზე', emoji: '📍', image: '/banners/slide4.png' },
 ];
 
