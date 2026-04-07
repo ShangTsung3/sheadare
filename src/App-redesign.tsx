@@ -30,6 +30,9 @@ import {
   Heart,
   ScanLine,
   Camera,
+  Shield,
+  FileText,
+  Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence, type PanInfo } from 'motion/react';
 import QRCode from 'qrcode';
@@ -40,11 +43,11 @@ import { LanguageContext, useLanguageState, useLanguage } from './i18n';
 
 // --- Image Assets ---
 const STORE_CONFIG: Record<string, { color: string, letter: string, filename: string, logo: string }> = {
-  'SPAR': { color: 'bg-[#00703C]', letter: 'S', filename: '1.spar', logo: 'https://static.spargeorgia.com/Spar_files/d019aa0c-1a0e-45f2-ae4c-cd8734e69f59_Thumb.png' },
-  '2 Nabiji': { color: 'bg-[#EE3124]', letter: '2', filename: '2. 2 nabiji', logo: 'https://2nabiji.ge/2-nabiji-logo.png' },
-  'Goodwill': { color: 'bg-[#0054A6]', letter: 'G', filename: '3. Goodwill', logo: 'https://goodwill.ge/images/goodwill.jpg' },
-  'Europroduct': { color: 'bg-[#E30613]', letter: 'E', filename: '4. Europroduct', logo: 'https://europroduct.ge/Content/Images/logo.svg' },
-  'Agrohub': { color: 'bg-[#4CAF50]', letter: 'A', filename: 'agrohub', logo: 'https://agrohub.com.ge/wp-content/uploads/2025/03/Agrohub-Logo.png' },
+  'SPAR': { color: 'bg-[#00703C]', letter: 'S', filename: '1.spar', logo: '/logos/spar.png' },
+  '2 Nabiji': { color: 'bg-[#EE3124]', letter: '2', filename: '2. 2 nabiji', logo: '/logos/2nabiji.png' },
+  'Goodwill': { color: 'bg-[#0054A6]', letter: 'G', filename: '3. Goodwill', logo: '/logos/goodwill.jpg' },
+  'Europroduct': { color: 'bg-[#E30613]', letter: 'E', filename: '4. Europroduct', logo: '/logos/europroduct.jpg' },
+  'Agrohub': { color: 'bg-[#4CAF50]', letter: 'A', filename: 'agrohub', logo: '/logos/agrohub.jpg' },
   'Zoomer': { color: 'bg-[#00AEEF]', letter: 'Z', filename: 'zoomer', logo: 'https://zoommer.ge/icons/main-logo.svg' },
   'Alta': { color: 'bg-[#F7941D]', letter: 'A', filename: 'alta', logo: 'https://alta.ge/images/logo.svg' },
   'Kontakt': { color: 'bg-[#E4002B]', letter: 'K', filename: 'kontakt', logo: 'https://kontakt.ge/static/version1772708998/frontend/Swissup/breeze-customized-ge/ka_GE/images/logo.svg' },
@@ -58,19 +61,12 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'iMart': { color: 'bg-[#FF4500]', letter: 'i', filename: 'imart', logo: 'https://imart.ge/images/logos/405/%E1%83%90%E1%83%98%E1%83%9B%E1%83%90%E1%83%A0%E1%83%A2%E1%83%98%E1%83%A1-%E1%83%9A%E1%83%9D%E1%83%92%E1%83%9D11.png' },
 };
 
-const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string }) => {
+const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl, lazy }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string, lazy?: boolean }) => {
   const storeLogoUrl = isLogo && storeName && STORE_CONFIG[storeName]?.logo;
   const resolvedSrc = imageUrl || storeLogoUrl || (filename ? `/api/images/${encodeURIComponent(filename)}` : '');
   const [error, setError] = useState(false);
 
-  // Reset error state when source changes
-  useEffect(() => {
-    setError(false);
-  }, [resolvedSrc]);
-
-  const handleError = () => {
-    if (!error) setError(true);
-  };
+  useEffect(() => { setError(false); }, [resolvedSrc]);
 
   if (error || !resolvedSrc) {
     if (isLogo && fallbackLetter) {
@@ -81,13 +77,13 @@ const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, i
       );
     }
     return (
-      <div className={`${className} bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600`}>
+      <div className={`${className} bg-slate-100 flex items-center justify-center text-slate-300`}>
         <ShoppingBasket size={18} />
       </div>
     );
   }
 
-  return <img src={resolvedSrc} alt={alt} className={className} onError={handleError} referrerPolicy="no-referrer" />;
+  return <img src={resolvedSrc} alt={alt} className={className} loading={lazy ? 'lazy' : 'eager'} decoding="async" onError={() => setError(true)} referrerPolicy="no-referrer" />;
 };
 
 // --- Components ---
@@ -139,6 +135,8 @@ const PhotoScanOverlay = () => {
   );
 };
 
+const BucketLoader = React.lazy(() => import('./components/BucketLoader'));
+
 const SplashScreen = () => {
   const { t } = useLanguage();
   return (
@@ -146,22 +144,25 @@ const SplashScreen = () => {
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center"
+    className="fixed inset-0 z-[200] bg-white flex flex-col items-center justify-center gap-6"
   >
+    <React.Suspense fallback={null}>
+      <BucketLoader />
+    </React.Suspense>
     <motion.div
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className="text-center"
     >
-      <h1 className="text-4xl font-light tracking-[0.5em] text-white uppercase" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
-        SHEADARE
+      <h1 className="text-3xl font-light tracking-[0.5em] text-slate-800 uppercase flex items-center gap-2.5" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
+        SHEADARE <span className="text-[10px] font-bold tracking-normal px-2 py-1 rounded-lg bg-[#108AB1]/10 text-[#108AB1] normal-case">beta</span>
       </h1>
       <motion.p
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.4 }}
-        className="text-slate-400 text-sm mt-3 tracking-wide"
+        className="text-[#108AB1] text-sm mt-2 tracking-wide font-medium"
       >
         {t('splash_subtitle')}
       </motion.p>
@@ -312,7 +313,7 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
           return (
             <button
               key={item.id}
-              onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
+              onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); if (item.id === 'home' && active === 'home') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; } setScreen(item.id as Screen); }}
               className={`transition-colors relative flex flex-col items-center gap-1.5 min-w-[4rem] py-1 ${isActive ? 'text-[#108AB1]' : 'text-[#073A4B]/30'}`}
             >
               <div className="relative">
@@ -329,25 +330,23 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
         })}
       </div>
       {/* Desktop top header nav */}
-      <div className="hidden lg:flex fixed top-0 left-0 right-0 h-14 bg-white/95 backdrop-blur-md border-b border-slate-100/80 px-6 xl:px-10 items-center z-50">
-        {/* Logo — pushed right with left margin */}
-        <div className="flex items-center gap-8 ml-2">
-          <h1 className="text-[16px] font-semibold tracking-[0.25em] uppercase text-slate-800 shrink-0" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE</h1>
-
-          {/* Nav items */}
-          <nav className="flex items-center gap-0.5">
-            {navItems.map((item) => {
+      <div className="hidden lg:flex fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-b border-slate-100/80 items-center z-50">
+        {/* Left: Logo + Nav together */}
+        <div className="flex items-center gap-6 pl-10 xl:pl-14 shrink-0">
+          <h1 className="text-[17px] font-semibold tracking-[0.25em] uppercase text-slate-800 flex items-center gap-2" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE <span className="text-[9px] font-bold tracking-normal px-1.5 py-0.5 rounded-md bg-[#108AB1]/10 text-[#108AB1] normal-case">beta</span></h1>
+          <nav className="flex items-center gap-1">
+            {navItems.filter(item => item.id !== 'profile').map((item) => {
               const isActive = active === item.id || (active === 'compare' && item.id === 'home');
               return (
                 <button
                   key={item.id}
                   onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); setScreen(item.id as Screen); }}
-                  className={`transition-all relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium ${isActive ? 'text-[#108AB1] bg-[#108AB1]/8' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                  className={`transition-all relative flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-medium ${isActive ? 'text-[#108AB1] bg-[#108AB1]/8' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
                 >
-                  <item.icon size={16} strokeWidth={isActive ? 2.2 : 1.5} />
+                  <item.icon size={17} strokeWidth={isActive ? 2.2 : 1.5} />
                   <span>{item.label}</span>
                   {item.id === 'basket' && basketCount > 0 && (
-                    <div className="min-w-[16px] h-[16px] bg-[#F04770] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 -mr-1">
+                    <div className="min-w-[17px] h-[17px] bg-[#F04770] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 -mr-1">
                       {basketCount}
                     </div>
                   )}
@@ -357,31 +356,39 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
           </nav>
         </div>
 
-        {/* Search bar — centered */}
-        <div className="flex-1 max-w-lg mx-6">
+        {/* Search — wider */}
+        <div className="flex-1 max-w-2xl mx-auto px-8">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} strokeWidth={2} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={17} strokeWidth={2} />
             <input
               type="text"
               placeholder={t('search_placeholder')}
               value={searchQuery || ''}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-full py-2 pl-9 pr-4 text-[13px] font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30 focus:bg-white transition-all"
+              className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 pl-10 pr-4 text-[13px] font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30 focus:bg-white transition-all"
             />
           </div>
         </div>
 
-        {/* Alert bell */}
-        {onAlertTap && (
-          <button onClick={onAlertTap} className="p-2 relative text-slate-300 hover:text-slate-600 transition-colors shrink-0 mr-2">
-            <Bell size={18} strokeWidth={1.8} />
-            {(alertCount ?? 0) > 0 && (
-              <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-bold px-0.5">
-                {alertCount}
-              </span>
-            )}
+        {/* Right corner: Notification + Profile */}
+        <div className="flex items-center gap-2.5 pr-10 xl:pr-14 shrink-0">
+          {onAlertTap && (
+            <button onClick={onAlertTap} className="w-10 h-10 rounded-full flex items-center justify-center relative text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">
+              <Bell size={19} strokeWidth={1.8} />
+              {(alertCount ?? 0) > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] flex items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-bold px-0.5">
+                  {alertCount}
+                </span>
+              )}
+            </button>
+          )}
+          <button
+            onClick={() => setScreen('profile')}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${active === 'profile' ? 'bg-[#108AB1] text-white' : 'bg-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-300'}`}
+          >
+            <User size={18} strokeWidth={1.8} />
           </button>
-        )}
+        </div>
       </div>
     </>
   );
@@ -396,28 +403,84 @@ const Header = ({ title, showBack, onBack, alertCount, onAlertTap }: { title: st
         </button>
       )}
       {(title === 'შეადარე' || title === 'Compare') ? (
-        <h1 className="text-[22px] font-light tracking-[0.4em] uppercase text-slate-900 dark:text-white" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE</h1>
+        <h1 className="text-[22px] font-light tracking-[0.4em] uppercase text-slate-900 dark:text-white flex items-center gap-2" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>SHEADARE <span className="text-[8px] font-bold tracking-normal px-1.5 py-0.5 rounded-md bg-[#108AB1]/10 text-[#108AB1] normal-case">beta</span></h1>
       ) : (
         <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
       )}
     </div>
     {onAlertTap && (
-      <button
-        onClick={onAlertTap}
-        className="p-2 relative text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
-      >
-        <Bell size={20} />
-        {(alertCount ?? 0) > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-            {alertCount}
-          </span>
-        )}
-      </button>
+      <div className="hidden lg:block">
+        <button
+          onClick={onAlertTap}
+          className="p-2 relative text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
+        >
+          <Bell size={20} />
+          {(alertCount ?? 0) > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+              {alertCount}
+            </span>
+          )}
+        </button>
+      </div>
     )}
   </header>
 );
 
 // --- Screens ---
+
+const BANNER_SLIDES = [
+  { bg: 'from-[#108AB1] to-[#073A4B]', title: 'შეადარე ფასები', desc: '5 მაღაზიის ფასები ერთ ადგილას', emoji: '🔍', image: '/banners/slide1.png' },
+  { bg: 'from-emerald-500 to-teal-600', title: 'დაზოგე ფული', desc: 'იპოვე ყველაზე იაფი ვარიანტი', emoji: '💰', image: '/banners/slide2.webp' },
+  { bg: 'from-violet-500 to-purple-600', title: 'გააანალიზე პროდუქტი', desc: 'შეამოწმე რამდენად ჯანსაღია', emoji: '🔬' },
+  { bg: 'from-amber-500 to-orange-600', title: 'იპოვე მაღაზია', desc: 'უახლოესი ფილიალი რუკაზე', emoji: '📍' },
+];
+
+const BannerSlider = () => {
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const touchStartX = useRef(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setBannerIndex(i => (i + 1) % BANNER_SLIDES.length), 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="mb-4">
+      <div className="relative overflow-hidden rounded-2xl"
+        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          const diff = e.changedTouches[0].clientX - touchStartX.current;
+          if (diff > 50) setBannerIndex(i => (i - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length);
+          if (diff < -50) setBannerIndex(i => (i + 1) % BANNER_SLIDES.length);
+        }}
+      >
+        <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${bannerIndex * 100}%)` }}>
+          {BANNER_SLIDES.map((slide, i) => (
+            slide.image ? (
+              <div key={i} className="w-full shrink-0 aspect-[4/1] lg:aspect-[5/1] overflow-hidden">
+                <img src={slide.image} alt={slide.title} className="w-full h-full object-cover object-center rounded-2xl" />
+              </div>
+            ) : (
+              <div key={i} className={`w-full shrink-0 bg-gradient-to-r ${slide.bg} px-8 lg:px-14 flex items-center gap-6 aspect-[4/1] lg:aspect-[5/1]`}>
+                <div className="text-3xl lg:text-4xl">{slide.emoji}</div>
+                <div>
+                  <h3 className="text-white font-bold text-base lg:text-lg">{slide.title}</h3>
+                  <p className="text-white/70 text-xs lg:text-sm mt-0.5">{slide.desc}</p>
+                </div>
+              </div>
+            )
+          ))}
+        </div>
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {BANNER_SLIDES.map((_, i) => (
+            <button key={i} onClick={() => setBannerIndex(i)}
+              className={`w-1.5 h-1.5 rounded-full transition-all ${i === bannerIndex ? 'bg-white w-4' : 'bg-white/40'}`} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const FALLBACK_PRODUCTS: Product[] = [
   { id: '1', name: 'ლუდი ყაზბეგი', size: '0.5L', category: 'ლუდი', prices: { '2 Nabiji': 2.40, 'SPAR': 2.55, 'Goodwill': 2.60 } },
@@ -445,14 +508,21 @@ const BasketToast = ({ productName }: { productName: string }) => {
 const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, alertCount, onAlertTap, basket, setBasket, favorites, setFavorites, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded, desktopSearchQuery, setDesktopSearchQuery }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, favorites: Product[], setFavorites: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void, desktopSearchQuery?: string, setDesktopSearchQuery?: (q: string) => void }) => {
   const { t } = useLanguage();
   const [storeType, setStoreType] = useState<'grocery' | 'electronics' | 'pharmacy' | 'construction'>('grocery');
-  const [gridCols, setGridCols] = useState<2 | 3 | 4 | 5>(() => {
-    try { const saved = localStorage.getItem('pasebi-grid-cols'); return saved ? Number(saved) as 2 | 3 | 4 | 5 : 2; } catch { return 2; }
+  const [gridCols, setGridCols] = useState<3 | 4 | 5>(() => {
+    try { const saved = Number(localStorage.getItem('pasebi-grid-cols')); return (saved === 3 || saved === 4 || saved === 5) ? saved : 3; } catch { return 3; }
   });
   const [selectedCategory, setSelectedCategory] = useState('ყველა');
+  const [sortBy, setSortBy] = useState<'popular' | 'discount' | 'price_asc' | 'price_desc'>('popular');
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [products, setProducts] = useState<Product[]>(FALLBACK_PRODUCTS);
-  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const observerRef = useRef<HTMLDivElement>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try { const saved = localStorage.getItem('pasebi-search-history'); return saved ? JSON.parse(saved) : []; } catch { return []; }
@@ -475,6 +545,14 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   }, []);
 
   useEffect(() => { fetchTopSavings(); }, [refreshKey]);
+
+  // Fetch category counts
+  useEffect(() => {
+    fetch('/api/search/category-counts')
+      .then(r => r.json())
+      .then(data => { if (data.counts) setCategoryCounts(data.counts); })
+      .catch(() => {});
+  }, []);
 
   // Auto-refresh top savings every 30 minutes
   useEffect(() => {
@@ -581,10 +659,10 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
 
   useEffect(() => {
     const controller = new AbortController();
+    setProducts([]);
     setLoading(true);
     setIsAiResult(false);
 
-    // Try smart search for qualifying queries
     if (debouncedQuery && isSmartQuery(debouncedQuery)) {
       fetch(`/api/ai/smart?q=${encodeURIComponent(debouncedQuery)}`, { signal: controller.signal })
         .then(r => r.json())
@@ -597,10 +675,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             setProducts([]);
           }
         })
-        .catch(() => {
-          // Fallback to regular search
-          return regularSearch(controller.signal);
-        })
+        .catch(() => regularSearch(controller.signal))
         .finally(() => setLoading(false));
     } else {
       regularSearch(controller.signal).finally(() => setLoading(false));
@@ -613,27 +688,20 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
       if (catValue) params.set('category', catValue);
       params.set('storeType', storeType);
       if (storeType === 'grocery' && !debouncedQuery && !catValue) params.set('allStores', 'true');
-      params.set('limit', '30');
+      params.set('limit', '60');
+      if (sortBy !== 'popular') params.set('sort', sortBy);
 
       return fetch(`/api/search?${params}`, { signal })
         .then(r => r.json())
         .then(data => {
           const withPrices = (data.results || []).filter((p: Product) => Object.keys(p.prices).length > 0);
-          if (withPrices.length > 0) {
-            setProducts(withPrices);
-          } else if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') {
-            setProducts(FALLBACK_PRODUCTS);
-          } else {
-            setProducts(withPrices);
-          }
+          setProducts(withPrices);
         })
-        .catch(() => {
-          if (!debouncedQuery && selectedCategory === 'ყველა' && storeType === 'grocery') setProducts(FALLBACK_PRODUCTS);
-        });
+        .catch(() => {});
     }
 
     return () => controller.abort();
-  }, [debouncedQuery, selectedCategory, refreshKey, storeType]);
+  }, [debouncedQuery, selectedCategory, refreshKey, storeType, sortBy]);
 
   // Deduplicate products with same name - keep the one with most stores
   const filteredProducts = products.filter((product, idx, arr) => {
@@ -673,6 +741,11 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
     if (basket.find(item => item.id === product.id)) {
       setBasket(basket.filter(item => item.id !== product.id));
     } else {
+      // Require auth for 3+ items
+      if (basket.length >= 3 && !localStorage.getItem('pasebi-auth-token')) {
+        window.dispatchEvent(new CustomEvent('auth-required', { detail: 'კალათაში 3-ზე მეტი პროდუქტის დასამატებლად გაიარეთ რეგისტრაცია' }));
+        return;
+      }
       setBasket([...basket, product]);
       setToastProduct(product.name);
       setTimeout(() => setToastProduct(null), 2500);
@@ -680,7 +753,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   };
 
   return (
-    <div ref={containerRef} className="pb-24 lg:pb-8 pt-14 lg:pt-3 px-5 md:px-8 lg:px-8 xl:px-10 min-h-screen overflow-auto" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div ref={containerRef} className="pb-24 lg:pb-8 pt-10 lg:pt-3 px-5 md:px-8 lg:px-8 xl:px-10 min-h-screen" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <AnimatePresence>{toastProduct && <BasketToast productName={toastProduct} />}</AnimatePresence>
       <AnimatePresence>
         {favoriteToast && (
@@ -753,7 +826,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                       <span className="text-[12px] text-slate-400 line-through">{worstPrice.toFixed(2)}₾</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <img src={STORE_CONFIG[priceEntries[0][0]]?.logo} alt={priceEntries[0][0]} className="w-3.5 h-3.5 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[6px] font-bold text-white ${STORE_CONFIG[priceEntries[0][0]]?.color || 'bg-slate-400'}`}>{STORE_CONFIG[priceEntries[0][0]]?.letter || '?'}</span>
                       <span className="text-[11px] text-slate-500 dark:text-slate-400">{priceEntries[0][0]}</span>
                     </div>
                   </div>
@@ -836,7 +909,13 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
           )}
         </div>
         <button
-          onClick={() => cameraInputRef.current?.click()}
+          onClick={() => {
+            if (!localStorage.getItem('pasebi-auth-token')) {
+              window.dispatchEvent(new CustomEvent('auth-required', { detail: 'ფოტოთი ძებნისთვის გაიარეთ რეგისტრაცია' }));
+              return;
+            }
+            cameraInputRef.current?.click();
+          }}
           className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shrink-0"
           aria-label={t('search_by_photo')}
         >
@@ -938,7 +1017,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                   key={cat.key}
                   onClick={() => { setSelectedCategory(cat.key); setSearchQuery(''); }}
                   aria-pressed={selectedCategory === cat.key}
-                  className={`px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 ${
+                  className={`px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0 focus:outline-none touch-manipulation ${
                     selectedCategory === cat.key
                       ? 'bg-[#108AB1] text-white shadow-sm'
                       : 'bg-white text-[#073A4B]/60 border border-slate-200'
@@ -946,15 +1025,18 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                 >
                   <span className="opacity-70">{cat.icon}</span>
                   {cat.name}
+                  {categoryCounts[cat.key] ? (
+                    <span className={`text-[10px] font-semibold ml-0.5 hidden lg:inline ${selectedCategory === cat.key ? 'text-white/70' : 'text-slate-400'}`}>{categoryCounts[cat.key] > 999 ? Math.round(categoryCounts[cat.key] / 1000) + 'k' : categoryCounts[cat.key]}</span>
+                  ) : null}
                 </button>
               ))}
             </div>
 
             {/* Desktop: sidebar categories + products */}
             <div className="lg:flex lg:gap-6 lg:items-start">
-              {/* Sidebar — sticky on scroll */}
+              {/* Sidebar — fixed on scroll */}
               <div className="hidden lg:block w-56 xl:w-64 shrink-0">
-                <div className="sticky top-[4.5rem] max-h-[calc(100vh-5rem)] overflow-y-auto">
+                <div className="fixed top-[5rem] w-56 xl:w-64 max-h-[calc(100vh-5.5rem)] overflow-y-auto">
                   <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] overflow-hidden">
                     {/* Header */}
                     <div className="px-5 pt-5 pb-3">
@@ -984,7 +1066,11 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                               : 'bg-slate-100 group-hover:bg-slate-200/70'
                           }`}>{cat.icon}</span>
                           <span className="flex-1">{cat.name}</span>
-                          {selectedCategory === cat.key && <ChevronRight size={14} className="opacity-80" />}
+                          {categoryCounts[cat.key] ? (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                              selectedCategory === cat.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
+                            }`}>{categoryCounts[cat.key] > 999 ? Math.round(categoryCounts[cat.key] / 1000) + 'k' : categoryCounts[cat.key]}</span>
+                          ) : null}
                         </button>
                       ))}
                     </div>
@@ -994,21 +1080,57 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
 
               {/* Products */}
               <section className="flex-1 min-w-0">
+
+        {/* Banner Slider */}
+        {!debouncedQuery && selectedCategory === 'ყველა' && <BannerSlider />}
+
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400">
-              {selectedCategory === 'ყველა' ? t('products_popular') : selectedCategory}
-              <span className="text-xs text-slate-400 font-normal ml-1">{filteredProducts.length} ნივთი</span>
+              {selectedCategory === 'ყველა' ? 'პროდუქცია' : selectedCategory}
+              <span className="text-xs text-slate-400 font-normal ml-1 hidden lg:inline">{filteredProducts.length} ნივთი</span>
             </h2>
             {isAiResult && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 text-white">
                 AI
               </span>
             )}
+            {/* Sort dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border touch-manipulation ${sortBy !== 'popular' ? 'bg-[#108AB1]/10 text-[#108AB1] border-[#108AB1]/20' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+              >
+                <SlidersHorizontal size={13} />
+                {sortBy === 'popular' ? 'სორტირება' : sortBy === 'discount' ? 'ფასდაკლება %' : sortBy === 'price_asc' ? 'იაფი → ძვირი' : 'ძვირი → იაფი'}
+              </button>
+              {showSortMenu && (
+                <>
+                  <div className="fixed inset-0 z-20" onMouseDown={() => setShowSortMenu(false)} onTouchStart={() => setShowSortMenu(false)} />
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-30 w-48 py-1 overflow-hidden">
+                    {([
+                      { key: 'popular' as const, label: 'პოპულარული' },
+                      { key: 'discount' as const, label: 'ფასდაკლება %' },
+                      { key: 'price_asc' as const, label: 'იაფი → ძვირი' },
+                      { key: 'price_desc' as const, label: 'ძვირი → იაფი' },
+                    ]).map(opt => (
+                      <button
+                        key={opt.key}
+                        onMouseDown={(e) => { e.stopPropagation(); setSortBy(opt.key); setShowSortMenu(false); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setSortBy(opt.key); setShowSortMenu(false); }}
+                        className={`w-full text-left px-4 py-3 text-[13px] font-medium transition-colors touch-manipulation ${sortBy === opt.key ? 'bg-[#108AB1]/10 text-[#108AB1]' : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           {/* Grid view switcher — modern pill style */}
-          <div className="flex items-center bg-slate-100/80 rounded-full p-0.5 border border-slate-200/50">
-            {([2, 3, 4, 5] as const).map(cols => {
+          <div className="hidden lg:flex items-center bg-slate-100/80 rounded-full p-0.5 border border-slate-200/50">
+            {([3, 4, 5] as const).map(cols => {
               const isActive = gridCols === cols;
               return (
                 <button
@@ -1049,17 +1171,18 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
         </div>
 
         <div className={`grid gap-3 lg:gap-4 ${
-          gridCols === 2 ? 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' :
-          gridCols === 3 ? 'grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4' :
+          gridCols === 3 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4' :
           gridCols === 4 ? 'grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5' :
           'grid-cols-5 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-6'
         }`}>
-          {loading && filteredProducts.length === 0 && [1,2,3,4,5,6].map(i => (
-            <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
-              <div className="w-full aspect-square skeleton" />
-              <div className="p-3 space-y-2">
-                <div className="h-4 skeleton rounded w-3/4" />
-                <div className="h-3.5 skeleton rounded w-1/2" />
+          {loading && filteredProducts.length === 0 && [1,2,3,4,5,6,7,8].map(i => (
+            <div key={i} className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+              <div className="w-full aspect-[4/3] skeleton" />
+              <div className="p-3 space-y-2.5">
+                <div className="h-4 skeleton rounded-lg w-4/5" />
+                <div className="h-3 skeleton rounded-lg w-3/5" />
+                <div className="h-3 skeleton rounded-lg w-2/5" />
+                <div className="h-8 skeleton rounded-lg w-full mt-2" />
               </div>
             </div>
           ))}
@@ -1084,7 +1207,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProduct(product); setScreen('compare'); } }}
                 role="button"
                 aria-label={product.name}
-                className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 flex flex-col h-full"
+                className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 flex flex-col h-full touch-manipulation"
               >
                 {/* Image - full width top, fixed aspect ratio */}
                 <div className="relative w-full aspect-[4/3] overflow-hidden bg-slate-50 rounded-t-2xl flex items-center justify-center">
@@ -1094,6 +1217,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                     alt={product.name}
                     className="w-full h-full object-contain p-3"
                     fallbackLetter={product.name[0]}
+                    lazy
                   />
                   {/* Savings badge - top left */}
                   {priceEntries.length >= 2 && savePct >= 5 && (
@@ -1105,18 +1229,18 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                       -{savePct}%
                     </div>
                   )}
-                  {/* Basket + Favorite buttons - top right */}
+                  {/* Add button - top right */}
                   <div className="absolute top-2 right-2 flex flex-col gap-1.5">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleBasket(e, product); }}
                       aria-label={isInBasket ? 'Remove from basket' : 'Add to basket'}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 ${
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all focus:outline-none ${
                         isInBasket
-                          ? 'bg-[#108AB1] text-white'
-                          : 'bg-white/80 dark:bg-slate-900/80 text-slate-400 backdrop-blur-sm'
+                          ? 'bg-[#108AB1] text-white shadow-md shadow-[#108AB1]/30'
+                          : 'bg-white/90 text-slate-400 border border-slate-200/80 backdrop-blur-sm hover:bg-[#108AB1] hover:text-white hover:border-[#108AB1] hover:shadow-lg hover:shadow-[#108AB1]/25 hover:scale-110'
                       }`}
                     >
-                      <ShoppingBasket size={14} strokeWidth={isInBasket ? 2.5 : 1.8} />
+                      {isInBasket ? <X size={14} strokeWidth={2.5} /> : <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg>}
                     </button>
                     {isFavorite && <Heart size={14} className="text-pink-500 fill-pink-500 mx-auto" aria-label="Add to favorites" />}
                   </div>
@@ -1130,7 +1254,11 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                     {priceEntries.slice(0, 3).map(([store, price], i) => (
                       <div key={store} className={`flex items-center justify-between text-[12px] ${i === 0 ? 'font-bold text-[#06D7A0]' : 'font-medium text-slate-400'}`}>
                         <span className="flex items-center gap-1.5">
-                          <img src={STORE_CONFIG[store]?.logo} alt="" className="w-4 h-4 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          {STORE_CONFIG[store]?.logo ? (
+                            <img src={STORE_CONFIG[store].logo} alt="" className="w-4 h-4 rounded object-contain" onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { className: `w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white ${STORE_CONFIG[store]?.color || 'bg-slate-400'}`, textContent: STORE_CONFIG[store]?.letter || store[0] })); }} />
+                          ) : (
+                            <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white ${STORE_CONFIG[store]?.color || 'bg-slate-400'}`}>{STORE_CONFIG[store]?.letter || store[0]}</span>
+                          )}
                           <span className="text-[10px]">{store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store === 'Megatechnica' ? 'Mega' : store}</span>
                         </span>
                         <span>{(price as number).toFixed(2)}₾</span>
@@ -1217,8 +1345,7 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
 
   const stopScanner = useCallback(() => {
     if (scannerRef.current) {
-      try { scannerRef.current.stop().catch(() => {}); } catch(_e) { /* */ }
-      try { scannerRef.current.clear(); } catch(_e) { /* */ }
+      try { (scannerRef.current as any).stop(); } catch(_e) { /* */ }
       scannerRef.current = null;
     }
   }, []);
@@ -1257,59 +1384,55 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
   useEffect(() => {
     if (!scanning) return;
     let mounted = true;
+    let detected = false;
 
     const startScanner = async () => {
-      const el = document.getElementById('barcode-reader');
-      if (!el || !mounted) return;
+      const Quagga = (await import('@ericblade/quagga2')).default;
+      if (!mounted) return;
 
-      const scanner = new Html5Qrcode('barcode-reader', {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.CODE_128,
-        ],
-        verbose: false,
-      });
-      scannerRef.current = scanner;
+      const target = document.getElementById('barcode-reader');
+      if (!target) return;
 
-      try {
-        await scanner.start(
-          { facingMode: 'environment' },
-          {
-            fps: 15,
-            qrbox: (vw, vh) => ({ width: Math.floor(Math.min(vw, vh) * 0.8), height: Math.floor(Math.min(vw, vh) * 0.4) }),
-            aspectRatio: 1.0,
-          },
-          (decodedText) => {
-            if (!mounted || lookingUp.current) return;
-            if (decodedText && decodedText.length >= 8) {
-              setScanning(false);
-              lookupBarcode(decodedText);
-            }
-          },
-          () => {},
-        );
-      } catch (err) {
-        // Try front camera
-        try {
-          await scanner.start(
-            { facingMode: 'user' },
-            { fps: 15, qrbox: (vw, vh) => ({ width: Math.floor(Math.min(vw, vh) * 0.8), height: Math.floor(Math.min(vw, vh) * 0.4) }) },
-            (decodedText) => {
-              if (!mounted || lookingUp.current) return;
-              if (decodedText && decodedText.length >= 8) {
-                setScanning(false);
-                lookupBarcode(decodedText);
-              }
-            },
-            () => {},
-          );
-        } catch(_e) {
-          if (mounted) setError(t('barcode_camera_error'));
+      const config = {
+        inputStream: {
+          name: 'Live',
+          type: 'LiveStream' as const,
+          target,
+          constraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+          area: { top: '20%', right: '10%', left: '10%', bottom: '20%' },
+        },
+        decoder: {
+          readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'] as any,
+          multiple: false,
+        },
+        locator: { patchSize: 'medium' as const, halfSample: true },
+        locate: true,
+        frequency: 20,
+      };
+
+      Quagga.init(config, (err: Error | null) => {
+        if (err || !mounted) {
+          // Try user camera
+          Quagga.init({ ...config, inputStream: { ...config.inputStream, constraints: { ...config.inputStream.constraints, facingMode: 'user' } } }, (err2: Error | null) => {
+            if (err2 || !mounted) { if (mounted) setError(t('barcode_camera_error')); return; }
+            Quagga.start();
+            scannerRef.current = Quagga as any;
+          });
+          return;
         }
-      }
+        Quagga.start();
+        scannerRef.current = Quagga as any;
+      });
+
+      Quagga.onDetected((result: any) => {
+        if (detected || !mounted) return;
+        const code = result?.codeResult?.code;
+        if (!code || code.length < 8) return;
+        detected = true;
+        try { Quagga.stop(); } catch(_e) {}
+        setScanning(false);
+        lookupBarcode(code);
+      });
     };
 
     startScanner();
@@ -1397,6 +1520,7 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
           100% { opacity: 0; }
         }
         #barcode-reader video { width: 100% !important; border-radius: 1rem; }
+        #barcode-reader canvas { display: none !important; }
         #barcode-reader img[alt="Info icon"] { display: none !important; }
         #barcode-reader__dashboard { display: none !important; }
       `}</style>
@@ -1477,6 +1601,9 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
   const [compareData, setCompareData] = useState<{ stores: StorePrice[]; priceTrend?: 'up' | 'down' } | null>(null);
   const [priceHistory, setPriceHistory] = useState<{ store: string; price: number; date: string }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const product = selectedProduct || FALLBACK_PRODUCTS[0];
   const isInBasket = basket.find(item => item.id === product.id);
@@ -1608,7 +1735,13 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
         </div>
         <div className="flex gap-2.5 mt-4">
           <button
-            onClick={() => setShowAlertModal(true)}
+            onClick={() => {
+              if (!localStorage.getItem('pasebi-auth-token')) {
+                window.dispatchEvent(new CustomEvent('auth-required', { detail: 'ფასის ალერტის დასაყენებლად გაიარეთ რეგისტრაცია' }));
+                return;
+              }
+              setShowAlertModal(true);
+            }}
             className="flex-1 flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium bg-slate-50 dark:bg-slate-800 px-4 py-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             <Bell size={16} />
@@ -1661,7 +1794,15 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
               </div>
 
               <button
-                onClick={() => setShowAlertModal(false)}
+                onClick={() => {
+                  const deviceId = localStorage.getItem('pasebi-device-id') || Math.random().toString(36).slice(2) + Date.now().toString(36);
+                  localStorage.setItem('pasebi-device-id', deviceId);
+                  fetch('/api/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId, product_id: product.id, target_price: Number(targetPrice) }),
+                  }).then(() => { setShowAlertModal(false); window.dispatchEvent(new Event('alerts-updated')); }).catch(() => setShowAlertModal(false));
+                }}
                 className="w-full bg-[#108AB1] text-white py-3.5 rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
               >
                 {t('compare_alert_activate')}
@@ -1825,7 +1966,207 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
         );
       })()}
 
-      <div className="mt-8">
+      {/* Analysis section */}
+      <div className="mt-6">
+        <button
+          onClick={() => {
+            if (showAnalysis) { setShowAnalysis(false); return; }
+            if (!localStorage.getItem('pasebi-auth-token')) {
+              window.dispatchEvent(new CustomEvent('auth-required', { detail: 'პროდუქტის ანალიზის სანახავად გაიარეთ რეგისტრაცია' }));
+              return;
+            }
+            setShowAnalysis(true);
+            if (!analysis) {
+              setAnalysisLoading(true);
+              // Try barcode first, fallback to name-based analysis
+              fetch(`/api/compare/${product.id}`)
+                .then(r => r.json())
+                .then(async cData => {
+                  const barcode = cData?.product?.barcode;
+                  if (barcode) {
+                    const barcodeRes = await fetch(`/api/analysis/product/${barcode}`).then(r => r.json());
+                    if (barcodeRes.found) { setAnalysis(barcodeRes); return; }
+                  }
+                  // Fallback: analyze by product name
+                  const nameRes = await fetch(`/api/analysis/by-name/${encodeURIComponent(product.name)}`).then(r => r.json());
+                  setAnalysis(nameRes);
+                })
+                .catch(() => {
+                  // Last resort: name-based
+                  fetch(`/api/analysis/by-name/${encodeURIComponent(product.name)}`).then(r => r.json()).then(data => setAnalysis(data)).catch(() => setAnalysis({ found: false }));
+                })
+                .finally(() => setAnalysisLoading(false));
+              return;
+            }
+          }}
+          className={`w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all border-2 ${
+            showAnalysis ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-600'
+          }`}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+          {showAnalysis ? 'დამალვა' : 'ანალიზი'}
+        </button>
+
+        <AnimatePresence>
+          {showAnalysis && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                {analysisLoading && (
+                  <div className="flex items-center justify-center gap-3 py-8">
+                    <div className="w-6 h-6 border-2 border-slate-200 border-t-emerald-500 rounded-full animate-spin" />
+                    <span className="text-sm text-slate-400">ანალიზი მიმდინარეობს...</span>
+                  </div>
+                )}
+
+                {analysis && !analysisLoading && !analysis.found && (
+                  <div className="text-center py-6">
+                    <p className="text-slate-400 text-sm">ამ პროდუქტის შემადგენლობის მონაცემები ვერ მოიძებნა</p>
+                  </div>
+                )}
+
+                {analysis && !analysisLoading && analysis.found && (
+                  <>
+                    {/* Verdict — Bobby Approved style */}
+                    {analysis.verdict && (
+                      <div className={`flex items-center gap-3 p-3.5 rounded-xl border ${
+                        analysis.verdict.color === 'emerald' || analysis.verdict.color === 'green' ? 'bg-emerald-50 border-emerald-200' :
+                        analysis.verdict.color === 'amber' ? 'bg-amber-50 border-amber-200' :
+                        'bg-red-50 border-red-200'
+                      }`}>
+                        <span className="text-2xl">{analysis.verdict.emoji}</span>
+                        <div>
+                          <p className="font-bold text-slate-800">{analysis.verdict.text}</p>
+                          {analysis.betterThan && <p className="text-[11px] text-slate-500">უკეთესია ვიდრე {analysis.betterThan}% პროდუქტი ამ კატეგორიაში</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Yuka Score + Nutriscore + Nova */}
+                    <div className="flex gap-3">
+                      {analysis.yukaScore != null && (
+                        <div className="flex-1 bg-slate-50 rounded-xl p-3 text-center">
+                          <div className={`text-2xl font-bold ${analysis.yukaScore >= 60 ? 'text-emerald-500' : analysis.yukaScore >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+                            {analysis.yukaScore}<span className="text-sm text-slate-400">/100</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">ქულა</p>
+                        </div>
+                      )}
+                      {analysis.nutriscore && (
+                        <div className="flex-1 bg-slate-50 rounded-xl p-3 text-center">
+                          <div className={`text-2xl font-bold ${analysis.nutriscore === 'a' ? 'text-emerald-500' : analysis.nutriscore === 'b' ? 'text-green-500' : analysis.nutriscore === 'c' ? 'text-amber-500' : 'text-red-500'}`}>
+                            {analysis.nutriscore.toUpperCase()}
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Nutriscore</p>
+                        </div>
+                      )}
+                      {analysis.nova && (
+                        <div className="flex-1 bg-slate-50 rounded-xl p-3 text-center">
+                          <div className={`text-2xl font-bold ${analysis.nova <= 2 ? 'text-emerald-500' : analysis.nova === 3 ? 'text-amber-500' : 'text-red-500'}`}>
+                            {analysis.nova}
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Nova</p>
+                          <p className="text-[9px] text-slate-400 leading-tight mt-0.5">{analysis.novaDescription}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Badges */}
+                    {analysis.badges && analysis.badges.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {analysis.badges.map((b: any, i: number) => (
+                          <span key={i} className={`px-2.5 py-1 text-[11px] font-medium rounded-full border ${
+                            b.color === 'red' ? 'bg-red-50 text-red-600 border-red-100' :
+                            b.color === 'emerald' || b.color === 'green' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                            b.color === 'blue' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                            'bg-slate-50 text-slate-600 border-slate-200'
+                          }`}>{b.label}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Nutrition bars */}
+                    {analysis.nutrition && (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">100გ-ში</h4>
+                        {[
+                          { label: 'კალორია', value: analysis.nutrition.calories, unit: 'კკალ', max: 500, color: 'bg-blue-500' },
+                          { label: 'შაქარი', value: analysis.nutrition.sugar, unit: 'გ', max: 50, color: analysis.nutrition.sugar > 15 ? 'bg-red-500' : analysis.nutrition.sugar > 5 ? 'bg-amber-500' : 'bg-emerald-500' },
+                          { label: 'ცხიმი', value: analysis.nutrition.fat, unit: 'გ', max: 50, color: analysis.nutrition.fat > 17 ? 'bg-red-500' : analysis.nutrition.fat > 5 ? 'bg-amber-500' : 'bg-emerald-500' },
+                          { label: 'მარილი', value: analysis.nutrition.salt, unit: 'გ', max: 5, color: analysis.nutrition.salt > 1.5 ? 'bg-red-500' : analysis.nutrition.salt > 0.5 ? 'bg-amber-500' : 'bg-emerald-500' },
+                          { label: 'ცილა', value: analysis.nutrition.protein, unit: 'გ', max: 50, color: 'bg-blue-500' },
+                        ].filter(n => n.value != null && n.value !== 0).map(n => (
+                          <div key={n.label} className="flex items-center gap-3">
+                            <span className="text-[12px] text-slate-500 w-14 shrink-0">{n.label}</span>
+                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${n.color}`} style={{ width: `${Math.min(100, (n.value / n.max) * 100)}%` }} />
+                            </div>
+                            <span className="text-[12px] font-semibold text-slate-700 w-16 text-right">{n.value}{n.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Ingredient risks — Think Dirty style */}
+                    {analysis.ingredientRisks && analysis.ingredientRisks.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">საშიში ინგრედიენტები</h4>
+                        <div className="space-y-1.5">
+                          {analysis.ingredientRisks.map((r: any, i: number) => (
+                            <div key={i} className={`flex items-start gap-2 px-3 py-2 rounded-lg ${r.risk === 'high' ? 'bg-red-50' : r.risk === 'medium' ? 'bg-amber-50' : 'bg-slate-50'}`}>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 ${r.risk === 'high' ? 'bg-red-500 text-white' : r.risk === 'medium' ? 'bg-amber-500 text-white' : 'bg-slate-300 text-white'}`}>
+                                {r.risk === 'high' ? 'მაღალი' : r.risk === 'medium' ? 'საშუალო' : 'დაბალი'}
+                              </span>
+                              <div>
+                                <span className="text-[12px] font-semibold text-slate-700">{r.name}</span>
+                                <p className="text-[11px] text-slate-500">{r.reason}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Allergens */}
+                    {analysis.allergens && analysis.allergens.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">ალერგენები</h4>
+                        <div className="flex flex-wrap gap-1.5">
+                          {analysis.allergens.map((a: string) => (
+                            <span key={a} className="px-2.5 py-1 bg-red-50 text-red-600 text-[11px] font-medium rounded-full border border-red-100">{a}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Analysis */}
+                    {analysis.aiAnalysis && (
+                      <div className="bg-gradient-to-br from-violet-50 to-blue-50 rounded-xl p-4 border border-violet-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles size={14} className="text-violet-500" />
+                          <span className="text-xs font-bold text-violet-700">AI ანალიზი</span>
+                        </div>
+                        <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap">{analysis.aiAnalysis}</p>
+                      </div>
+                    )}
+
+                    {/* Partial data warning */}
+                    {analysis.partialData && (
+                      <p className="text-[10px] text-slate-400 text-center">ნაწილობრივი მონაცემები — შემადგენლობა სრულად არ არის ხელმისაწვდომი</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="mt-4">
         <button
           onClick={() => { setTargetStore(bestPrice?.store || null); setScreen('map'); }}
           className="w-full bg-[#108AB1] text-white py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
@@ -1909,7 +2250,7 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, t
     if (!coords || !selectedBranch) { setRouteCoords([]); setRouteInfo(null); return; }
     setRouteLoading(true);
     const profile = routeMode === 'foot' ? 'foot' : 'car';
-    fetch(`https://router.project-osrm.org/route/v1/${profile}/${coords.lng},${coords.lat};${selectedBranch.lng},${selectedBranch.lat}?overview=full&geometries=geojson`)
+    fetch(`https://router.project-osrm.org/route/v1/${profile}/${coords.lng},${coords.lat};${selectedBranch.lng},${selectedBranch.lat}?overview=full&geometries=geojson&alternatives=false`)
       .then(r => r.json())
       .then(data => {
         if (data.routes?.[0]) {
@@ -1974,58 +2315,60 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, t
             </Marker>
           ))}
           {coords && activeBranch && routeCoords.length > 0 && (
-            <Polyline positions={routeCoords} pathOptions={{ color: routeMode === 'foot' ? '#10B981' : '#3B82F6', weight: 4, opacity: 0.7 }} />
+            <Polyline positions={routeCoords} pathOptions={{ color: routeMode === 'foot' ? '#10B981' : '#3B82F6', weight: routeMode === 'foot' ? 4 : 5, opacity: 0.8, dashArray: routeMode === 'foot' ? '8, 8' : undefined }} />
           )}
         </MapContainer>
       </div>
 
       {/* Bottom panel */}
-      <div className="absolute bottom-24 left-5 right-5 pointer-events-none z-20">
+      <div className="absolute bottom-24 left-3 right-3 lg:bottom-10 lg:left-1/2 lg:-translate-x-1/2 lg:w-[480px] pointer-events-none z-20">
         {activeBranch ? (
-          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 pointer-events-auto">
-            <p className="font-semibold text-sm">{activeBranch.name}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">{activeBranch.address}</p>
+          <div className="bg-white text-slate-900 px-5 py-5 rounded-2xl border border-slate-200 shadow-xl pointer-events-auto">
+            {/* Store info + distance */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-[15px]">{activeBranch.name}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">{activeBranch.address}</p>
+              </div>
+              {routeInfo && !routeLoading && (
+                <div className="bg-[#108AB1]/10 rounded-xl px-3 py-2 text-center shrink-0">
+                  <span className="text-base font-bold text-[#108AB1] block">{formatDist(routeInfo.distance)}</span>
+                  <span className="text-[10px] text-[#108AB1]/70">{formatTime(routeInfo.duration)}</span>
+                </div>
+              )}
+              {routeLoading && (
+                <div className="w-6 h-6 border-2 border-slate-200 border-t-[#108AB1] rounded-full animate-spin shrink-0" />
+              )}
+            </div>
 
             {selectedBranch && (
-              <>
-                <div className="flex gap-2 mt-3">
-                  <button onClick={() => setRouteMode('foot')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${routeMode === 'foot' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                    <Footprints size={13} /> {t('map_route_foot')}
+              <div className="flex items-center gap-2.5 mt-3">
+                {/* Route mode toggle */}
+                <div className="flex bg-slate-100 rounded-xl p-0.5 shrink-0">
+                  <button onClick={() => setRouteMode('foot')} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-semibold transition-all ${routeMode === 'foot' ? 'bg-white text-[#108AB1] shadow-sm' : 'text-slate-400'}`}>
+                    <Footprints size={14} /> {t('map_route_foot')}
                   </button>
-                  <button onClick={() => setRouteMode('driving')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${routeMode === 'driving' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                    <Car size={13} /> {t('map_route_car')}
-                  </button>
-                </div>
-
-                {routeLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-2 mt-2">
-                    <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                    <span className="text-[11px] text-slate-400">{t('map_route_loading')}</span>
-                  </div>
-                ) : routeInfo ? (
-                  <div className="flex items-center gap-4 mt-2.5">
-                    <span className="text-sm font-bold">{formatDist(routeInfo.distance)}</span>
-                    <span className="text-sm text-slate-400">{formatTime(routeInfo.duration)}</span>
-                  </div>
-                ) : null}
-
-                <div className="flex gap-2 mt-3">
-                  <button onClick={() => { setSelectedBranch(null); setRouteCoords([]); setRouteInfo(null); }}
-                    className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 py-2.5 rounded-lg text-[11px] font-medium">
-                    {t('map_route_close')}
-                  </button>
-                  <button onClick={() => { window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeBranch.lat},${activeBranch.lng}&travelmode=${routeMode === 'foot' ? 'walking' : 'driving'}`, '_blank'); }}
-                    className="flex-1 bg-[#108AB1] text-white py-2.5 rounded-lg text-[11px] font-medium">
-                    Google Maps
+                  <button onClick={() => setRouteMode('driving')} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-semibold transition-all ${routeMode === 'driving' ? 'bg-white text-[#108AB1] shadow-sm' : 'text-slate-400'}`}>
+                    <Car size={14} /> {t('map_route_car')}
                   </button>
                 </div>
-              </>
+                {/* Navigate button */}
+                <button onClick={() => { window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeBranch.lat},${activeBranch.lng}&travelmode=${routeMode === 'foot' ? 'walking' : 'driving'}`, '_blank'); }}
+                  className="flex-1 bg-[#108AB1] text-white py-2.5 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform">
+                  <Navigation size={14} /> ნავიგაცია
+                </button>
+                {/* Close */}
+                <button onClick={() => { setSelectedBranch(null); setRouteCoords([]); setRouteInfo(null); }}
+                  className="w-9 h-9 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center hover:text-slate-600 shrink-0">
+                  <X size={15} />
+                </button>
+              </div>
             )}
 
             {!selectedBranch && (
               <button onClick={() => setSelectedBranch(activeBranch)}
-                className="w-full mt-3 bg-[#108AB1] text-white py-2.5 rounded-lg font-medium text-xs">
-                {t('map_route_show')}
+                className="w-full mt-3 bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+                <Navigation size={16} /> {t('map_route_show')}
               </button>
             )}
           </div>
@@ -2041,45 +2384,199 @@ const MapScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, t
 
 const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap }: { setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void }) => {
   const { t, lang, setLang } = useLanguage();
+  const [authUser, setAuthUser] = useState<{ id: number; email: string; name?: string } | null>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'verify' | null>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authCode, setAuthCode] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Check if logged in
+  useEffect(() => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (token) {
+      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => { if (data.user) setAuthUser(data.user); })
+        .catch(() => {});
+    }
+  }, []);
+
+  const handleRegister = async () => {
+    setAuthError(''); setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword, name: authName }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAuthError(data.error); return; }
+      setAuthMode('verify');
+    } catch { setAuthError('კავშირის შეცდომა'); }
+    finally { setAuthLoading(false); }
+  };
+
+  const handleLogin = async () => {
+    setAuthError(''); setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword }),
+      });
+      const data = await res.json();
+      if (data.needsVerification) { setAuthMode('verify'); setAuthError(''); return; }
+      if (!res.ok) { setAuthError(data.error); return; }
+      localStorage.setItem('pasebi-auth-token', data.token);
+      setAuthUser(data.user);
+      setAuthMode(null);
+    } catch { setAuthError('კავშირის შეცდომა'); }
+    finally { setAuthLoading(false); }
+  };
+
+  const handleVerify = async () => {
+    setAuthError(''); setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, code: authCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAuthError(data.error); return; }
+      localStorage.setItem('pasebi-auth-token', data.token);
+      setAuthUser(data.user);
+      setAuthMode(null);
+    } catch { setAuthError('კავშირის შეცდომა'); }
+    finally { setAuthLoading(false); }
+  };
+
+  const handleLogout = () => {
+    const token = localStorage.getItem('pasebi-auth-token');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    localStorage.removeItem('pasebi-auth-token');
+    setAuthUser(null);
+  };
+
   return (
-    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
-      <Header title={t('profile_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
-      <div className="flex items-center gap-4 mb-10 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
-        <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
-          <User size={28} />
+    <div className="pb-24 lg:pb-8 pt-14 lg:pt-3 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
+      <div className="lg:hidden"><Header title={t('profile_title')} /></div>
+      <div className="lg:max-w-lg lg:mx-auto">
+
+      {/* User card */}
+      <div className="flex items-center gap-4 mb-6 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold ${authUser ? 'bg-[#108AB1] text-white' : 'bg-slate-100 text-slate-400'}`}>
+          {authUser ? (authUser.name || authUser.email)[0].toUpperCase() : <User size={28} />}
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('profile_name')}</h2>
-          <p className="text-xs text-slate-400">{t('profile_member')}</p>
+        <div className="flex-1">
+          {authUser ? (
+            <>
+              <h2 className="text-lg font-bold text-slate-900">{authUser.name || authUser.email.split('@')[0]}</h2>
+              <p className="text-xs text-slate-400">{authUser.email}</p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-base font-bold text-slate-900">სტუმარი</h2>
+              <p className="text-xs text-slate-400">შედით ან დარეგისტრირდით</p>
+            </>
+          )}
         </div>
+        {authUser ? (
+          <button onClick={handleLogout} className="text-xs text-red-400 font-medium hover:text-red-600">გასვლა</button>
+        ) : (
+          <button onClick={() => setAuthMode('login')} className="px-4 py-2 bg-[#108AB1] text-white text-xs font-semibold rounded-lg hover:bg-[#0d7a9e] transition-colors">შესვლა</button>
+        )}
       </div>
 
+      {/* Auth Modal */}
+      <AnimatePresence>
+        {authMode && !authUser && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+            className="mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+
+            {authMode === 'verify' ? (
+              <>
+                <h3 className="text-base font-bold text-slate-800 mb-1">ვერიფიკაცია</h3>
+                <p className="text-xs text-slate-400 mb-4">კოდი გამოგზავნილია {authEmail}-ზე</p>
+                <input value={authCode} onChange={e => setAuthCode(e.target.value)} placeholder="6-ნიშნა კოდი"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm mb-3 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30" />
+                {authError && <p className="text-red-500 text-xs mb-3">{authError}</p>}
+                <button onClick={handleVerify} disabled={authLoading}
+                  className="w-full bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm disabled:opacity-50">
+                  {authLoading ? '...' : 'დადასტურება'}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex gap-2 mb-5">
+                  <button onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                    className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${authMode === 'login' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    შესვლა
+                  </button>
+                  <button onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                    className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${authMode === 'register' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    რეგისტრაცია
+                  </button>
+                </div>
+
+                {authMode === 'register' && (
+                  <input value={authName} onChange={e => setAuthName(e.target.value)} placeholder="სახელი (არასავალდებულო)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm mb-3 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30" />
+                )}
+                <input value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email" type="email"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm mb-3 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30" />
+                <input value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="პაროლი" type="password"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm mb-3 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30" />
+
+                {authMode === 'register' && (
+                  <label className="flex items-start gap-2 mb-3 cursor-pointer">
+                    <input type="checkbox" id="age-confirm" className="mt-1 w-4 h-4 rounded border-slate-300 text-[#108AB1] focus:ring-[#108AB1]" />
+                    <span className="text-[11px] text-slate-500 leading-relaxed">
+                      ვადასტურებ რომ 16 წელს გადავცილდი და ვეთანხმები{' '}
+                      <a href="#" onClick={(e) => { e.preventDefault(); window.open('/terms', '_blank'); }} className="text-[#108AB1] underline">მომსახურების პირობებს</a>
+                      {' '}და{' '}
+                      <a href="#" onClick={(e) => { e.preventDefault(); window.open('/privacy', '_blank'); }} className="text-[#108AB1] underline">კონფიდენციალურობის პოლიტიკას</a>
+                    </span>
+                  </label>
+                )}
+
+                {authError && <p className="text-red-500 text-xs mb-3">{authError}</p>}
+
+                <button onClick={() => {
+                  if (authMode === 'register') {
+                    const checkbox = document.getElementById('age-confirm') as HTMLInputElement;
+                    if (!checkbox?.checked) { setAuthError('გთხოვთ დაადასტუროთ ასაკი და პირობები'); return; }
+                  }
+                  (authMode === 'login' ? handleLogin : handleRegister)();
+                }} disabled={authLoading}
+                  className="w-full bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm disabled:opacity-50 mb-3">
+                  {authLoading ? '...' : authMode === 'login' ? 'შესვლა' : 'რეგისტრაცია'}
+                </button>
+
+                <button onClick={() => setAuthMode(null)} className="w-full text-xs text-slate-400 py-2">გაუქმება</button>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Language Selection */}
-      <div className="mb-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
-        <div className="flex items-center gap-3 mb-3">
+      <div className="mb-2 w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3">
           <Globe size={18} className="text-slate-400" />
           <span className="font-medium text-slate-900 dark:text-white text-sm">{t('profile_language')}</span>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setLang('ka')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-              lang === 'ka'
-                ? 'bg-[#108AB1] text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            ქართული
+        <div className="flex gap-1">
+          <button onClick={() => setLang('ka')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${lang === 'ka' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300'}`}>
+            ქარ
           </button>
-          <button
-            onClick={() => setLang('en')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-              lang === 'en'
-                ? 'bg-[#108AB1] text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            English
+          <button onClick={() => setLang('en')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${lang === 'en' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300'}`}>
+            Eng
           </button>
         </div>
       </div>
@@ -2088,8 +2585,6 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
         {[
           { label: t('profile_alerts'), icon: Bell, id: 'alerts' },
           { label: t('profile_my_basket'), icon: ShoppingBasket, id: 'basket' },
-          { label: t('profile_settings'), icon: Settings, id: 'profile' },
-          { label: t('profile_help'), icon: Info, id: 'profile' },
         ].map((item, idx) => (
           <button key={idx} onClick={() => setScreen(item.id as Screen)}
             className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
@@ -2101,6 +2596,133 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
           </button>
         ))}
       </div>
+
+      {/* Legal & Account */}
+      <div className="mt-4 space-y-2">
+        <button onClick={() => setShowPrivacy(true)}
+          className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+          <div className="flex items-center gap-3">
+            <Shield size={18} className="text-slate-400" />
+            <span className="font-medium text-slate-900 dark:text-white text-sm">{lang === 'ka' ? 'კონფიდენციალურობა' : 'Privacy Policy'}</span>
+          </div>
+          <ChevronRight size={16} className="text-slate-300" />
+        </button>
+        <button onClick={() => setShowTerms(true)}
+          className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+          <div className="flex items-center gap-3">
+            <FileText size={18} className="text-slate-400" />
+            <span className="font-medium text-slate-900 dark:text-white text-sm">{lang === 'ka' ? 'მომსახურების პირობები' : 'Terms of Service'}</span>
+          </div>
+          <ChevronRight size={16} className="text-slate-300" />
+        </button>
+        {authUser && (
+          <button onClick={() => setShowDeleteConfirm(true)}
+            className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
+            <div className="flex items-center gap-3">
+              <Trash2 size={18} className="text-red-400" />
+              <span className="font-medium text-red-500 text-sm">{lang === 'ka' ? 'ანგარიშის წაშლა' : 'Delete Account'}</span>
+            </div>
+            <ChevronRight size={16} className="text-red-300" />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-8 text-center">
+        <p className="text-[10px] text-slate-300">SHEADARE v1.0 beta</p>
+        <p className="text-[10px] text-slate-300 mt-0.5">&copy; 2026</p>
+      </div>
+
+      {/* Privacy Modal */}
+      <AnimatePresence>
+        {showPrivacy && (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center px-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowPrivacy(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-800">{lang === 'ka' ? 'კონფიდენციალურობის პოლიტიკა' : 'Privacy Policy'}</h3>
+                <button onClick={() => setShowPrivacy(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
+              </div>
+              <div className="text-sm text-slate-600 space-y-3 leading-relaxed">
+                <p>{lang === 'ka' ? 'შეადარე (pasebi.ge) პატივს სცემს თქვენს კონფიდენციალურობას.' : 'Sheadare (pasebi.ge) respects your privacy.'}</p>
+                <p>{lang === 'ka' ? 'ჩვენ ვაგროვებთ მხოლოდ იმ მონაცემებს, რაც საჭიროა სერვისის მუშაობისთვის: email მისამართი, კალათის მონაცემები და ფასების შეტყობინებები.' : 'We only collect data necessary for the service: email address, basket data, and price alerts.'}</p>
+                <p>{lang === 'ka' ? 'თქვენი მონაცემები არ გადაეცემა მესამე მხარეს. ფასების ინფორმაცია საჯაროდ ხელმისაწვდომი წყაროებიდან გროვდება.' : 'Your data is not shared with third parties. Price information is collected from publicly available sources.'}</p>
+                <p>{lang === 'ka' ? 'თქვენ შეგიძლიათ ნებისმიერ დროს წაშალოთ თქვენი ანგარიში და ყველა დაკავშირებული მონაცემი.' : 'You can delete your account and all associated data at any time.'}</p>
+                <p>{lang === 'ka' ? 'საიტი იყენებს localStorage-ს სესიისა და პარამეტრების შესანახად.' : 'The site uses localStorage to save session and preferences.'}</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Terms Modal */}
+      <AnimatePresence>
+        {showTerms && (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center px-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowTerms(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-800">{lang === 'ka' ? 'მომსახურების პირობები' : 'Terms of Service'}</h3>
+                <button onClick={() => setShowTerms(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
+              </div>
+              <div className="text-sm text-slate-600 space-y-3 leading-relaxed">
+                <p>{lang === 'ka' ? 'შეადარე (pasebi.ge) არის ფასების შედარების პლატფორმა.' : 'Sheadare (pasebi.ge) is a price comparison platform.'}</p>
+                <p>{lang === 'ka' ? 'სერვისით სარგებლობით თქვენ ეთანხმებით შემდეგ პირობებს:' : 'By using the service you agree to the following terms:'}</p>
+                <p>{lang === 'ka' ? '• ფასები ინფორმაციული ხასიათისაა და შეიძლება განსხვავდებოდეს მაღაზიაში არსებული ფასებისგან.' : '• Prices are informational and may differ from in-store prices.'}</p>
+                <p>{lang === 'ka' ? '• მომხმარებელმა თავად უნდა გადაამოწმოს საბოლოო ფასი შეძენისას.' : '• Users should verify the final price at the time of purchase.'}</p>
+                <p>{lang === 'ka' ? '• სერვისი მოწოდებულია "როგორც არის" პრინციპით, გარანტიების გარეშე.' : '• The service is provided "as is" without warranties.'}</p>
+                <p>{lang === 'ka' ? '• რეგისტრაციისთვის საჭიროა მინიმუმ 16 წლის ასაკი.' : '• You must be at least 16 years old to register.'}</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Account Confirmation */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center px-5">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowDeleteConfirm(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+              <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={24} className="text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-1">{lang === 'ka' ? 'ანგარიშის წაშლა' : 'Delete Account'}</h3>
+              <p className="text-sm text-slate-400 mb-5">{lang === 'ka' ? 'ნამდვილად გინდათ ანგარიშის წაშლა? ეს მოქმედება შეუქცევადია.' : 'Are you sure you want to delete your account? This action is irreversible.'}</p>
+              <button
+                onClick={async () => {
+                  const token = localStorage.getItem('pasebi-auth-token');
+                  if (!token) return;
+                  try {
+                    const res = await fetch('/api/auth/me', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                    if (res.ok) {
+                      localStorage.removeItem('pasebi-auth-token');
+                      localStorage.removeItem('pasebi-basket');
+                      localStorage.removeItem('pasebi-favorites');
+                      localStorage.removeItem('pasebi-device-id');
+                      setAuthUser(null);
+                      setShowDeleteConfirm(false);
+                    }
+                  } catch {}
+                }}
+                className="w-full bg-red-500 text-white py-3 rounded-xl font-semibold text-sm mb-2 active:scale-[0.98] transition-transform hover:bg-red-600">
+                {lang === 'ka' ? 'დიახ, წაშალე' : 'Yes, Delete'}
+              </button>
+              <button onClick={() => setShowDeleteConfirm(false)}
+                className="w-full text-slate-400 text-xs py-2">
+                {lang === 'ka' ? 'გაუქმება' : 'Cancel'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      </div>{/* end lg:max-w-lg */}
     </div>
   );
 };
@@ -2110,6 +2732,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
   const [viewStore, setViewStore] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   const generateQR = async () => {
     const ids = basket.map(item => item.id).join(',');
@@ -2152,8 +2775,11 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
   const activeStoreData = storeTotals.find(s => s.store === activeStore) || bestStore;
 
   return (
-    <div className="pb-24 lg:pb-8 pt-14 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen">
-      <Header title={t('basket_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
+    <div className="pb-24 lg:pb-8 pt-14 lg:pt-3 px-5 md:px-8 lg:px-12 xl:px-16 min-h-screen" style={{ overflow: 'visible' }}>
+      <div className="lg:hidden">
+        <Header title={t('basket_title')} />
+      </div>
+      <div className="lg:max-w-6xl lg:mx-auto">
 
       {basket.length === 0 ? (
         <div className="text-center py-20">
@@ -2166,45 +2792,59 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
           </button>
         </div>
       ) : (
-        <>
+        <React.Fragment>
+          {/* Desktop: title + item count */}
+          <div className="hidden lg:flex lg:items-baseline lg:justify-between mb-4">
+            <h2 className="text-lg font-bold text-slate-800">{t('basket_title')}</h2>
+            <span className="text-sm text-slate-400">{basket.length} ნივთი</span>
+          </div>
+
           {/* Store tabs */}
-          <div className="space-y-2 mb-6">
+          <div className="mb-6">
             <h3 className="text-xs font-semibold text-slate-400 mb-2">{t('basket_select_store')}</h3>
+            <div className="space-y-2 lg:flex lg:gap-2.5 lg:space-y-0 lg:overflow-x-auto no-scrollbar">
             {storeTotals.map((item, idx) => (
               <button key={item.store} onClick={() => setViewStore(item.store)}
-                className={`w-full p-3.5 rounded-xl transition-colors flex items-center justify-between border ${
+                className={`w-full lg:w-auto lg:shrink-0 px-4 py-3 rounded-xl transition-all flex items-center gap-3 border ${
                   item.store === activeStore
-                    ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                    : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                    ? 'bg-[#108AB1]/5 border-[#108AB1]/30 shadow-sm'
+                    : 'bg-white border-slate-100 hover:border-slate-200'
                 }`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800">
-                    <SmartImage filename={STORE_CONFIG[item.store]?.filename || ''} alt={item.store}
-                      className="w-full h-full object-contain p-0.5" fallbackLetter={STORE_CONFIG[item.store]?.letter}
-                      fallbackColor={STORE_CONFIG[item.store]?.color} isLogo storeName={item.store} />
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-50 shrink-0">
+                  <SmartImage filename={STORE_CONFIG[item.store]?.filename || ''} alt={item.store}
+                    className="w-full h-full object-contain p-0.5" fallbackLetter={STORE_CONFIG[item.store]?.letter}
+                    fallbackColor={STORE_CONFIG[item.store]?.color} isLogo storeName={item.store} />
+                </div>
+                <div className="text-left whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm text-slate-900">{item.store}</span>
+                    <span className="font-bold text-sm text-slate-900">{item.total.toFixed(2)}₾</span>
                   </div>
-                  <div className="text-left">
-                    <span className="font-semibold text-sm text-slate-900 dark:text-white">{item.store}</span>
-                    <span className={`text-[10px] block ${item.hasAll ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] ${item.hasAll ? 'text-emerald-500' : 'text-amber-500'}`}>
                       {item.availableCount}/{basket.length} {t('basket_in_stock')}
                     </span>
+                    {idx === 0 ? (
+                      <span className="text-[10px] text-emerald-500 font-medium">{t('basket_best_choice')}</span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">+{(item.fullCost - storeTotals[0].fullCost).toFixed(2)}₾</span>
+                    )}
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold text-slate-900 dark:text-white">{item.total.toFixed(2)}₾</span>
-                  {idx === 0 ? (
-                    <span className="text-[10px] text-emerald-500 block">{t('basket_best_choice')}</span>
-                  ) : (
-                    <span className="text-[10px] text-slate-400 block">+{(item.fullCost - storeTotals[0].fullCost).toFixed(2)}₾</span>
-                  )}
                 </div>
               </button>
             ))}
+            </div>
           </div>
 
-          {/* Products */}
-          <div className="space-y-2 mb-6">
-            <h3 className="text-xs font-semibold text-slate-400 mb-2">{activeStore}-ში</h3>
+          {/* Section header */}
+          <h3 className="text-xs font-semibold text-slate-400 mb-3">{activeStore}-ში</h3>
+
+          {/* Desktop: Products left + Summary right */}
+          <div className="lg:flex lg:gap-8 lg:items-start">
+
+          {/* Products column */}
+          <div className="mb-6 lg:mb-0 lg:flex-1 lg:min-w-0">
+            <div className="space-y-3">
             {basket.map((item) => {
               const price = item.prices[activeStore];
               const available = price > 0;
@@ -2214,85 +2854,140 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
                     .sort((a, b) => a[1] - b[1])[0] || null
                 : null;
               return (
-                <div key={item.id} className={`p-3 rounded-xl border flex items-center gap-3 ${available ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800' : 'bg-red-50/50 dark:bg-red-950/10 border-red-100 dark:border-red-900/20'}`}>
-                  <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div key={item.id} className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${available ? 'bg-white border-slate-200 shadow-sm hover:shadow-md' : 'bg-red-50/50 border-red-200/60'}`}>
+                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
                     <SmartImage filename="" imageUrl={item.image} alt={item.name}
-                      className="w-full h-full object-contain p-0.5" fallbackLetter={item.name[0]} />
+                      className="w-full h-full object-contain p-2" fallbackLetter={item.name[0]} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className={`font-medium text-sm truncate ${available ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>{item.name}</h4>
-                    <p className="text-[10px] text-slate-400">{item.size}</p>
+                    <h4 className={`font-semibold text-[13px] leading-tight line-clamp-2 ${available ? 'text-slate-800' : 'text-slate-400'}`}>{item.name}</h4>
+                    {item.size && <p className="text-[11px] text-slate-400 mt-0.5">{item.size}</p>}
                     {!available && altStore && (
-                      <p className="text-[10px] text-slate-400 mt-0.5">{altStore[0]}-ში {(altStore[1] as number).toFixed(2)}₾</p>
+                      <p className="text-[10px] text-amber-500 mt-0.5">{altStore[0]}-ში {(altStore[1] as number).toFixed(2)}₾</p>
                     )}
                   </div>
-                  <span className={`font-semibold text-sm flex-shrink-0 ${available ? 'text-slate-900 dark:text-white' : 'text-red-400 text-xs'}`}>
+                  <span className={`font-bold flex-shrink-0 ${available ? 'text-slate-900 text-base' : 'text-red-400 text-xs'}`}>
                     {available ? `${price.toFixed(2)}₾` : t('basket_not_available')}
                   </span>
                   <button onClick={() => setBasket(basket.filter(p => p.id !== item.id))}
-                    className="text-slate-300 hover:text-red-400 p-1 flex-shrink-0">
-                    <X size={14} />
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-slate-400 hover:text-white hover:bg-red-500 transition-all">
+                    <X size={15} strokeWidth={2} />
                   </button>
                 </div>
               );
             })}
+            </div>{/* end space-y-3 */}
           </div>
 
-          {/* Summary */}
-          <div className="bg-slate-900 dark:bg-slate-800 rounded-2xl p-5 text-white">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-                  {activeStore === bestStore?.store ? t('basket_best_option') : t('basket_selected')}
-                </span>
-                <h4 className="text-lg font-bold mt-0.5">{activeStore}</h4>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('basket_total')}</span>
-                <p className="text-2xl font-bold">{activeStoreData?.total.toFixed(2)}₾</p>
+          {/* Summary — sticky on desktop, below on mobile */}
+          <div className="lg:w-80 lg:shrink-0">
+            <div className="lg:sticky lg:top-[4.5rem]">
+              <div className="bg-gradient-to-br from-[#108AB1] to-[#073A4B] rounded-2xl p-4 lg:p-6 text-white shadow-xl">
+                <div className="flex items-center justify-between mb-3 lg:mb-5">
+                  <div>
+                    <span className="text-[10px] lg:text-[11px] text-slate-400 uppercase tracking-wider font-medium">
+                      {activeStore === bestStore?.store ? t('basket_best_option') : t('basket_selected')}
+                    </span>
+                    <h4 className="text-lg lg:text-xl font-bold">{activeStore}</h4>
+                  </div>
+                  <div className="bg-white/10 rounded-xl px-4 py-2 lg:px-5 lg:py-3">
+                    <span className="text-[10px] text-slate-400">{t('basket_total')}</span>
+                    <p className="text-xl lg:text-3xl font-bold">{activeStoreData?.total.toFixed(2)}₾</p>
+                  </div>
+                </div>
+                {activeStoreData && !activeStoreData.hasAll && (
+                  <p className="text-[10px] text-amber-400 mb-2">{basket.length - activeStoreData.availableCount} {t('basket_unavailable')}</p>
+                )}
+                <button onClick={() => { setTargetStore(activeStore); setScreen('map'); }}
+                  className="w-full bg-white text-slate-900 py-3 lg:py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-slate-100 mb-2 lg:mb-3">
+                  <Navigation size={16} />
+                  {t('basket_show_direction')}
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowShareMenu(true)}
+                    className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 lg:py-3 rounded-xl font-medium text-[12px] lg:text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                  >
+                    <Share2 size={14} />
+                    {t('basket_share')}
+                  </button>
+                  <button
+                    onClick={generateQR}
+                    className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 lg:py-3 rounded-xl font-medium text-[12px] lg:text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" />
+                      <path d="M14 14h2v2h-2zM20 14h2v2h-2zM14 20h2v2h-2zM20 20h2v2h-2zM17 17h2v2h-2z" />
+                    </svg>
+                    QR
+                  </button>
+                </div>
               </div>
             </div>
-            {activeStoreData && !activeStoreData.hasAll && (
-              <p className="text-xs text-slate-400 mb-3">{basket.length - activeStoreData.availableCount} {t('basket_unavailable')}</p>
-            )}
-            <div className="flex gap-2">
-              <button onClick={() => { setTargetStore(activeStore); setScreen('map'); }}
-                className="flex-1 bg-white text-slate-900 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-                <Navigation size={16} />
-                {t('basket_show_direction')}
-              </button>
-              <button
-                onClick={() => {
+          </div>{/* end lg:w-80 */}
+          </div>{/* end lg:flex */}
+        </React.Fragment>
+      )}
+      </div>{/* end lg:max-w-6xl */}
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareMenu && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center px-4 pb-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowShareMenu(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
+              className="relative z-10 bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-slate-800">{t('basket_share')}</h3>
+                <button onClick={() => setShowShareMenu(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={18} /></button>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {(() => {
                   const lines = basket.map(item => {
                     const price = item.prices[activeStore];
                     return `${item.name}${item.size ? ' ' + item.size : ''} — ${price > 0 ? price.toFixed(2) + '₾' : t('basket_not_available')}`;
                   });
                   const text = `${t('basket_shopping_list')} (${activeStore})\n\n${lines.join('\n')}\n\n${t('basket_total')}: ${activeStoreData?.total.toFixed(2)}₾\n\n— SHEADARE`;
-                  if (navigator.share) {
-                    navigator.share({ title: t('basket_shopping_list'), text }).catch(() => {});
-                  } else {
-                    navigator.clipboard.writeText(text).then(() => {
-                      alert(t('basket_list_copied'));
-                    });
-                  }
-                }}
-                className="w-12 bg-slate-700 dark:bg-slate-700 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center active:scale-[0.98] transition-transform"
-              >
-                <Share2 size={16} />
-              </button>
-              <button
-                onClick={generateQR}
-                className="w-12 bg-slate-700 dark:bg-slate-700 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center active:scale-[0.98] transition-transform"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" />
-                  <path d="M14 14h2v2h-2zM20 14h2v2h-2zM14 20h2v2h-2zM20 20h2v2h-2zM17 17h2v2h-2z" />
-                </svg>
-              </button>
-            </div>
+                  const encoded = encodeURIComponent(text);
+                  const url = encodeURIComponent(window.location.href);
+                  const shareOptions = [
+                    { name: 'Telegram', color: 'bg-[#0088cc]', icon: '✈️', href: `https://t.me/share/url?url=${url}&text=${encoded}` },
+                    { name: 'WhatsApp', color: 'bg-[#25D366]', icon: '💬', href: `https://wa.me/?text=${encoded}` },
+                    { name: 'Viber', color: 'bg-[#7360F2]', icon: '📱', href: `viber://forward?text=${encoded}` },
+                    { name: 'Messenger', color: 'bg-[#0084FF]', icon: '💭', href: `fb-messenger://share/?link=${url}` },
+                    { name: 'Instagram', color: 'bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888]', icon: '📷', href: `https://www.instagram.com/` },
+                    { name: 'Email', color: 'bg-[#EA4335]', icon: '✉️', href: `mailto:?subject=${encodeURIComponent(t('basket_shopping_list'))}&body=${encoded}` },
+                    { name: 'ლინკი', color: 'bg-slate-700', icon: '🔗', href: '#copy' },
+                  ];
+                  return shareOptions.map(opt => (
+                    <button
+                      key={opt.name}
+                      onClick={() => {
+                        if (opt.href === '#copy') {
+                          navigator.clipboard.writeText(text).then(() => { alert(t('basket_list_copied')); });
+                        } else {
+                          window.open(opt.href, '_blank');
+                        }
+                        setShowShareMenu(false);
+                      }}
+                      className="flex flex-col items-center gap-1.5 group"
+                    >
+                      <div className={`w-12 h-12 ${opt.color} rounded-full flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform`}>
+                        {opt.icon}
+                      </div>
+                      <span className="text-[10px] font-medium text-slate-500">{opt.name}</span>
+                    </button>
+                  ));
+                })()}
+              </div>
+            </motion.div>
           </div>
-        </>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* QR Code Modal */}
       <AnimatePresence>
@@ -2783,9 +3478,47 @@ export default function App() {
   );
 }
 
+const CookieConsent = () => {
+  const [visible, setVisible] = useState(() => !localStorage.getItem('pasebi-cookie-consent'));
+  if (!visible) return null;
+  return (
+    <div className="fixed bottom-20 lg:bottom-4 left-4 right-4 z-[100] flex justify-center pointer-events-none">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-lg px-5 py-3 flex items-center gap-4 max-w-md w-full pointer-events-auto">
+        <p className="text-sm text-slate-600 flex-1">ეს საიტი იყენებს cookies-ს</p>
+        <button
+          onClick={() => { localStorage.setItem('pasebi-cookie-consent', 'true'); setVisible(false); }}
+          className="px-4 py-2 bg-[#108AB1] text-white text-xs font-semibold rounded-lg hover:bg-[#0d7a9e] transition-colors shrink-0"
+        >
+          ვეთანხმები
+        </button>
+      </div>
+    </div>
+  );
+};
+
 function AppInner() {
   const { t } = useLanguage();
   const [currentScreen, setScreen] = useState<Screen>('home');
+
+  // Global auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('pasebi-auth-token'));
+  const [showAuthPrompt, setShowAuthPrompt] = useState<string | null>(null);
+
+  const requireAuth = (reason: string, callback?: () => void): boolean => {
+    if (isLoggedIn) { callback?.(); return true; }
+    setShowAuthPrompt(reason);
+    return false;
+  };
+
+  // Listen for auth changes + auth-required events
+  useEffect(() => {
+    const check = () => setIsLoggedIn(!!localStorage.getItem('pasebi-auth-token'));
+    const onAuthRequired = (e: Event) => setShowAuthPrompt((e as CustomEvent).detail || 'გაიარეთ რეგისტრაცია');
+    window.addEventListener('storage', check);
+    window.addEventListener('auth-required', onAuthRequired);
+    const interval = setInterval(check, 2000);
+    return () => { window.removeEventListener('storage', check); window.removeEventListener('auth-required', onAuthRequired); clearInterval(interval); };
+  }, []);
   const [darkMode, setDarkMode] = useState(() => {
     // Force light mode
     document.documentElement.classList.remove('dark');
@@ -2799,38 +3532,73 @@ function AppInner() {
 
   // Splash & onboarding
   const [showSplash, setShowSplash] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('pasebi-onboarded'));
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Favorites
   const [favorites, setFavorites] = useState<Product[]>(() => {
     try { const saved = localStorage.getItem('pasebi-favorites'); return saved ? JSON.parse(saved) : []; } catch { return []; }
   });
 
-  // Alert count
+  // Alerts
   const [alertCount, setAlertCount] = useState(0);
-  useEffect(() => {
-    const deviceId = localStorage.getItem('pasebi-device-id') || (() => {
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const alertsRef = useRef<HTMLDivElement>(null);
+
+  const getDeviceId = useCallback(() => {
+    return localStorage.getItem('pasebi-device-id') || (() => {
       const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
       localStorage.setItem('pasebi-device-id', id);
       return id;
     })();
-    const fetchAlerts = () => {
-      fetch(`/api/alerts?device_id=${deviceId}`)
-        .then(r => r.json())
-        .then(data => {
-          const triggered = (data.alerts || []).filter((a: any) => a.triggered_at && a.active === false);
-          const unseen = triggered.filter((a: any) => {
-            const seen = localStorage.getItem(`pasebi-alert-seen-${a.id}`);
-            return !seen;
-          });
-          setAlertCount(unseen.length);
-        })
-        .catch(() => {});
-    };
+  }, []);
+
+  const fetchAlerts = useCallback(() => {
+    const deviceId = getDeviceId();
+    fetch(`/api/alerts?device_id=${deviceId}`)
+      .then(r => r.json())
+      .then(data => {
+        const allAlerts = data.alerts || [];
+        setAlerts(allAlerts);
+        // Count: active alerts + unseen triggered alerts
+        const active = allAlerts.filter((a: any) => a.active);
+        const triggered = allAlerts.filter((a: any) => a.triggered_at && !a.active);
+        const unseenTriggered = triggered.filter((a: any) => !localStorage.getItem(`pasebi-alert-seen-${a.id}`));
+        setAlertCount(active.length + unseenTriggered.length);
+      })
+      .catch(() => {});
+  }, [getDeviceId]);
+
+  useEffect(() => {
     fetchAlerts();
     const interval = setInterval(fetchAlerts, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    const onUpdate = () => fetchAlerts();
+    window.addEventListener('alerts-updated', onUpdate);
+    return () => { clearInterval(interval); window.removeEventListener('alerts-updated', onUpdate); };
+  }, [fetchAlerts]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (alertsRef.current && !alertsRef.current.contains(e.target as Node)) setShowAlerts(false);
+    };
+    if (showAlerts) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showAlerts]);
+
+  const deleteAlert = (alertId: number) => {
+    const deviceId = getDeviceId();
+    fetch(`/api/alerts/${alertId}?device_id=${deviceId}`, { method: 'DELETE' })
+      .then(() => { fetchAlerts(); })
+      .catch(() => {});
+  };
+
+  const markAllSeen = () => {
+    alerts.filter((a: any) => a.triggered_at).forEach((a: any) => {
+      localStorage.setItem(`pasebi-alert-seen-${a.id}`, 'true');
+    });
+    setAlertCount(0);
+  };
 
   // Global voice state
   const [voiceListening, setVoiceListening] = useState(false);
@@ -2843,7 +3611,18 @@ function AppInner() {
 
   // Splash auto-dismiss
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2000);
+    // Splash: მინიმუმ 3 წამი, მაქსიმუმ 5 წამი
+    const minTime = 3000;
+    const maxTimer = setTimeout(() => setShowSplash(false), 5000);
+    const start = Date.now();
+    fetch('/api/search?storeType=grocery&allStores=true&limit=120')
+      .then(() => {
+        const elapsed = Date.now() - start;
+        const remaining = Math.max(0, minTime - elapsed);
+        setTimeout(() => setShowSplash(false), remaining);
+      })
+      .catch(() => {});
+    return () => clearTimeout(maxTimer);
     return () => clearTimeout(timer);
   }, []);
 
@@ -2926,7 +3705,7 @@ function AppInner() {
     recognition.start();
   };
 
-  const onAlertTap = () => setScreen('alerts');
+  const onAlertTap = () => { setShowAlerts(prev => !prev); if (!showAlerts) markAllSeen(); };
   const renderScreen = () => {
     const props = { setScreen, darkMode, setDarkMode, basket, setBasket, alertCount, onAlertTap };
     const homeProps = { ...props, favorites, setFavorites, setSelectedProduct, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded: setVoiceProducts, desktopSearchQuery, setDesktopSearchQuery };
@@ -2965,6 +3744,7 @@ function AppInner() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
+              style={{ overflow: 'visible' }}
             >
               {renderScreen()}
             </motion.div>
@@ -2976,33 +3756,104 @@ function AppInner() {
           </AnimatePresence>
 
           {/* Floating buttons */}
-          {currentScreen !== 'map' && currentScreen !== 'chat' && (
-            <>
-              {/* AI Chat button — mobile only */}
-              <button
-                onClick={() => setScreen('chat')}
-                className="lg:hidden fixed bottom-[8.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
-              >
-                <Sparkles size={20} className="text-white" />
-              </button>
-              {/* Voice mic button — mobile only */}
-              <button
-                onClick={startVoiceCommand}
-                className={`lg:hidden fixed bottom-[5.5rem] right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
-                  voiceListening
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : 'bg-[#108AB1] text-white'
-                }`}
-              >
-                <Mic size={20} />
-              </button>
-            </>
-          )}
+          {/* AI Chat and Voice mic floating buttons removed */}
 
           <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
+
+          {/* Auth prompt modal */}
+          <AnimatePresence>
+            {showAuthPrompt && (
+              <div className="fixed inset-0 z-[80] flex items-center justify-center px-5">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setShowAuthPrompt(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                  className="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+                  <div className="w-14 h-14 bg-[#108AB1]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <User size={24} className="text-[#108AB1]" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">შესვლა საჭიროა</h3>
+                  <p className="text-sm text-slate-400 mb-5">{showAuthPrompt}</p>
+                  <button
+                    onClick={() => { setShowAuthPrompt(null); setScreen('profile'); }}
+                    className="w-full bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm mb-2 active:scale-[0.98] transition-transform">
+                    შესვლა / რეგისტრაცია
+                  </button>
+                  <button onClick={() => setShowAuthPrompt(null)}
+                    className="w-full text-slate-400 text-xs py-2">
+                    მოგვიანებით
+                  </button>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Notifications dropdown */}
+          <AnimatePresence>
+            {showAlerts && (
+              <motion.div
+                ref={alertsRef}
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="fixed top-[4.5rem] right-10 xl:right-14 z-[60] w-[360px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
+              >
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800">{t('alerts_title')}</h3>
+                  <button onClick={() => setShowAlerts(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="max-h-[400px] overflow-y-auto">
+                  {alerts.length === 0 ? (
+                    <div className="py-10 text-center">
+                      <Bell size={24} className="text-slate-200 mx-auto mb-2" />
+                      <p className="text-sm text-slate-400">შეტყობინებები არ არის</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {alerts.map((alert: any) => (
+                        <div key={alert.id} className={`px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors ${alert.triggered_at ? 'bg-emerald-50/50' : ''}`}>
+                          <div className="w-10 h-10 rounded-xl bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
+                            {alert.product_image ? (
+                              <img src={alert.product_image} alt="" className="w-full h-full object-contain p-1" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            ) : (
+                              <div className={`w-full h-full flex items-center justify-center ${alert.triggered_at ? 'bg-emerald-100 text-emerald-600' : 'bg-[#108AB1]/10 text-[#108AB1]'}`}>
+                                {alert.triggered_at ? <TrendingDown size={16} /> : <Bell size={16} />}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-medium text-slate-800 leading-tight truncate">
+                              {alert.product_name || `პროდუქტი #${alert.product_id}`}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {alert.triggered_at ? 'ფასი ჩამოვიდა!' : `სამიზნე: ${alert.target_price}₾`} · {alert.store || 'ყველა მაღაზია'}
+                            </p>
+                            {alert.active && !alert.triggered_at && (
+                              <span className="inline-block text-[10px] text-[#108AB1] font-medium mt-1 bg-[#108AB1]/10 px-2 py-0.5 rounded-full">მოლოდინში</span>
+                            )}
+                            {alert.triggered_at && (
+                              <span className="inline-block text-[10px] text-emerald-600 font-medium mt-1 bg-emerald-100 px-2 py-0.5 rounded-full">შესრულდა</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteAlert(alert.id); }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
+      <CookieConsent />
     </div>
   );
 }

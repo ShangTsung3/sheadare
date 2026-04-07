@@ -104,4 +104,31 @@ export function initDb(): void {
     // Column already exists
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_products_canonical_key ON products(canonical_key)');
+
+  // Migration: add manufacturer column for pharmacy products
+  try {
+    db.exec('ALTER TABLE products ADD COLUMN manufacturer TEXT');
+  } catch {
+    // Column already exists
+  }
+
+  // Migration: auth columns on users
+  try { db.exec('ALTER TABLE users ADD COLUMN email TEXT'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN name TEXT'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN verification_code TEXT'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN verification_expires TEXT'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT \'local\''); } catch {}
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
+
+  // Analysis cache table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS analysis_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      lookup_key TEXT UNIQUE NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
 }

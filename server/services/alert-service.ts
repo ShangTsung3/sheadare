@@ -52,13 +52,19 @@ export function createAlert(deviceId: string, productId: number, targetPrice: nu
   return toDTO(row);
 }
 
-export function getAlerts(deviceId: string): AlertDTO[] {
+export function getAlerts(deviceId: string): (AlertDTO & { product_name?: string; product_image?: string })[] {
   const db = getDb();
   const user = db.prepare('SELECT id FROM users WHERE device_id = ?').get(deviceId) as { id: number } | undefined;
   if (!user) return [];
 
-  const rows = db.prepare('SELECT * FROM alerts WHERE user_id = ? ORDER BY created_at DESC').all(user.id) as AlertRow[];
-  return rows.map(toDTO);
+  const rows = db.prepare(`
+    SELECT a.*, p.name as product_name, p.image_url as product_image
+    FROM alerts a
+    LEFT JOIN products p ON p.id = a.product_id
+    WHERE a.user_id = ?
+    ORDER BY a.created_at DESC
+  `).all(user.id) as (AlertRow & { product_name?: string; product_image?: string })[];
+  return rows.map(row => ({ ...toDTO(row), product_name: row.product_name, product_image: row.product_image }));
 }
 
 export function deleteAlert(deviceId: string, alertId: number): boolean {

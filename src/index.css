@@ -19,6 +19,10 @@
 @layer base {
   body {
     @apply bg-[#F5F7FA] text-ink font-sans antialiased transition-colors duration-300;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, a, [role="button"] {
+    touch-action: manipulation;
   }
   .dark body {
     @apply bg-dark-bg text-slate-100;

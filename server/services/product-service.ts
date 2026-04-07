@@ -1,6 +1,7 @@
 import { getDb } from '../db/connection.js';
 import { extractCanonicalKey, stripColorsFromName } from './electronics-matcher.js';
 import { extractPharmacyCanonicalKey, extractBrandKey, buildBrandDict, parsePharmacyFromName } from './pharmacy-matcher.js';
+import { extractConstructionCanonicalKey } from './construction-matcher.js';
 
 // Lazy-built Georgian → Latin brand dictionary from PSP data in DB.
 // Used to translate GPC's Georgian brand names to Latin for cross-store matching.
@@ -74,6 +75,7 @@ export interface ProductDTO {
   prices: Record<string, number>;
   image?: string;
   priceTrend?: 'up' | 'down';
+  barcode?: string;
 }
 
 function toDTO(product: ProductRow, offers: StoreOfferRow[]): ProductDTO {
@@ -90,10 +92,11 @@ function toDTO(product: ProductRow, offers: StoreOfferRow[]): ProductDTO {
     category: product.category || '',
     prices,
     ...(product.image_url ? { image: product.image_url } : {}),
+    ...(product.barcode ? { barcode: product.barcode } : {}),
   };
 }
 
-export function searchProducts(query: string, category?: string, page = 1, limit = 20, allStores = false, storeType?: string): { results: ProductDTO[]; total: number } {
+export function searchProducts(query: string, category?: string, page = 1, limit = 20, allStores = false, storeType?: string, sort?: string): { results: ProductDTO[]; total: number } {
   const db = getDb();
   const offset = (page - 1) * limit;
 
@@ -150,9 +153,10 @@ export function searchProducts(query: string, category?: string, page = 1, limit
     params.push(storeType);
   }
 
-  // Filter to products available in all 3 stores
+  // Filter to products available in 2+ stores, exclude pet food
   if (allStores) {
-    where += ' AND (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) = 3';
+    where += ' AND (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) >= 2';
+    where += " AND p.category NOT LIKE '%ცხოველ%' AND p.name NOT LIKE '%ძაღლ%' AND p.name NOT LIKE '%კატის%' AND p.name NOT LIKE '%კატა%' AND p.category NOT LIKE '%შინაურ%'";
   }
 
   const countRow = db.prepare(`SELECT COUNT(*) as total FROM products p ${where}`).get(...params) as { total: number };
@@ -165,10 +169,47 @@ export function searchProducts(query: string, category?: string, page = 1, limit
       (${relevanceExpr}) as relevance
     FROM products p ${where}
     ORDER BY
-      relevance DESC,
-      store_count DESC,
-      CASE WHEN max_price > 0 THEN ((max_price - min_price) * 100.0 / max_price) ELSE 0 END DESC,
-      p.id
+      ${sort === 'discount' ? `
+        CASE WHEN max_price > 0 AND store_count >= 2 THEN ((max_price - min_price) * 100.0 / max_price) ELSE 0 END DESC,
+        (max_price - min_price) DESC,
+        relevance DESC
+      ` : sort === 'price_asc' ? `
+        min_price ASC,
+        relevance DESC
+      ` : sort === 'price_desc' ? `
+        max_price DESC,
+        relevance DESC
+      ` : `
+        relevance DESC,
+        CASE WHEN EXISTS(SELECT 1 FROM store_offers so2 WHERE so2.product_id = p.id AND so2.store = '2 Nabiji' AND so2.in_stock = 1 AND so2.price > 0) THEN 50 ELSE 0 END DESC,
+        CASE
+          WHEN p.name_normalized LIKE '%ქათამ%' OR p.name_normalized LIKE '%ქათმის ფილე%' THEN 100
+          WHEN p.name_normalized LIKE '%საქონლ%ხორც%' THEN 99
+          WHEN p.name_normalized LIKE '%ღორის%ხორც%' THEN 98
+          WHEN p.name_normalized LIKE '%პური%' AND p.name_normalized NOT LIKE '%პურის%ფქვილ%' THEN 97
+          WHEN p.name_normalized LIKE '%ფქვილ%' THEN 96
+          WHEN p.name_normalized LIKE '%რძე%' AND LENGTH(p.name) < 40 THEN 95
+          WHEN p.name_normalized LIKE '%მაწონ%' THEN 94
+          WHEN p.name_normalized LIKE '%ყველ%' THEN 93
+          WHEN p.name_normalized LIKE '%ბრინჯ%' THEN 92
+          WHEN p.name_normalized LIKE '%მაკარონ%' THEN 91
+          WHEN p.name_normalized LIKE '%წიწიბურ%' THEN 90
+          WHEN p.name_normalized LIKE '%მზესუმზირ%ზეთ%' OR p.name_normalized LIKE '%სამზარეულო%ზეთ%' THEN 89
+          WHEN p.name_normalized LIKE '%მარილ%' AND LENGTH(p.name) < 35 THEN 88
+          WHEN p.name_normalized LIKE '%შაქარ%' AND LENGTH(p.name) < 35 THEN 87
+          WHEN p.name_normalized LIKE '%სარეცხი%ფხვნილ%' OR p.name_normalized LIKE '%სარეცხი%საშუალ%' THEN 86
+          WHEN p.name_normalized LIKE '%ჭურჭლის%სარეცხ%' OR p.name_normalized LIKE '%საჭურჭლე%' THEN 85
+          WHEN p.name_normalized LIKE '%ხელსახოც%' OR p.name_normalized LIKE '%ქაღალდ%' THEN 84
+          WHEN p.name_normalized LIKE '%კარაქ%' THEN 83
+          WHEN p.name_normalized LIKE '%კვერცხ%' THEN 82
+          WHEN p.name_normalized LIKE '%ყავა%' AND LENGTH(p.name) < 40 THEN 81
+          WHEN p.name_normalized LIKE '%ჩაი%' AND LENGTH(p.name) < 35 THEN 80
+          ELSE 0
+        END DESC,
+        store_count DESC,
+        CASE WHEN max_price > 0 THEN ((max_price - min_price) * 100.0 / max_price) ELSE 0 END DESC,
+        min_price ASC
+      `}
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset) as ProductRow[];
 
@@ -203,26 +244,74 @@ function getProductTrend(productId: number): 'up' | 'down' | undefined {
 
 export function getTopSavings(limit = 7): ProductDTO[] {
   const db = getDb();
-  const products = db.prepare(`
-    SELECT p.*,
-      (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as store_count,
-      (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as max_price,
-      (SELECT MIN(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as min_price
+
+  // Step 1: Get all candidate products with their stores
+  const candidates = db.prepare(`
+    SELECT p.id,
+      GROUP_CONCAT(DISTINCT so.store) as stores,
+      MAX(so.price) as max_price,
+      MIN(so.price) as min_price,
+      (MAX(so.price) - MIN(so.price)) as savings
     FROM products p
+    JOIN store_offers so ON so.product_id = p.id AND so.in_stock = 1 AND so.price > 0
     WHERE p.store_type = 'grocery'
-      AND (SELECT COUNT(DISTINCT so.store) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) = 3
       AND p.external_id NOT LIKE 'split-%' AND p.external_id NOT LIKE 'wrong-merge-%'
-      AND (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) <= 30
       AND p.name NOT LIKE '%ვისკი%' AND p.name NOT LIKE '%კონიაკი%' AND p.name NOT LIKE '%ღვინო%'
       AND p.name NOT LIKE '%შამპანური%' AND p.name NOT LIKE '%ლიქიორი%' AND p.name NOT LIKE '%ჯინი%'
       AND p.name NOT LIKE '%არაყი%' AND p.name NOT LIKE '%ვოდკა%' AND p.name NOT LIKE '%ბრენდი%'
       AND p.name NOT LIKE '%ტეკილა%' AND p.name NOT LIKE '%რომი%'
+    GROUP BY p.id
+    HAVING COUNT(DISTINCT so.store) >= 3 AND savings > 0 AND max_price <= 30
+    ORDER BY savings DESC
+  `).all() as { id: number; stores: string; max_price: number; min_price: number; savings: number }[];
+
+  // Step 2: Find the best 3-store combo (most products available)
+  const comboCounts: Record<string, number[]> = {};
+  for (const c of candidates) {
+    const stores = c.stores.split(',').sort();
+    for (let i = 0; i < stores.length; i++) {
+      for (let j = i + 1; j < stores.length; j++) {
+        for (let k = j + 1; k < stores.length; k++) {
+          const key = `${stores[i]},${stores[j]},${stores[k]}`;
+          if (!comboCounts[key]) comboCounts[key] = [];
+          comboCounts[key].push(c.id);
+        }
+      }
+    }
+  }
+
+  // Pick combo with the most products (tie-break: higher total savings for top N)
+  let bestCombo = '';
+  let bestCount = 0;
+  for (const [combo, ids] of Object.entries(comboCounts)) {
+    if (ids.length > bestCount) {
+      bestCount = ids.length;
+      bestCombo = combo;
+    }
+  }
+
+  if (!bestCombo) return [];
+
+  // Step 3: Get the top `limit` products from that combo, sorted by savings
+  const bestStores = bestCombo.split(',');
+  const comboProductIds = comboCounts[bestCombo];
+  const placeholders = comboProductIds.slice(0, limit).map(() => '?').join(',');
+
+  // Re-fetch full product rows for the top N IDs (already sorted by savings from candidates)
+  const products = db.prepare(`
+    SELECT p.*,
+      (SELECT MAX(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as max_price,
+      (SELECT MIN(so.price) FROM store_offers so WHERE so.product_id = p.id AND so.in_stock = 1 AND so.price > 0) as min_price
+    FROM products p
+    WHERE p.id IN (${placeholders})
     ORDER BY (max_price - min_price) DESC
-    LIMIT ?
-  `).all(limit) as ProductRow[];
+  `).all(...comboProductIds.slice(0, limit)) as ProductRow[];
 
   return products.map((p) => {
-    const offers = db.prepare('SELECT store, price, in_stock, url FROM store_offers WHERE product_id = ?').all(p.id) as StoreOfferRow[];
+    // Only return offers from the chosen 3 stores
+    const offers = db.prepare(
+      `SELECT store, price, in_stock, url FROM store_offers WHERE product_id = ? AND store IN (?, ?, ?)`
+    ).all(p.id, ...bestStores) as StoreOfferRow[];
     const dto = toDTO(p, offers);
     const trend = getProductTrend(p.id);
     if (trend) dto.priceTrend = trend;
@@ -307,6 +396,7 @@ export function upsertProduct(data: {
   dosage_form?: string;
   quantity?: string;
   price?: number;
+  manufacturer?: string;
 }): number {
   const db = getDb();
   const normalized = data.name.toLowerCase().trim();
@@ -319,8 +409,8 @@ export function upsertProduct(data: {
     ).get(data.barcode) as { id: number; image_url: string | null; size: string | null; category: string | null } | undefined;
 
     if (existing) {
-      // Fill in missing data on the canonical record
-      if (!existing.image_url && data.image_url) {
+      // Update image_url if new data provides one (always prefer fresh URL from scraper)
+      if (data.image_url) {
         db.prepare('UPDATE products SET image_url = ?, updated_at = datetime(\'now\') WHERE id = ?').run(data.image_url, existing.id);
       }
       if (!existing.size && data.size) {
@@ -339,6 +429,8 @@ export function upsertProduct(data: {
   let canonicalKey: string | null = null;
   if (data.store_type === 'electronics') {
     canonicalKey = extractCanonicalKey(data.name);
+  } else if (data.store_type === 'construction') {
+    canonicalKey = extractConstructionCanonicalKey(data.name);
   } else if (data.store_type === 'pharmacy') {
     const brandKey = extractBrandKey(data.name, data.source, getPharmacyBrandDict());
     // Always parse from name to fill gaps in structured data (e.g. PSP may provide
@@ -357,9 +449,61 @@ export function upsertProduct(data: {
       dose: finalDose,
       form: data.dosage_form || parsed?.form,
       quantity: data.quantity || parsed?.quantity,
+      volume: parsed?.volume,
     });
   }
   const displayName = data.store_type === 'electronics' ? stripColorsFromName(data.name) : data.name;
+
+  // Construction: merge products with same brand+model across stores
+  // Price sanity check: don't merge if prices diverge >2.5x (body-only vs kit, accessory vs tool)
+  if (canonicalKey && data.store_type === 'construction') {
+    const existing = db.prepare(
+      "SELECT id, name, image_url, size, category FROM products WHERE canonical_key = ? AND store_type = 'construction' AND source != ? LIMIT 1"
+    ).get(canonicalKey, data.source) as { id: number; name: string; image_url: string | null; size: string | null; category: string | null } | undefined;
+
+    if (existing) {
+      // Price ratio check: don't merge if prices are too different
+      if (data.price && data.price > 0) {
+        const avgOffer = db.prepare(
+          'SELECT AVG(price) as avg_price FROM store_offers WHERE product_id = ? AND in_stock = 1 AND price > 0'
+        ).get(existing.id) as { avg_price: number | null };
+
+        if (avgOffer?.avg_price && avgOffer.avg_price > 0) {
+          const ratio = data.price / avgOffer.avg_price;
+          if (ratio > 2.5 || ratio < 1 / 2.5) {
+            // Price too different — likely different product (accessory vs tool, body vs kit)
+            // Don't merge, create separate product
+          } else {
+            if (data.image_url) {
+              db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+            }
+            if (!existing.category && data.category) {
+              db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
+            }
+            return existing.id;
+          }
+        } else {
+          // No existing price to compare — merge
+          if (data.image_url) {
+            db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+          }
+          if (!existing.category && data.category) {
+            db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
+          }
+          return existing.id;
+        }
+      } else {
+        // No price data — merge
+        if (data.image_url) {
+          db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
+        }
+        if (!existing.category && data.category) {
+          db.prepare("UPDATE products SET category = ?, updated_at = datetime('now') WHERE id = ?").run(data.category, existing.id);
+        }
+        return existing.id;
+      }
+    }
+  }
 
   if (canonicalKey) {
     const existing = db.prepare(
@@ -375,7 +519,7 @@ export function upsertProduct(data: {
 
       if (compatible) {
         // Fill in missing data on the canonical record
-        if (!existing.image_url && data.image_url) {
+        if (data.image_url) {
           db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, existing.id);
         }
         if (!existing.category && data.category) {
@@ -415,7 +559,7 @@ export function upsertProduct(data: {
     }
 
     if (bestMatch) {
-      if (!bestMatch.image_url && data.image_url) {
+      if (data.image_url) {
         db.prepare("UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?").run(data.image_url, bestMatch.id);
       }
       if (!bestMatch.category && data.category) {
@@ -426,20 +570,21 @@ export function upsertProduct(data: {
   }
 
   db.prepare(`
-    INSERT INTO products (external_id, name, name_normalized, barcode, size, category, image_url, brand, source, store_type, canonical_key)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (external_id, name, name_normalized, barcode, size, category, image_url, brand, source, store_type, canonical_key, manufacturer)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(external_id, source) DO UPDATE SET
       name = excluded.name,
       name_normalized = excluded.name_normalized,
-      barcode = excluded.barcode,
-      size = excluded.size,
-      category = excluded.category,
-      image_url = excluded.image_url,
-      brand = excluded.brand,
+      barcode = COALESCE(excluded.barcode, products.barcode),
+      size = COALESCE(excluded.size, products.size),
+      category = COALESCE(excluded.category, products.category),
+      image_url = COALESCE(excluded.image_url, products.image_url),
+      brand = COALESCE(excluded.brand, products.brand),
       store_type = excluded.store_type,
       canonical_key = excluded.canonical_key,
+      manufacturer = COALESCE(excluded.manufacturer, products.manufacturer),
       updated_at = datetime('now')
-  `).run(data.external_id, displayName, displayName.toLowerCase().trim(), data.barcode || null, data.size || null, data.category || null, data.image_url || null, data.brand || null, data.source, data.store_type || 'grocery', canonicalKey);
+  `).run(data.external_id, displayName, displayName.toLowerCase().trim(), data.barcode || null, data.size || null, data.category || null, data.image_url || null, data.brand || null, data.source, data.store_type || 'grocery', canonicalKey, data.manufacturer || null);
 
   const row = db.prepare('SELECT id FROM products WHERE external_id = ? AND source = ?').get(data.external_id, data.source) as { id: number };
   return row.id;

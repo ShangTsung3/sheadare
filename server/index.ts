@@ -14,6 +14,8 @@ import alertsRouter from './routes/alerts.js';
 import storesRouter from './routes/stores.js';
 import chatRouter from './routes/chat.js';
 import aiSearchRouter from './routes/ai-search.js';
+import analysisRouter from './routes/analysis.js';
+import authRouter from './routes/auth.js';
 import { startScheduler } from './jobs/scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,6 +46,8 @@ app.use('/api/images', imagesRouter);
 app.use('/api/stores', storesRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/ai', aiSearchRouter);
+app.use('/api/analysis', analysisRouter);
+app.use('/api/auth', authRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
