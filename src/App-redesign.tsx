@@ -4417,14 +4417,22 @@ const CookieConsent = () => {
   if (!visible) return null;
   return (
     <div className="fixed bottom-20 lg:bottom-4 left-4 right-4 z-[100] flex justify-center pointer-events-none">
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-lg px-5 py-3 flex items-center gap-4 max-w-md w-full pointer-events-auto">
-        <p className="text-sm text-slate-600 flex-1">ეს საიტი იყენებს cookies-ს</p>
-        <button
-          onClick={() => { localStorage.setItem('pasebi-cookie-consent', 'true'); setVisible(false); }}
-          className="px-4 py-2 bg-[#108AB1] text-white text-xs font-semibold rounded-lg hover:bg-[#0d7a9e] transition-colors shrink-0"
-        >
-          ვეთანხმები
-        </button>
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-lg px-5 py-4 max-w-md w-full pointer-events-auto">
+        <p className="text-sm text-slate-600 mb-3">ეს საიტი იყენებს cookies-ს და localStorage-ს გამოცდილების გასაუმჯობესებლად და ანალიტიკისთვის.</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { localStorage.setItem('pasebi-cookie-consent', 'true'); setVisible(false); }}
+            className="px-5 py-2 bg-[#108AB1] text-white text-xs font-semibold rounded-lg hover:bg-[#0d7a9e] transition-colors"
+          >
+            ვეთანხმები
+          </button>
+          <button
+            onClick={() => { localStorage.setItem('pasebi-cookie-consent', 'true'); setVisible(false); }}
+            className="text-xs text-slate-400 hover:text-slate-600"
+          >
+            დახურვა
+          </button>
+        </div>
       </div>
     </div>
   );
