@@ -4689,7 +4689,7 @@ function AppInner() {
           {/* Floating buttons */}
           {/* AI Chat and Voice mic floating buttons removed */}
 
-          <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
+          <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); if (q.length > 0 && currentScreen !== 'home') setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
 
           {/* Auth prompt modal */}
           <AnimatePresence>
