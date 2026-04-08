@@ -43,7 +43,7 @@ router.post('/image', async (req, res) => {
 
     // Ask Gemini to identify the product
     const identifyResponse = await callWithRetry(() => ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: [{
         role: 'user',
         parts: [
@@ -54,12 +54,37 @@ router.post('/image', async (req, res) => {
             },
           },
           {
-            text: `ამოიცანი ეს პროდუქტი და დააბრუნე JSON ფორმატით:
-{"product_name": "პროდუქტის სახელი", "search_queries": ["ძიების სიტყვა 1", "ძიების სიტყვა 2"], "category": "კატეგორია ან null", "store_type": "grocery ან electronics ან pharmacy"}
-მხოლოდ JSON დააბრუნე, სხვა ტექსტის გარეშე.`,
+            text: `შენ ხარ ექსპერტი პროდუქტის ამომცნობი ქართული სუპერმარკეტებისთვის.
+
+დავალება: წაიკითხე ეტიკეტზე დაწერილი ყველა ტექსტი და ამოიცანი პროდუქტი.
+
+ნაბიჯები:
+1. პირველ რიგში წაიკითხე ეტიკეტზე/შეფუთვაზე ყველა ტექსტი — ბრენდი, სახელი, მოცულობა
+2. თუ ქართული ტექსტი წერია, ის არის მთავარი
+3. თუ მხოლოდ ლათინური წერია, ქართულად გადმოწერე ტრანსლიტერაციით
+4. მოცულობა/წონა ძალიან მნიშვნელოვანია — 0.5ლ, 1ლ, 1.5ლ, 200გრ, 1კგ...
+
+დააბრუნე JSON:
+{"product_name": "ბრენდი + პროდუქტი + მოცულობა ქართულად", "size": "მოცულობა (მაგ: 0.5ლ)", "search_queries": ["query1", "query2", "query3", "query4", "query5", "query6"], "category": null, "store_type": "grocery"}
+
+search_queries (6 ცალი, ზუსტიდან ზოგადისკენ):
+1. ბრენდი ქართულად + მოცულობა (მაგ: "ბორჯომი 0.5")
+2. ბრენდი ქართულად (მაგ: "ბორჯომი")
+3. ბრენდი ლათინურად ზუსტად როგორც ეტიკეტზეა (მაგ: "Borjomi")
+4. ბრენდი + პროდუქტის ტიპი (მაგ: "ბორჯომი მინერალური")
+5. პროდუქტის სრული სახელი ქართულად (მაგ: "მინერალური წყალი ბორჯომი")
+6. პროდუქტის ტიპი (მაგ: "მინერალური წყალი")
+
+ტრანსლიტერაცია (აუცილებლად!):
+Coca-Cola→კოკა კოლა, Fanta→ფანტა, Pepsi→პეპსი, Sprite→სპრაიტი, Borjomi→ბორჯომი, Nabeghlavi→ნაბეღლავი, Natakhtari→ნატახტარი, Bakuriani→ბაკურიანი, Sante→სანტე, Lactis→ლაქტისი, President→პრეზიდენტი, Nescafe→ნესკაფე, Lipton→ლიპტონი, Jacobs→ჯეკობსი, Barilla→ბარილა, Bonduelle→ბონდუელი, Orbit→ორბიტი, Milka→მილკა, Snickers→სნიკერსი, Lay's→ლეისი, Pringles→პრინგლსი, Domestos→დომესტოსი, Fairy→ფეირი, Persil→პერსილი, Colgate→კოლგეიტი
+
+მხოლოდ JSON! სხვა ტექსტის გარეშე!`,
           },
         ],
       }],
+      config: {
+        thinkingConfig: { thinkingBudget: 2048 },
+      },
     }));
 
     const identifyText = identifyResponse.candidates?.[0]?.content?.parts
@@ -79,24 +104,75 @@ router.post('/image', async (req, res) => {
       identified.search_queries = [identifyText.trim().slice(0, 50)];
     }
 
-    // Search for products using identified queries
-    const allProducts: any[] = [];
+    // Search for products — try all queries and merge results with dedup
+    let allProducts: any[] = [];
+    const seenIds = new Set<string>();
     const queries = identified.search_queries.length > 0
       ? identified.search_queries
       : [identified.product_name].filter(Boolean);
 
-    for (const query of queries.slice(0, 3)) {
+    for (const query of queries.slice(0, 6)) {
+      if (!query) continue;
       const results = searchProductsForAI(
         query,
         identified.category || undefined,
         identified.store_type || undefined,
-        5
+        10
       );
       for (const p of results) {
-        if (!allProducts.find(x => x.id === p.id)) {
+        if (!seenIds.has(p.id)) {
+          seenIds.add(p.id);
           allProducts.push(p);
         }
       }
+      // If first query found good results, prioritize those
+      if (allProducts.length >= 5) break;
+    }
+
+    // Fallback: if nothing found, try product_name and also without store_type filter
+    if (allProducts.length === 0 && identified.product_name) {
+      // Try product_name directly
+      allProducts = searchProductsForAI(identified.product_name, undefined, identified.store_type || undefined, 5);
+    }
+    if (allProducts.length === 0) {
+      // Try each query without store_type filter
+      for (const query of queries.slice(0, 4)) {
+        const results = searchProductsForAI(query, undefined, undefined, 5);
+        if (results.length > 0) { allProducts = results; break; }
+      }
+    }
+    if (allProducts.length === 0 && identified.product_name) {
+      // Last resort: split product_name into individual words and try each
+      const words = identified.product_name.split(/[\s\-_]+/).filter((w: string) => w.length > 2);
+      for (const word of words) {
+        const results = searchProductsForAI(word, undefined, undefined, 5);
+        if (results.length > 0) { allProducts = results; break; }
+      }
+    }
+
+    // Sort results: prioritize matching size from product_name
+    const sizeMatch = (identified.product_name || '').match(/(\d+(?:[.,]\d+)?)\s*(მლ|მგ|ლ|კგ|გრ|ml|mg|l|kg|g)/i);
+    if (sizeMatch && allProducts.length > 1) {
+      const targetSize = sizeMatch[1].replace(',', '.');
+      const targetUnit = sizeMatch[2].toLowerCase();
+      // Convert to ml/g for comparison
+      const toBase = (val: string, unit: string) => {
+        const n = parseFloat(val);
+        const u = unit.toLowerCase();
+        if (u === 'ლ' || u === 'l') return n * 1000;
+        if (u === 'კგ' || u === 'kg') return n * 1000;
+        return n;
+      };
+      const targetBase = toBase(targetSize, targetUnit);
+
+      allProducts.sort((a: any, b: any) => {
+        const aMatch = (a.name + ' ' + a.size).match(/(\d+(?:[.,]\d+)?)\s*(მლ|მგ|ლ|კგ|გრ|ml|mg|l|kg|g)/i);
+        const bMatch = (b.name + ' ' + b.size).match(/(\d+(?:[.,]\d+)?)\s*(მლ|მგ|ლ|კგ|გრ|ml|mg|l|kg|g)/i);
+        const aBase = aMatch ? toBase(aMatch[1].replace(',', '.'), aMatch[2]) : 99999;
+        const bBase = bMatch ? toBase(bMatch[1].replace(',', '.'), bMatch[2]) : 99999;
+        // Closer to target size = higher priority
+        return Math.abs(aBase - targetBase) - Math.abs(bBase - targetBase);
+      });
     }
 
     // Generate user-friendly response
@@ -140,9 +216,9 @@ router.get('/smart', async (req, res) => {
   try {
     const ai = getAI()!;
 
-    // Ask Gemini to parse the natural language query
+    // Ask Gemini to parse the natural language query (thinkingBudget: 1024 for speed)
     const parseResponse = await callWithRetry(() => ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: [{
         role: 'user',
         parts: [{
@@ -154,6 +230,9 @@ router.get('/smart', async (req, res) => {
 მხოლოდ JSON, სხვა ტექსტის გარეშე.`,
         }],
       }],
+      config: {
+        thinkingConfig: { thinkingBudget: 1024 },
+      },
     }));
 
     const parseText = parseResponse.candidates?.[0]?.content?.parts

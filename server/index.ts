@@ -56,11 +56,22 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// 404 for unknown API routes
+app.all('/api/*', (_req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
 // Serve frontend in production
 const distPath = path.resolve(__dirname, '../dist');
 app.use(express.static(distPath));
 app.get('*', (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// Global error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err?.message || err);
+  res.status(err?.status || 500).json({ error: 'something went wrong' });
 });
 
 app.listen(PORT, () => {

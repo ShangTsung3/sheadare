@@ -44,9 +44,17 @@ const KAZBEGI_PLACEHOLDER = "https://picsum.photos/seed/beer/400/400";
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string }) => {
   const storeLogoUrl = isLogo && storeName && STORE_CONFIG[storeName]?.logo;
-  const [src, setSrc] = useState(imageUrl || storeLogoUrl || (filename ? `/api/images/${encodeURIComponent(filename)}` : ''));
+  const resolvedSrc = imageUrl || storeLogoUrl || (filename ? `/api/images/${encodeURIComponent(filename)}` : '');
+  const [src, setSrc] = useState(resolvedSrc);
   const [error, setError] = useState(false);
   const [triedFallback, setTriedFallback] = useState(false);
+
+  // Reset state when source changes
+  useEffect(() => {
+    setSrc(resolvedSrc);
+    setError(false);
+    setTriedFallback(false);
+  }, [resolvedSrc]);
 
   const handleError = () => {
     if (!error && !triedFallback && isLogo && storeName) {

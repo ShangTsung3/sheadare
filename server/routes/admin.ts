@@ -111,7 +111,7 @@ router.post('/scraper/run/:store', async (req: Request, res: Response) => {
   if (!user) return;
 
   const store = req.params.store;
-  const validStores = ['spar', 'nabiji', 'goodwill', 'europroduct'];
+  const validStores = ['spar', 'nabiji', 'goodwill', 'europroduct', 'agrohub', 'psp', 'gpc', 'aversi', 'gorgia', 'goodbuild', 'imart'];
   if (!validStores.includes(store)) {
     res.status(400).json({ error: 'Invalid store: ' + store });
     return;
@@ -233,7 +233,8 @@ router.get('/health', (req: Request, res: Response) => {
 
 // Store scraper status in memory (persists until restart)
 const scraperStatus: Record<string, boolean> = {
-  spar: true, nabiji: true, goodwill: true, europroduct: true
+  spar: true, nabiji: true, goodwill: true, europroduct: true, agrohub: true,
+  psp: true, gpc: true, aversi: true, gorgia: true, goodbuild: true, imart: true
 };
 
 router.get('/scraper/status', (req: Request, res: Response) => {

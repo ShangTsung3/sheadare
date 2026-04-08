@@ -104,11 +104,36 @@ export class SparScraper extends BaseScraper {
     return { products: data.products || [], total: data.productsCount || 0 };
   }
 
+  /** Check if the SPAR online shop is active */
+  private async isShopActive(): Promise<boolean> {
+    try {
+      const token = await this.getToken();
+      const res = await this.fetchWithRateLimit(`${SPAR_API}/v1/Shops`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+      const data = await res.json() as { shops: Array<{ isShopOpen: boolean; categoriesCount: number }> };
+      const shop = data.shops?.[0];
+      return !!(shop?.isShopOpen && shop.categoriesCount > 0);
+    } catch {
+      return false;
+    }
+  }
+
   /** Scrape ALL products from every category/subcategory */
   async scrapeAll(onProgress?: (msg: string) => void): Promise<ScrapedProduct[]> {
     const log = onProgress || ((m: string) => console.log(`[SPAR] ${m}`));
     const allProducts: ScrapedProduct[] = [];
     const seen = new Set<number>();
+
+    // Check if the online shop is active before attempting to scrape
+    const active = await this.isShopActive();
+    if (!active) {
+      log('SPAR online shop is currently inactive (isShopOpen=false). Skipping scrape.');
+      return allProducts;
+    }
 
     const categories = await this.getCategories();
     log(`Found ${categories.length} categories`);

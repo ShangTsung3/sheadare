@@ -83,10 +83,14 @@ export class AversiScraper extends BaseScraper {
         if (!matIdMatch) return;
         const matId = matIdMatch[1];
 
-        // Name from img alt (in product-thumb)
+        // Name from img alt (in product-thumb), fallback to h5 text
         const $img = $card.find('.product-thumb img').first();
-        const name = ($img.attr('alt') || '').trim();
-        if (!name) return;
+        let name = ($img.attr('alt') || '').trim();
+        // Fallback: if alt is empty/numeric, try h5 inside product-details
+        if (!name || /^\d+$/.test(name)) {
+          name = $card.find('.product-details h5').first().text().trim();
+        }
+        if (!name || /^\d+$/.test(name) || name.length < 2) return;
 
         // Image URL
         const imgSrc = $img.attr('src') || '';

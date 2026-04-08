@@ -36,6 +36,12 @@ import {
   Check,
   Upload,
   Pencil,
+  Eye,
+  EyeOff,
+  Zap,
+  BarChart3,
+  Star,
+  Mail,
 } from 'lucide-react';
 import { motion, AnimatePresence, type PanInfo } from 'motion/react';
 import QRCode from 'qrcode';
@@ -1599,10 +1605,11 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
 };
 
 const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, alertCount, onAlertTap, basket, setBasket, setTargetStore }: { selectedProduct: Product | null, setScreen: (s: Screen) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, setTargetStore: (s: string | null) => void }) => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [targetPrice, setTargetPrice] = useState('2.20');
   const [compareData, setCompareData] = useState<{ stores: StorePrice[]; priceTrend?: 'up' | 'down' } | null>(null);
+  const [compareLoading, setCompareLoading] = useState(true);
   const [priceHistory, setPriceHistory] = useState<{ store: string; price: number; date: string }[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -1613,6 +1620,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
   const isInBasket = basket.find(item => item.id === product.id);
 
   useEffect(() => {
+    setCompareLoading(true);
     fetch(`/api/compare/${product.id}`)
       .then(r => r.json())
       .then(data => {
@@ -1627,7 +1635,8 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCompareLoading(false));
 
     fetch(`/api/history/${product.id}`)
       .then(r => r.json())
@@ -1819,6 +1828,12 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
       {/* Store prices */}
       <div>
         <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-3">{t('compare_prices_header')}</h3>
+        {compareLoading ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <div className="w-8 h-8 border-2 border-[#108AB1] border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-slate-400">{lang === 'ka' ? 'ფასები იტვირთება...' : 'Loading prices...'}</p>
+          </div>
+        ) : (
         <div className="space-y-2.5 lg:grid lg:grid-cols-2 lg:space-y-0 lg:gap-3">
         {storeComparison.map((item, idx) => (
           <motion.div
@@ -1856,33 +1871,34 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
           </motion.div>
         ))}
         </div>
+        )}
       </div>
 
       {/* Price History */}
       {priceHistory.length > 1 && (() => {
-        const stores = Array.from(new Set(priceHistory.map(h => h.store))) as string[];
-        const storeColors: Record<string, string> = { 'SPAR': '#00703C', '2 Nabiji': '#F59E0B', 'Goodwill': '#0054A6', 'Agrohub': '#8B5CF6', 'Europroduct': '#E30613' };
-        // Deduplicate: keep last price per store per day
+        const storeColors: Record<string, string> = { '2 Nabiji': '#F59E0B', 'Goodwill': '#0054A6', 'Agrohub': '#8B5CF6', 'Europroduct': '#E30613' };
+        // Filter out SPAR (closed) and deduplicate: keep last price per store per day
         const dayMap = new Map<string, { store: string; price: number; date: string }>();
-        for (const h of [...priceHistory].sort((a, b) => a.date.localeCompare(b.date))) {
+        for (const h of [...priceHistory].filter(h => h.store !== 'SPAR').sort((a, b) => a.date.localeCompare(b.date))) {
           const day = h.date.slice(0, 10);
           dayMap.set(`${h.store}|${day}`, { ...h, date: day });
         }
         const sorted = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+        if (sorted.length < 2) return null;
+        const stores = Array.from(new Set(sorted.map(h => h.store)));
         const dates = Array.from(new Set(sorted.map(h => h.date))).sort();
         const allPrices = sorted.map(h => h.price);
         const minP = Math.min(...allPrices);
         const maxP = Math.max(...allPrices);
-        const range = maxP - minP || 1;
-        const padded = range * 0.1;
-        const W = 400, H = 160, padL = 45, padR = 15, padT = 15, padB = 30;
+        const range = maxP - minP || 0.5;
+        const padded = range * 0.15;
+        const W = 400, H = 180, padL = 42, padR = 55, padT = 20, padB = 32;
         const chartW = W - padL - padR;
         const chartH = H - padT - padB;
         const yMin = minP - padded;
         const yMax = maxP + padded;
         const yRange = yMax - yMin || 1;
 
-        // Y axis ticks
         const yTicks = 4;
         const yStep = yRange / yTicks;
 
@@ -1896,8 +1912,8 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
                 const y = padT + chartH - (i * yStep / yRange) * chartH;
                 return (
                   <g key={`grid-${i}`}>
-                    <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#e2e8f0" strokeWidth="0.5" />
-                    <text x={padL - 5} y={y + 3} textAnchor="end" fill="#94a3b8" fontSize="8" fontWeight="500">{val.toFixed(1)}₾</text>
+                    <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#f1f5f9" strokeWidth="0.5" />
+                    <text x={padL - 5} y={y + 3} textAnchor="end" fill="#94a3b8" fontSize="7.5" fontWeight="500">{val.toFixed(2)}₾</text>
                   </g>
                 );
               })}
@@ -1911,61 +1927,49 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
                   const x = padL + (i / Math.max(dates.length - 1, 1)) * chartW;
                   const d = dates[i];
                   const label = d.length >= 10 ? `${d.slice(8, 10)}.${d.slice(5, 7)}` : d;
-                  return <text key={`date-${i}`} x={x} y={H - 5} textAnchor="middle" fill="#94a3b8" fontSize="7.5" fontWeight="500">{label}</text>;
+                  return <text key={`date-${i}`} x={x} y={H - 5} textAnchor="middle" fill="#94a3b8" fontSize="7" fontWeight="500">{label}</text>;
                 });
               })()}
 
-              {/* Lines + dots per store */}
+              {/* Lines + end labels per store */}
               {stores.map(store => {
                 const pts = sorted.filter(h => h.store === store);
-                if (pts.length < 2) return null;
+                if (pts.length < 1) return null;
                 const coords = pts.map((p) => {
                   const dateIdx = dates.indexOf(p.date);
                   const x = padL + (dateIdx / Math.max(dates.length - 1, 1)) * chartW;
                   const y = padT + chartH - ((p.price - yMin) / yRange) * chartH;
                   return { x, y, price: p.price, date: p.date };
                 });
-                const path = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x},${c.y}`).join(' ');
-                const color = storeColors[store] || '#888';
+                const color = storeColors[store] || '#64748b';
+
+                // Smooth curve using cubic bezier
+                let path = `M${coords[0].x},${coords[0].y}`;
+                for (let i = 1; i < coords.length; i++) {
+                  const prev = coords[i - 1];
+                  const curr = coords[i];
+                  const cpx = (prev.x + curr.x) / 2;
+                  path += ` C${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
+                }
+
+                const last = coords[coords.length - 1];
+                const shortName = store === '2 Nabiji' ? '2ნაბ' : store === 'Goodwill' ? 'GW' : store === 'Europroduct' ? 'Euro' : store;
+
                 return (
                   <g key={store}>
-                    <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    {/* Start and end labels */}
-                    {coords.filter((_, i) => i === 0 || i === coords.length - 1).map((c, i) => {
-                      const isLast = i === 1 || coords.length === 1;
-                      return (
-                        <g key={`label-${i}`}>
-                          <circle cx={c.x} cy={c.y} r="3.5" fill="white" stroke={color} strokeWidth="2" />
-                          <text x={isLast ? c.x - 4 : c.x + 4} y={c.y - 7} textAnchor={isLast ? 'end' : 'start'} fill={color} fontSize="8" fontWeight="700">{c.price.toFixed(2)}</text>
-                        </g>
-                      );
-                    })}
-                    {/* Hover dots on all points */}
+                    <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+                    {/* End dot + label on right side */}
+                    <circle cx={last.x} cy={last.y} r="3" fill="white" stroke={color} strokeWidth="1.5" />
+                    <text x={last.x + 6} y={last.y - 5} textAnchor="start" fill={color} fontSize="8" fontWeight="700">{last.price.toFixed(2)}₾</text>
+                    <text x={last.x + 6} y={last.y + 5} textAnchor="start" fill={color} fontSize="6.5" fontWeight="500" opacity="0.7">{shortName}</text>
+                    {/* Tap areas on all points */}
                     {coords.map((c, i) => (
-                      <g key={`dot-${i}`} className="group">
-                        <circle cx={c.x} cy={c.y} r="8" fill="transparent" className="cursor-pointer" />
-                        <circle cx={c.x} cy={c.y} r="0" fill={color} className="transition-all group-hover:r-[4]" style={{ pointerEvents: 'none' }}>
-                          <animate attributeName="r" from="0" to="4" dur="0.15s" begin="indefinite" fill="freeze" />
-                        </circle>
-                        <g className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ pointerEvents: 'none' }}>
-                          <rect x={c.x - 28} y={c.y - 22} width="56" height="18" rx="4" fill={color} />
-                          <text x={c.x} y={c.y - 10} textAnchor="middle" fill="white" fontSize="8" fontWeight="700">{c.price.toFixed(2)}₾</text>
-                        </g>
-                      </g>
+                      <circle key={`tap-${i}`} cx={c.x} cy={c.y} r="1.5" fill={color} opacity="0.4" />
                     ))}
                   </g>
                 );
               })}
             </svg>
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 mt-2 justify-center">
-              {stores.map(store => (
-                <div key={store} className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: storeColors[store] || '#888' }} />
-                  <span className="text-[11px] font-medium text-slate-500">{store}</span>
-                </div>
-              ))}
-            </div>
           </div>
         );
       })()}
@@ -2393,6 +2397,8 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
+  const [authShowPassword, setAuthShowPassword] = useState(false);
   const [authCode, setAuthCode] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -2400,7 +2406,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
   const [showTerms, setShowTerms] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Check if logged in
+  // Check if logged in & fetch Google Client ID
   useEffect(() => {
     const token = localStorage.getItem('pasebi-auth-token');
     if (token) {
@@ -2409,6 +2415,11 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
         .then(data => { if (data.user) setAuthUser(data.user); })
         .catch(() => {});
     }
+    // Fetch Google Client ID for Sign-In button
+    fetch('/api/auth/config')
+      .then(r => r.json())
+      .then(data => { if (data.googleClientId) (window as any).__GOOGLE_CLIENT_ID = data.googleClientId; })
+      .catch(() => {});
   }, []);
 
   const handleRegister = async () => {
@@ -2456,6 +2467,33 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
       setAuthMode(null);
     } catch { setAuthError('კავშირის შეცდომა'); }
     finally { setAuthLoading(false); }
+  };
+
+  const handleGoogleSignIn = () => {
+    const clientId = (window as any).__GOOGLE_CLIENT_ID;
+    if (!clientId || !(window as any).google?.accounts?.id) {
+      setAuthError('Google Sign-In არ არის ხელმისაწვდომი');
+      return;
+    }
+    (window as any).google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response: { credential: string }) => {
+        setAuthError(''); setAuthLoading(true);
+        try {
+          const res = await fetch('/api/auth/google', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setAuthError(data.error); return; }
+          localStorage.setItem('pasebi-auth-token', data.token);
+          setAuthUser(data.user);
+          setAuthMode(null);
+        } catch { setAuthError('კავშირის შეცდომა'); }
+        finally { setAuthLoading(false); }
+      },
+    });
+    (window as any).google.accounts.id.prompt();
   };
 
   const handleLogout = () => {
@@ -2532,8 +2570,44 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                 )}
                 <input value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="Email" type="email"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm mb-3 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30" />
-                <input value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="პაროლი" type="password"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm mb-3 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30" />
+                <div className="relative mb-3">
+                  <input value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="პაროლი" type={authShowPassword ? 'text' : 'password'}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 pr-11 text-sm focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30" />
+                  <button type="button" onClick={() => setAuthShowPassword(!authShowPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                    {authShowPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+
+                {authMode === 'register' && authPassword && (
+                  <div className="mb-3">
+                    <div className="flex gap-1 mb-1">
+                      {[1,2,3,4].map(i => {
+                        const strength = authPassword.length >= 8 && /[A-Z]/.test(authPassword) && /[0-9]/.test(authPassword) && /[^A-Za-z0-9]/.test(authPassword) ? 4
+                          : authPassword.length >= 8 && /[A-Z]/.test(authPassword) && /[0-9]/.test(authPassword) ? 3
+                          : authPassword.length >= 6 ? 2 : 1;
+                        const colors = ['bg-red-400','bg-orange-400','bg-yellow-400','bg-green-500'];
+                        return <div key={i} className={`h-1 flex-1 rounded-full transition-all ${i <= strength ? colors[strength-1] : 'bg-slate-200'}`} />;
+                      })}
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      {authPassword.length < 6 ? 'სუსტი — მინიმუმ 6 სიმბოლო' : authPassword.length < 8 ? 'საშუალო' : /[A-Z]/.test(authPassword) && /[0-9]/.test(authPassword) ? 'ძლიერი' : 'საშუალო — დაამატეთ ციფრი და დიდი ასო'}
+                    </p>
+                  </div>
+                )}
+
+                {authMode === 'register' && (
+                  <div className="relative mb-3">
+                    <input value={authConfirmPassword} onChange={e => setAuthConfirmPassword(e.target.value)} placeholder="გაიმეორეთ პაროლი" type={authShowPassword ? 'text' : 'password'}
+                      className={`w-full bg-slate-50 border rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30 ${authConfirmPassword && authConfirmPassword !== authPassword ? 'border-red-300' : 'border-slate-200'}`} />
+                    {authConfirmPassword && authConfirmPassword === authPassword && (
+                      <Check size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+                    )}
+                    {authConfirmPassword && authConfirmPassword !== authPassword && (
+                      <p className="text-red-500 text-[10px] mt-1">პაროლები არ ემთხვევა</p>
+                    )}
+                  </div>
+                )}
 
                 {authMode === 'register' && (
                   <label className="flex items-start gap-2 mb-3 cursor-pointer">
@@ -2551,6 +2625,8 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
 
                 <button onClick={() => {
                   if (authMode === 'register') {
+                    if (authPassword.length < 6) { setAuthError('პაროლი მინიმუმ 6 სიმბოლო უნდა იყოს'); return; }
+                    if (authPassword !== authConfirmPassword) { setAuthError('პაროლები არ ემთხვევა'); return; }
                     const checkbox = document.getElementById('age-confirm') as HTMLInputElement;
                     if (!checkbox?.checked) { setAuthError('გთხოვთ დაადასტუროთ ასაკი და პირობები'); return; }
                   }
@@ -2560,12 +2636,81 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                   {authLoading ? '...' : authMode === 'login' ? 'შესვლა' : 'რეგისტრაცია'}
                 </button>
 
+                {/* Google Sign-In divider + button */}
+                <div className="flex items-center gap-3 my-3">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-xs text-slate-400">ან</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                <button onClick={handleGoogleSignIn} disabled={authLoading}
+                  className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 py-3 rounded-xl font-medium text-sm text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 mb-3 shadow-sm">
+                  <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Google-ით შესვლა
+                </button>
+
                 <button onClick={() => setAuthMode(null)} className="w-full text-xs text-slate-400 py-2">გაუქმება</button>
               </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Why Register — only shown when not logged in */}
+      {!authUser && !authMode && (
+        <>
+          {/* Stats banner */}
+          <div className="mb-4 bg-gradient-to-r from-[#108AB1] to-[#0d7a9e] rounded-2xl p-5 text-white">
+            <div className="flex items-center justify-around text-center">
+              <div>
+                <p className="text-2xl font-bold">5</p>
+                <p className="text-[11px] opacity-80">{lang === 'ka' ? 'მაღაზია' : 'Stores'}</p>
+              </div>
+              <div className="w-px h-8 bg-white/20" />
+              <div>
+                <p className="text-2xl font-bold">15K+</p>
+                <p className="text-[11px] opacity-80">{lang === 'ka' ? 'პროდუქტი' : 'Products'}</p>
+              </div>
+              <div className="w-px h-8 bg-white/20" />
+              <div>
+                <p className="text-2xl font-bold">0₾</p>
+                <p className="text-[11px] opacity-80">{lang === 'ka' ? 'უფასოდ' : 'Free'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Features list */}
+          <div className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h3 className="text-sm font-bold text-slate-800 mb-4">{lang === 'ka' ? 'რატომ შეადარე?' : 'Why Sheadare?'}</h3>
+            <div className="space-y-3">
+              {[
+                { icon: TrendingDown, color: 'text-green-500 bg-green-50', text: lang === 'ka' ? 'შეადარე ფასები 5 მაღაზიაში ერთდროულად' : 'Compare prices across 5 stores at once' },
+                { icon: Bell, color: 'text-blue-500 bg-blue-50', text: lang === 'ka' ? 'მიიღე შეტყობინება როცა ფასი დაეცემა' : 'Get notified when prices drop' },
+                { icon: ScanLine, color: 'text-purple-500 bg-purple-50', text: lang === 'ka' ? 'დაასკანერე ბარკოდი და იპოვე იაფი ფასი' : 'Scan barcode to find cheapest price' },
+                { icon: BarChart3, color: 'text-orange-500 bg-orange-50', text: lang === 'ka' ? 'ნახე ფასების ისტორია და ტრენდი' : 'View price history and trends' },
+                { icon: Zap, color: 'text-amber-500 bg-amber-50', text: lang === 'ka' ? 'AI ანალიზი — შეაფასე პროდუქტის ხარისხი' : 'AI analysis — rate product quality' },
+                { icon: ShoppingBasket, color: 'text-teal-500 bg-teal-50', text: lang === 'ka' ? 'შეადარე კალათა — სად ჯობია ყიდვა' : 'Compare baskets — where to buy cheaper' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color.split(' ')[1]}`}>
+                    <item.icon size={18} className={item.color.split(' ')[0]} />
+                  </div>
+                  <p className="text-[13px] text-slate-600 leading-snug">{item.text}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setAuthMode('register')}
+              className="w-full mt-5 bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#0d7a9e] transition-colors">
+              {lang === 'ka' ? 'დარეგისტრირდი უფასოდ' : 'Register for Free'}
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Language Selection */}
       <div className="mb-2 w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -2641,7 +2786,43 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
         )}
       </div>
 
-      <div className="mt-8 text-center">
+      {/* Contact & Feedback */}
+      <div className="mt-4 mb-2">
+        <button onClick={() => window.location.href = 'mailto:support@sheadare.ge?subject=Feedback'}
+          className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <Mail size={18} className="text-slate-400" />
+            <span className="font-medium text-slate-900 dark:text-white text-sm">{lang === 'ka' ? 'დაგვიკავშირდით' : 'Contact Us'}</span>
+          </div>
+          <ChevronRight size={16} className="text-slate-300" />
+        </button>
+      </div>
+
+      {/* Social Links */}
+      <div className="mt-2 mb-2 flex items-center justify-center gap-4">
+        <a href="https://www.facebook.com/sheadare.ge" target="_blank" rel="noopener noreferrer"
+          className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-blue-50 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        </a>
+        <a href="https://www.instagram.com/sheadare.ge" target="_blank" rel="noopener noreferrer"
+          className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-pink-50 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#E4405F"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+        </a>
+        <a href="https://t.me/sheadare" target="_blank" rel="noopener noreferrer"
+          className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-sky-50 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#0088cc"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+        </a>
+      </div>
+
+      {/* App rating */}
+      <div className="mt-2 mb-4 text-center">
+        <div className="flex items-center justify-center gap-1 mb-1">
+          {[1,2,3,4,5].map(i => <Star key={i} size={16} className="text-amber-400 fill-amber-400" />)}
+        </div>
+        <p className="text-[11px] text-slate-400">{lang === 'ka' ? 'მოგწონს აპი? შეგვაფასე!' : 'Like the app? Rate us!'}</p>
+      </div>
+
+      <div className="text-center">
         <p className="text-[10px] text-slate-300">SHEADARE v1.0 beta</p>
         <p className="text-[10px] text-slate-300 mt-0.5">&copy; 2026</p>
       </div>

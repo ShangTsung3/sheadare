@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#108AB1" />
+    <link rel="manifest" href="/manifest.json" />
 
     <title>SHEADARE — შეადარე ფასები | ფასების შედარება საქართველოში</title>
     <meta name="description" content="შეადარე პროდუქტების ფასები 5 მაღაზიაში — SPAR, 2 Nabiji, Goodwill, Europroduct, Agrohub. იპოვე ყველაზე იაფი ვარიანტი და დაზოგე ფული." />
@@ -13,8 +14,8 @@
 
     <!-- Open Graph (Facebook, Telegram, LinkedIn) -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="SHEADARE — შეადარე ფასები" />
-    <meta property="og:description" content="შეადარე პროდუქტების ფასები 5 მაღაზიაში. იპოვე ყველაზე იაფი და დაზოგე." />
+    <meta property="og:title" content="შეადარე — ფასების შედარება" />
+    <meta property="og:description" content="შეადარე ფასები 5 მაღაზიაში ერთდროულად. Goodwill, Europroduct, 2 Nabiji, Agrohub და სხვა." />
     <meta property="og:image" content="/banners/slide1.png" />
     <meta property="og:url" content="https://161.35.213.172" />
     <meta property="og:site_name" content="SHEADARE" />
@@ -22,22 +23,43 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SHEADARE — შეადარე ფასები" />
-    <meta name="twitter:description" content="შეადარე პროდუქტების ფასები 5 მაღაზიაში. იპოვე ყველაზე იაფი." />
+    <meta name="twitter:title" content="შეადარე — ფასების შედარება" />
+    <meta name="twitter:description" content="შეადარე ფასები 5 მაღაზიაში ერთდროულად. Goodwill, Europroduct, 2 Nabiji, Agrohub და სხვა." />
     <meta name="twitter:image" content="/banners/slide1.png" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23108AB1'/><text x='50' y='68' font-size='55' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'>S</text></svg>" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23108AB1'/><text x='50' y='68' font-size='55' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'>S</text></svg>" />
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
 
-    <!-- Mobile -->
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
+
+    <!-- Mobile / PWA -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="SHEADARE" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="შეადარე" />
+
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

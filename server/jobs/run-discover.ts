@@ -13,6 +13,10 @@ import { MetroMartScraper } from '../scrapers/metromart-scraper.js';
 import { PspScraper } from '../scrapers/psp-scraper.js';
 import { GpcScraper } from '../scrapers/gpc-scraper.js';
 import { AversiScraper } from '../scrapers/aversi-scraper.js';
+import { GorgiaScraper } from '../scrapers/gorgia-scraper.js';
+import { GoodbuildScraper } from '../scrapers/goodbuild-scraper.js';
+import { ImartScraper } from '../scrapers/imart-scraper.js';
+import { AgrohubScraper } from '../scrapers/agrohub-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -249,6 +253,90 @@ async function main() {
     console.log(`MetroMart done. ${products.length} products saved.`);
   }
 
+  if (store === 'gorgia' || store === 'construction' || store === 'all') {
+    console.log('Marking existing Gorgia offers as out_of_stock...');
+    db.prepare("UPDATE store_offers SET in_stock = 0 WHERE store = 'Gorgia'").run();
+    console.log('Running full Gorgia scrape...');
+    const gorgiaScraper = new GorgiaScraper(rateLimiter);
+    const gorgeProducts = await gorgiaScraper.scrapeAll((msg) => console.log(`[Gorgia] ${msg}`));
+
+    console.log(`Upserting ${gorgeProducts.length} Gorgia products into DB...`);
+    const upsertGorgia = db.transaction(() => {
+      for (const p of gorgeProducts) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'gorgia',
+          store_type: 'construction',
+          price: p.price,
+        });
+        upsertOffer(productId, 'Gorgia', p.price, p.url);
+      }
+    });
+    upsertGorgia();
+    console.log(`Gorgia done. ${gorgeProducts.length} products saved.`);
+  }
+
+  if (store === 'goodbuild' || store === 'construction' || store === 'all') {
+    console.log('Marking existing Goodbuild offers as out_of_stock...');
+    db.prepare("UPDATE store_offers SET in_stock = 0 WHERE store = 'Goodbuild'").run();
+    console.log('Running full Goodbuild scrape...');
+    const goodbuildScraper = new GoodbuildScraper(rateLimiter);
+    const goodbuildProducts = await goodbuildScraper.scrapeAll((msg) => console.log(`[Goodbuild] ${msg}`));
+
+    console.log(`Upserting ${goodbuildProducts.length} Goodbuild products into DB...`);
+    const upsertGoodbuild = db.transaction(() => {
+      for (const p of goodbuildProducts) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'goodbuild',
+          store_type: 'construction',
+          price: p.price,
+        });
+        upsertOffer(productId, 'Goodbuild', p.price, p.url);
+      }
+    });
+    upsertGoodbuild();
+    console.log(`Goodbuild done. ${goodbuildProducts.length} products saved.`);
+  }
+
+  if (store === 'imart' || store === 'construction' || store === 'all') {
+    console.log('Marking existing iMart offers as out_of_stock...');
+    db.prepare("UPDATE store_offers SET in_stock = 0 WHERE store = 'iMart'").run();
+    console.log('Running full iMart scrape...');
+    const imartScraper = new ImartScraper(rateLimiter);
+    const imartProducts = await imartScraper.scrapeAll((msg) => console.log(`[iMart] ${msg}`));
+
+    console.log(`Upserting ${imartProducts.length} iMart products into DB...`);
+    const upsertImart = db.transaction(() => {
+      for (const p of imartProducts) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'imart',
+          store_type: 'construction',
+          price: p.price,
+        });
+        upsertOffer(productId, 'iMart', p.price, p.url);
+      }
+    });
+    upsertImart();
+    console.log(`iMart done. ${imartProducts.length} products saved.`);
+  }
+
   if (store === 'psp' || store === 'pharmacy' || store === 'all') {
     console.log('Marking existing PSP offers as out_of_stock...');
     db.prepare("UPDATE store_offers SET in_stock = 0 WHERE store = 'PSP'").run();
@@ -307,6 +395,7 @@ async function main() {
           dosage_form: p.dosage_form,
           quantity: p.quantity,
           price: p.price,
+          manufacturer: p.manufacturer,
         });
         upsertOffer(productId, 'GPC', p.price, p.url);
       }
@@ -349,6 +438,35 @@ async function main() {
     });
     upsertAll();
     console.log(`Aversi done. ${products.length} products saved.`);
+  }
+
+  if (store === 'agrohub' || store === 'all') {
+    const agrohubToken = process.env.AGROHUB_TOKEN;
+    if (!agrohubToken) { console.log('AGROHUB_TOKEN not set, skipping.'); }
+    else {
+    console.log('Running full Agrohub scrape...');
+    const scraper = new AgrohubScraper(rateLimiter, agrohubToken);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Agrohub] ${msg}`));
+
+    console.log(`Upserting ${products.length} Agrohub products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          barcode: p.barcode,
+          source: 'agrohub',
+        });
+        upsertOffer(productId, 'Agrohub', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Agrohub done. ${products.length} products saved.`);
+    }
   }
 
   // Clean up stale cross-store offers that violate the price threshold.

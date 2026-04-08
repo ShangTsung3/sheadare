@@ -15,6 +15,7 @@ export interface ScrapedProduct {
   dose?: string;
   dosage_form?: string;
   quantity?: string;
+  manufacturer?: string;
 }
 
 export abstract class BaseScraper {

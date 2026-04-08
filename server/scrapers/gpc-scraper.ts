@@ -8,6 +8,13 @@ const GPC_BASE = 'https://gpc.ge';
 const CATEGORY_ID = 26;
 const PRODUCTS_PER_PAGE = 24; // GPC default
 
+// GPC medication subcategories — main category listing misses some products
+const SUBCATEGORY_IDS = [
+  8120, 8121, 8145, 8165, 8166, 8170, 8171, 8182, 8188, 8191, 8202, 8203,
+  8205, 8215, 8236, 8255, 8259, 8278, 8288, 436, 44989, 44990, 45918,
+  45919, 45943, 45944, 45954,
+];
+
 interface GpcProduct {
   id: number;
   price: string;
@@ -133,6 +140,7 @@ export class GpcScraper extends BaseScraper {
       dose: chars?.dose || undefined,
       dosage_form: chars?.shape || item.shape || undefined,
       quantity: (chars?.numerus || item.numerus)?.toString() || undefined,
+      manufacturer: chars?.manufacturer || undefined,
     };
   }
 
@@ -179,6 +187,42 @@ export class GpcScraper extends BaseScraper {
 
       if (!hasMore) break;
       page++;
+    }
+
+    log(`Main category done: ${allProducts.length} products`);
+
+    // Crawl subcategories to pick up products missed in the main listing
+    for (const subCatId of SUBCATEGORY_IDS) {
+      let subPage = 1;
+      let subNew = 0;
+
+      while (subPage <= MAX_PAGES) {
+        await this.rateLimiter.acquire();
+
+        const subUrl = `${GPC_BASE}/ka/category/medication?category=${CATEGORY_ID}&subCategory=${subCatId}&page=${subPage}`;
+        const subHtml = this.fetchHtmlViaCurl(subUrl);
+
+        if (!subHtml) break;
+
+        const { products: subProducts, hasMore: subHasMore } = this.extractProductsFromHtml(subHtml);
+        if (subProducts.length === 0) break;
+
+        for (const item of subProducts) {
+          const product = this.mapProduct(item);
+          if (product && !seen.has(product.external_id)) {
+            seen.add(product.external_id);
+            allProducts.push(product);
+            subNew++;
+          }
+        }
+
+        if (!subHasMore) break;
+        subPage++;
+      }
+
+      if (subNew > 0) {
+        log(`  SubCat ${subCatId}: +${subNew} new (${allProducts.length} total)`);
+      }
     }
 
     log(`Total unique products: ${allProducts.length}`);

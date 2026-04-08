@@ -16,12 +16,14 @@ const FORM_ALIASES: Record<string, string> = {
   'წვეთები': 'drops', 'წვეთ': 'drops',
   'სუსპენზია': 'susp', 'სუსპ': 'susp',
   'სპრეი': 'spray',
-  'საინჰალაციო': 'inhal', 'აეროზოლი': 'aerosol',
+  'საინჰალაციო': 'inhal', 'აეროზოლი': 'spray',
   'სუპოზიტორია': 'supp', 'სანთელი': 'supp', 'სანთლები': 'supp',
   'ფხვნილი': 'powder', 'გრანულა': 'granule', 'გრანულები': 'granule',
-  'გელი': 'gel', 'ხსნარი': 'sol', 'საინექციო': 'inj', 'ფლაკონი': 'vial', 'ფლ': 'vial',
+  'გელი': 'gel', 'ემულგელი': 'gel', 'ჟელე': 'gel',
+  'ხსნარი': 'sol', 'საინექციო': 'inj', 'ფლაკონი': 'vial', 'ფლ': 'vial',
   'სავლები': 'rinse', 'დროფსი': 'drops',
   'სპირტი': 'sol', 'სპირტხსნარი': 'sol',
+  'პაკეტი': 'granule', 'პაკეტ': 'granule',
   // English
   'tablet': 'tab', 'tablets': 'tab', 'tab': 'tab', 'tabs': 'tab',
   'capsule': 'caps', 'capsules': 'caps', 'caps': 'caps',
@@ -31,10 +33,11 @@ const FORM_ALIASES: Record<string, string> = {
   'drops': 'drops', 'drop': 'drops',
   'suspension': 'susp', 'susp': 'susp',
   'suppository': 'supp', 'suppositories': 'supp', 'supp': 'supp',
-  'powder': 'powder', 'granule': 'granule', 'granules': 'granule',
-  'gel': 'gel', 'solution': 'sol', 'injection': 'inj',
+  'powder': 'powder', 'granule': 'granule', 'granules': 'granule', 'gran': 'granule', 'pack': 'granule',
+  'gel': 'gel', 'emulgel': 'gel', 'jelly': 'gel',
+  'solution': 'sol', 'injection': 'inj',
   'inhaler': 'inhal',
-  'spray': 'spray',
+  'spray': 'spray', 'aerosol': 'spray',
   'rinse': 'rinse', 'mouthwash': 'rinse',
   'spiritus': 'sol', 'spirituosa': 'sol',
 };
@@ -322,6 +325,7 @@ export interface PharmacyProductInfo {
   dose?: string;
   form?: string;
   quantity?: string;
+  volume?: string;  // Package volume for liquids/gels/creams (e.g. "30ml", "50g")
 }
 
 /**
@@ -343,14 +347,22 @@ export function extractPharmacyCanonicalKey(info: PharmacyProductInfo): string |
 
   // Skip qty=1 for liquid/topical forms — GPC adds "#1" (1 bottle) but other stores don't,
   // causing key mismatches like spiritus-10pct-sol-1 vs spiritus-10pct-sol
-  const LIQUID_FORMS = new Set(['sol', 'drops', 'syrup', 'spray', 'rinse', 'gel', 'cream', 'oint', 'vial', 'susp', 'aerosol', 'inhal']);
+  const LIQUID_FORMS = new Set(['sol', 'drops', 'syrup', 'spray', 'rinse', 'gel', 'cream', 'oint', 'vial', 'susp', 'inhal']);
   const effectiveQty = (qty === '1' && form && LIQUID_FORMS.has(form)) ? null : qty;
 
+  // Extract volume for liquid/topical forms (differentiates 30ml vs 1000ml bottles)
+  const volume = info.volume ? info.volume.toLowerCase().replace(/\s+/g, '') : null;
+
   if (dose) {
-    // Standard path: brand + dose + optional form/qty
+    // Standard path: brand + dose + optional form/qty/volume
     const parts = [brand, dose];
     if (form) parts.push(form);
-    if (effectiveQty) parts.push(effectiveQty);
+    // For liquid/topical forms, use volume instead of bottle count
+    if (form && LIQUID_FORMS.has(form) && volume) {
+      parts.push(volume);
+    } else if (effectiveQty) {
+      parts.push(effectiveQty);
+    }
     return parts.join('-');
   }
 
@@ -369,11 +381,15 @@ export function extractPharmacyCanonicalKey(info: PharmacyProductInfo): string |
 export function parsePharmacyFromName(name: string): Partial<PharmacyProductInfo> {
   const result: Partial<PharmacyProductInfo> = { name };
 
-  // Try to extract dose: combination doses first, then percentage, then single dose
+  // Try to extract dose: combination doses first, then dose/weight, then percentage, then single dose
   // Combination doses: "5mg/5mg", "10მგ+10მგ", "5/5mg" (unit on one or both sides)
   const comboMatch = name.match(/([\d.]+)\s*(mg|მგ)?\s*[\/+]\s*([\d.]+)\s*(mg|მგ)/i);
+  // Dose/weight pattern: "100mg/2g" → extract numerator (100mg) as the real dose
+  const dosePerWeight = !comboMatch ? name.match(/([\d.]+)\s*(mg|მგ)\s*\/\s*[\d.]+\s*(g|გ)/i) : null;
   if (comboMatch) {
     result.dose = comboMatch[0].trim();
+  } else if (dosePerWeight) {
+    result.dose = dosePerWeight[1] + dosePerWeight[2];
   } else {
     const pctMatch = name.match(/([\d.]+)\s*%/);
     if (pctMatch) {
@@ -390,6 +406,23 @@ export function parsePharmacyFromName(name: string): Partial<PharmacyProductInfo
           result.dose = gMatch[1] + gMatch[2];
         }
       }
+    }
+  }
+
+  // Try to extract volume for liquid/topical forms (e.g. 50გ, 30ml, 120მლ, 100გრ)
+  // This differentiates packages like Voltaren 50g vs 20g, Betadine 30ml vs 1000ml
+  // Use matchAll to skip small values (doses) and find the real package volume
+  const volRegex = /([\d.]+)\s*(მლ|ml|გრ|gr)(?:\s|$|[^a-zა-ჰ])/gi;
+  const volRegex2 = /([\d.]+)\s*(მლ|ml|გ|g)(?:\s|$|[^a-zა-ჰ\/])/gi;
+  for (const volMatch of [...name.matchAll(volRegex), ...name.matchAll(volRegex2)]) {
+    const volValue = parseFloat(volMatch[1]);
+    const volUnit = volMatch[2].toLowerCase();
+    if (volValue >= 5) {
+      const normalizedUnit = (volUnit === 'მლ' || volUnit === 'ml') ? 'ml'
+        : (volUnit === 'გრ' || volUnit === 'gr' || volUnit === 'გ' || volUnit === 'g') ? 'g'
+        : volUnit;
+      result.volume = `${volValue}${normalizedUnit}`;
+      break;
     }
   }
 
