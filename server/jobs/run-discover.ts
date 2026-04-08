@@ -17,6 +17,7 @@ import { GorgiaScraper } from '../scrapers/gorgia-scraper.js';
 import { GoodbuildScraper } from '../scrapers/goodbuild-scraper.js';
 import { ImartScraper } from '../scrapers/imart-scraper.js';
 import { AgrohubScraper } from '../scrapers/agrohub-scraper.js';
+import { LibreScraper } from '../scrapers/libre-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -467,6 +468,29 @@ async function main() {
     upsertAll();
     console.log(`Agrohub done. ${products.length} products saved.`);
     }
+  }
+
+  if (store === 'libre' || store === 'all') {
+    console.log('Running full Libre scrape...');
+    const scraper = new LibreScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Libre] ${msg}`));
+
+    console.log(`Upserting ${products.length} Libre products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          source: 'libre',
+        });
+        upsertOffer(productId, 'Libre', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Libre done. ${products.length} products saved.`);
   }
 
   // Clean up stale cross-store offers that violate the price threshold.

@@ -9,6 +9,7 @@ import { AltaScraper } from '../scrapers/alta-scraper.js';
 import { KontaktScraper } from '../scrapers/kontakt-scraper.js';
 import { MegatechnicaScraper } from '../scrapers/megatechnica-scraper.js';
 import { AgrohubScraper } from '../scrapers/agrohub-scraper.js';
+import { LibreScraper } from '../scrapers/libre-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 import { SCRAPER_RATE_LIMIT_MS } from '../config.js';
 import { BaseScraper, ScrapedProduct } from '../scrapers/base-scraper.js';
@@ -27,6 +28,7 @@ const STORES: StoreConfig[] = [
   { name: 'Goodwill', source: 'goodwill', storeType: 'grocery', createScraper: (rl) => new GoodwillScraper(rl) },
   { name: 'Europroduct', source: 'europroduct', storeType: 'grocery', createScraper: (rl) => new EuroproductScraper(rl) },
   { name: 'Agrohub', source: 'agrohub', storeType: 'grocery', createScraper: (rl) => new AgrohubScraper(rl, process.env.AGROHUB_TOKEN || '') },
+  { name: 'Libre', source: 'libre', storeType: 'grocery', createScraper: (rl) => new LibreScraper(rl) },
   // ტექნიკა დროებით გამორთულია
   // { name: 'Zoomer', source: 'zoomer', storeType: 'electronics', createScraper: (rl) => new ZoomerScraper(rl) },
   // { name: 'Alta', source: 'alta', storeType: 'electronics', createScraper: (rl) => new AltaScraper(rl) },
