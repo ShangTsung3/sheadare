@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sheadare-v1';
+const CACHE_NAME = 'gamige-v1';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
