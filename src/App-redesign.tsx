@@ -3249,7 +3249,9 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
                   });
                   const text = `${t('basket_shopping_list')} (${activeStore})\n\n${lines.join('\n')}\n\n${t('basket_total')}: ${activeStoreData?.total.toFixed(2)}₾\n\n— GAMIGE`;
                   const encoded = encodeURIComponent(text);
-                  const url = encodeURIComponent(window.location.href);
+                  const basketIds = basket.map(item => item.id).join(',');
+                  const basketUrl = `${window.location.origin}/?basket=${basketIds}&store=${encodeURIComponent(activeStore)}`;
+                  const url = encodeURIComponent(basketUrl);
                   const shareOptions = [
                     { name: 'Telegram', color: 'bg-[#0088cc]', icon: '✈️', href: `https://t.me/share/url?url=${url}&text=${encoded}` },
                     { name: 'WhatsApp', color: 'bg-[#25D366]', icon: '💬', href: `https://wa.me/?text=${encoded}` },
@@ -3264,7 +3266,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
                       key={opt.name}
                       onClick={() => {
                         if (opt.href === '#copy') {
-                          navigator.clipboard.writeText(text).then(() => { alert(t('basket_list_copied')); });
+                          navigator.clipboard.writeText(basketUrl).then(() => { alert(t('basket_list_copied')); });
                         } else {
                           window.open(opt.href, '_blank');
                         }
@@ -3315,7 +3317,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
                 <button
                   onClick={() => {
                     const ids = basket.map(item => item.id).join(',');
-                    const url = `${window.location.origin}?basket=${ids}`;
+                    const url = `${window.location.origin}/?basket=${ids}&store=${encodeURIComponent(activeStore)}`;
                     navigator.clipboard.writeText(url).then(() => alert(t('basket_link_copied')));
                   }}
                   className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-medium text-sm active:scale-[0.98] transition-transform"
@@ -3325,7 +3327,7 @@ const BasketScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap
                 <button
                   onClick={() => {
                     const ids = basket.map(item => item.id).join(',');
-                    const url = `${window.location.origin}?basket=${ids}`;
+                    const url = `${window.location.origin}/?basket=${ids}&store=${encodeURIComponent(activeStore)}`;
                     if (navigator.share) {
                       navigator.share({ title: 'GAMIGE კალათა', url }).catch(() => {});
                     }
@@ -4546,6 +4548,30 @@ function AppInner() {
     });
     setAlertCount(0);
   };
+
+  // Restore basket from shared URL (?basket=id1,id2,id3&store=StoreName)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const basketParam = params.get('basket');
+    if (!basketParam) return;
+    const ids = basketParam.split(',').filter(Boolean);
+    if (ids.length === 0) return;
+    const store = params.get('store') || '';
+    // Fetch products and fill basket
+    Promise.all(ids.map(id => fetch(`/api/compare/${id}`).then(r => r.json()).catch(() => null)))
+      .then(results => {
+        const products: Product[] = [];
+        for (const data of results) {
+          if (data?.product) products.push(data.product);
+        }
+        if (products.length > 0) {
+          setBasket(products);
+          setScreen('basket');
+          // Clean URL
+          window.history.replaceState({}, '', '/');
+        }
+      });
+  }, []);
 
   // Global voice state
   const [voiceListening, setVoiceListening] = useState(false);
