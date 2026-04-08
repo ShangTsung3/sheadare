@@ -323,7 +323,7 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
             <button
               key={item.id}
               onClick={() => { if (item.id === 'map' && onMapTap) onMapTap(); if (item.id === 'home' && active === 'home') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; } setScreen(item.id as Screen); }}
-              className={`transition-colors relative flex flex-col items-center gap-1.5 min-w-[4rem] py-1 ${isActive ? 'text-[#108AB1]' : 'text-[#073A4B]/30'}`}
+              className={`transition-colors relative flex flex-col items-center gap-1 sm:gap-1.5 min-w-[3.5rem] sm:min-w-[4rem] py-1 ${isActive ? 'text-[#108AB1]' : 'text-[#073A4B]/30'}`}
             >
               <div className="relative">
                 <item.icon size={24} strokeWidth={isActive ? 2.2 : 1.6} />
@@ -333,7 +333,7 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
                   </div>
                 )}
               </div>
-              <span className={`text-[12px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+              <span className={`text-[10px] sm:text-[12px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
             </button>
           );
         })}
@@ -385,7 +385,7 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
             <button onClick={onAlertTap} className="w-10 h-10 rounded-full flex items-center justify-center relative text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">
               <Bell size={19} strokeWidth={1.8} />
               {(alertCount ?? 0) > 0 && (
-                <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] flex items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-bold px-0.5">
+                <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-0.5">
                   {alertCount}
                 </span>
               )}
@@ -466,11 +466,11 @@ const BannerSlider = () => {
         <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${bannerIndex * 100}%)` }}>
           {BANNER_SLIDES.map((slide, i) => (
             slide.image ? (
-              <div key={i} className="w-full shrink-0 aspect-[4/1] lg:aspect-[5/1] overflow-hidden">
+              <div key={i} className="w-full shrink-0 aspect-[3/1] sm:aspect-[4/1] lg:aspect-[5/1] overflow-hidden">
                 <img src={slide.image} alt={slide.title} className="w-full h-full object-cover object-center rounded-2xl" />
               </div>
             ) : (
-              <div key={i} className={`w-full shrink-0 bg-gradient-to-r ${slide.bg} px-8 lg:px-14 flex items-center gap-6 aspect-[4/1] lg:aspect-[5/1]`}>
+              <div key={i} className={`w-full shrink-0 bg-gradient-to-r ${slide.bg} px-8 lg:px-14 flex items-center gap-6 aspect-[3/1] sm:aspect-[4/1] lg:aspect-[5/1]`}>
                 <div className="text-3xl lg:text-4xl">{slide.emoji}</div>
                 <div>
                   <h3 className="text-white font-bold text-base lg:text-lg">{slide.title}</h3>
@@ -820,7 +820,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
-                  className="flex-shrink-0 w-[155px] lg:w-auto bg-white dark:bg-slate-900 rounded-xl p-3 cursor-pointer active:scale-[0.97] transition-transform border border-slate-100 dark:border-slate-800 flex flex-col"
+                  className="flex-shrink-0 w-[140px] sm:w-[155px] lg:w-auto bg-white dark:bg-slate-900 rounded-xl p-3 cursor-pointer active:scale-[0.97] transition-transform border border-slate-100 dark:border-slate-800 flex flex-col"
                 >
                   <div className="relative w-full h-20 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800 mb-2">
                     <SmartImage filename="" imageUrl={product.image} alt={product.name} className="w-full h-full object-contain p-1" fallbackLetter={product.name[0]} />
@@ -899,7 +899,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-[15px] font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:bg-white dark:focus:bg-slate-900 transition-all border-0"
           />
           {searchFocused && !searchQuery && searchHistory.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg z-20 overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg z-20 overflow-hidden max-h-[50vh] overflow-y-auto">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('search_history')}</span>
                 <button onClick={() => { setSearchHistory([]); localStorage.removeItem('pasebi-search-history'); }} className="text-[10px] font-medium text-slate-400 hover:text-red-400">{t('search_clear')}</button>
@@ -1179,10 +1179,10 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
           </div>
         </div>
 
-        <div className={`grid gap-3 lg:gap-4 ${
+        <div className={`grid gap-2 sm:gap-3 lg:gap-4 ${
           gridCols === 3 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4' :
-          gridCols === 4 ? 'grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5' :
-          'grid-cols-5 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-6'
+          gridCols === 4 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' :
+          'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'
         }`}>
           {loading && filteredProducts.length === 0 && [1,2,3,4,5,6,7,8].map(i => (
             <div key={i} className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
@@ -1497,7 +1497,7 @@ const BarcodeScannerScreen = ({ setScreen, setSelectedProduct }: { setScreen: (s
       </div>
 
       <div id="barcode-reader-file" className="hidden" />
-      <div className="rounded-2xl overflow-hidden bg-black relative" style={{ minHeight: 300 }}>
+      <div className="rounded-2xl overflow-hidden bg-black relative" style={{ minHeight: 'min(300px, 55vh)' }}>
         <div id="barcode-reader" className="w-full" />
 
         {scanning && !error && !scanSuccess && (
@@ -2834,7 +2834,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowPrivacy(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="relative bg-white rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+              className="relative bg-white rounded-2xl p-4 sm:p-6 max-w-[92vw] sm:max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-slate-800">{lang === 'ka' ? 'კონფიდენციალურობის პოლიტიკა' : 'Privacy Policy'}</h3>
                 <button onClick={() => setShowPrivacy(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
@@ -2858,7 +2858,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowTerms(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="relative bg-white rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+              className="relative bg-white rounded-2xl p-4 sm:p-6 max-w-[92vw] sm:max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-slate-800">{lang === 'ka' ? 'მომსახურების პირობები' : 'Terms of Service'}</h3>
                 <button onClick={() => setShowTerms(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
@@ -3398,7 +3398,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, 
 
   return (
     <div className="pb-20 pt-14 px-0 min-h-screen flex flex-col">
-      <div className="px-5">
+      <div className="px-4">
         <Header title={t('chat_title')} showBack onBack={() => setScreen('home')} alertCount={alertCount} onAlertTap={onAlertTap} />
       </div>
 
@@ -4635,7 +4635,7 @@ function AppInner() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
                 transition={{ duration: 0.15 }}
-                className="fixed top-[4.5rem] right-10 xl:right-14 z-[60] w-[360px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
+                className="fixed top-[4.5rem] right-3 sm:right-10 xl:right-14 z-[60] w-[calc(100vw-1.5rem)] sm:w-[360px] max-w-[360px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
               >
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-slate-800">{t('alerts_title')}</h3>
