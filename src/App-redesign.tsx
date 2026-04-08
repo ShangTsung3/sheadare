@@ -413,7 +413,7 @@ const Header = ({ title, showBack, onBack, alertCount, onAlertTap }: { title: st
           <ArrowLeft size={20} strokeWidth={2} />
         </button>
       )}
-      {(title === 'შეადარე' || title === 'Compare') ? (
+      {(title === 'გამიგე' || title === 'Compare') ? (
         <h1 className="text-[22px] font-light tracking-[0.4em] uppercase text-slate-900 dark:text-white flex items-center gap-2" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>GAMIGE <span className="text-[8px] font-bold tracking-normal px-1.5 py-0.5 rounded-md bg-[#108AB1]/10 text-[#108AB1] normal-case">beta</span></h1>
       ) : (
         <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
@@ -440,7 +440,7 @@ const Header = ({ title, showBack, onBack, alertCount, onAlertTap }: { title: st
 // --- Screens ---
 
 const BANNER_SLIDES = [
-  { bg: 'from-[#108AB1] to-[#073A4B]', title: 'შეადარე ფასები', desc: '5 მაღაზიის ფასები ერთ ადგილას', emoji: '🔍', image: '/banners/slide1.png' },
+  { bg: 'from-[#108AB1] to-[#073A4B]', title: 'გამიგე ფასები', desc: '7 მაღაზიის ფასები ერთ ადგილას', emoji: '🔍', image: '/banners/slide1.png' },
   { bg: 'from-emerald-500 to-teal-600', title: 'დაზოგე ფული', desc: 'იპოვე ყველაზე იაფი ვარიანტი', emoji: '💰', image: '/banners/slide2.png' },
   { bg: 'from-violet-500 to-purple-600', title: 'გააანალიზე პროდუქტი', desc: 'შეამოწმე რამდენად ჯანსაღია', emoji: '🔬', image: '/banners/slide3.png' },
   { bg: 'from-amber-500 to-orange-600', title: 'იპოვე მაღაზია', desc: 'უახლოესი ფილიალი რუკაზე', emoji: '📍', image: '/banners/slide4.png' },
@@ -797,7 +797,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
       {/* დღის დანაზოგი დროებით გამორთული */}
       {false && storeType === 'grocery' && topSavings.length > 0 && !debouncedQuery && (() => {
         const savingsData = topSavings.map((product) => {
-          const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
+          const priceEntries = Object.entries(product.prices).filter(([store, p]) => (p as number) > 0 && store !== 'SPAR').sort((a, b) => (a[1] as number) - (b[1] as number));
           if (priceEntries.length < 2) return null;
           const bestPrice = priceEntries[0][1] as number;
           const worstPrice = priceEntries[priceEntries.length - 1][1] as number;
@@ -1200,7 +1200,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
           {filteredProducts.map((product, idx) => {
             const isInBasket = basket.find(item => item.id === product.id);
             const isFavorite = favorites.find(f => f.id === product.id);
-            const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
+            const priceEntries = Object.entries(product.prices).filter(([store, p]) => (p as number) > 0 && store !== 'SPAR').sort((a, b) => (a[1] as number) - (b[1] as number));
             if (priceEntries.length === 0) return null;
             const bestPrice = priceEntries[0][1] as number;
             const worstPrice = priceEntries.length >= 2 ? priceEntries[priceEntries.length - 1][1] as number : bestPrice;
@@ -1656,7 +1656,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
     }));
 
   const storeComparison = rawComparison
-    .filter(s => s.price !== null && s.price > 0)
+    .filter(s => s.price !== null && s.price > 0 && s.store !== 'SPAR')
     .sort((a, b) => (a.price || 0) - (b.price || 0));
 
   const bestPrice = storeComparison[0];
@@ -2639,7 +2639,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                             const el = e.currentTarget;
                             if (el.scrollHeight - el.scrollTop - el.clientHeight < 30) setAuthTermsRead(true);
                           }}>
-                          <p>შეადარე არის ფასების შედარების პლატფორმა.</p>
+                          <p>გამიგე არის ფასების შედარების პლატფორმა.</p>
                           <p>სერვისით სარგებლობით თქვენ ეთანხმებით შემდეგ პირობებს:</p>
                           <p>• ფასები ინფორმაციული ხასიათისაა და შეიძლება განსხვავდებოდეს მაღაზიაში არსებული ფასებისგან.</p>
                           <p>• მომხმარებელმა თავად უნდა გადაამოწმოს საბოლოო ფასი შეძენისას.</p>
@@ -2678,7 +2678,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                             const el = e.currentTarget;
                             if (el.scrollHeight - el.scrollTop - el.clientHeight < 30) setAuthPrivacyRead(true);
                           }}>
-                          <p>შეადარე პატივს სცემს თქვენს კონფიდენციალურობას და იცავს თქვენს პერსონალურ მონაცემებს.</p>
+                          <p>გამიგე პატივს სცემს თქვენს კონფიდენციალურობას და იცავს თქვენს პერსონალურ მონაცემებს.</p>
                           <p><strong>რა მონაცემებს ვაგროვებთ:</strong></p>
                           <p>• ელექტრონული ფოსტის მისამართი (email)</p>
                           <p>• სახელი (არასავალდებულო)</p>
@@ -2760,7 +2760,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
           <div className="mb-4 bg-gradient-to-r from-[#108AB1] to-[#0d7a9e] rounded-2xl p-5 text-white">
             <div className="flex items-center justify-around text-center">
               <div>
-                <p className="text-2xl font-bold">5</p>
+                <p className="text-2xl font-bold">7</p>
                 <p className="text-[11px] opacity-80">{lang === 'ka' ? 'მაღაზია' : 'Stores'}</p>
               </div>
               <div className="w-px h-8 bg-white/20" />
@@ -2778,10 +2778,10 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
 
           {/* Features list */}
           <div className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-slate-800 mb-4">{lang === 'ka' ? 'რატომ შეადარე?' : 'Why Gamige?'}</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-4">{lang === 'ka' ? 'რატომ გამიგე?' : 'Why Gamige?'}</h3>
             <div className="space-y-3">
               {[
-                { icon: TrendingDown, color: 'text-green-500 bg-green-50', text: lang === 'ka' ? 'შეადარე ფასები 5 მაღაზიაში ერთდროულად' : 'Compare prices across 5 stores at once' },
+                { icon: TrendingDown, color: 'text-green-500 bg-green-50', text: lang === 'ka' ? 'შეადარე ფასები 7 მაღაზიაში ერთდროულად' : 'Compare prices across 7 stores at once' },
                 { icon: Bell, color: 'text-blue-500 bg-blue-50', text: lang === 'ka' ? 'მიიღე შეტყობინება როცა ფასი დაეცემა' : 'Get notified when prices drop' },
                 { icon: ScanLine, color: 'text-purple-500 bg-purple-50', text: lang === 'ka' ? 'დაასკანერე ბარკოდი და იპოვე იაფი ფასი' : 'Scan barcode to find cheapest price' },
                 { icon: BarChart3, color: 'text-orange-500 bg-orange-50', text: lang === 'ka' ? 'ნახე ფასების ისტორია და ტრენდი' : 'View price history and trends' },
@@ -2932,7 +2932,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                 <button onClick={() => setShowPrivacy(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
               </div>
               <div className="text-sm text-slate-600 space-y-3 leading-relaxed">
-                <p>{lang === 'ka' ? 'შეადარე (gamige.com) პატივს სცემს თქვენს კონფიდენციალურობას.' : 'Gamige (gamige.com) respects your privacy.'}</p>
+                <p>{lang === 'ka' ? 'გამიგე (gamige.com) პატივს სცემს თქვენს კონფიდენციალურობას.' : 'Gamige (gamige.com) respects your privacy.'}</p>
                 <p>{lang === 'ka' ? 'ჩვენ ვაგროვებთ მხოლოდ იმ მონაცემებს, რაც საჭიროა სერვისის მუშაობისთვის: email მისამართი, კალათის მონაცემები და ფასების შეტყობინებები.' : 'We only collect data necessary for the service: email address, basket data, and price alerts.'}</p>
                 <p>{lang === 'ka' ? 'თქვენი მონაცემები არ გადაეცემა მესამე მხარეს. ფასების ინფორმაცია საჯაროდ ხელმისაწვდომი წყაროებიდან გროვდება.' : 'Your data is not shared with third parties. Price information is collected from publicly available sources.'}</p>
                 <p>{lang === 'ka' ? 'თქვენ შეგიძლიათ ნებისმიერ დროს წაშალოთ თქვენი ანგარიში და ყველა დაკავშირებული მონაცემი.' : 'You can delete your account and all associated data at any time.'}</p>
@@ -2956,7 +2956,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                 <button onClick={() => setShowTerms(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
               </div>
               <div className="text-sm text-slate-600 space-y-3 leading-relaxed">
-                <p>{lang === 'ka' ? 'შეადარე (gamige.com) არის ფასების შედარების პლატფორმა.' : 'Gamige (gamige.com) is a price comparison platform.'}</p>
+                <p>{lang === 'ka' ? 'გამიგე (gamige.com) არის ფასების შედარების პლატფორმა.' : 'Gamige (gamige.com) is a price comparison platform.'}</p>
                 <p>{lang === 'ka' ? 'სერვისით სარგებლობით თქვენ ეთანხმებით შემდეგ პირობებს:' : 'By using the service you agree to the following terms:'}</p>
                 <p>{lang === 'ka' ? '• ფასები ინფორმაციული ხასიათისაა და შეიძლება განსხვავდებოდეს მაღაზიაში არსებული ფასებისგან.' : '• Prices are informational and may differ from in-store prices.'}</p>
                 <p>{lang === 'ka' ? '• მომხმარებელმა თავად უნდა გადაამოწმოს საბოლოო ფასი შეძენისას.' : '• Users should verify the final price at the time of purchase.'}</p>
@@ -3515,7 +3515,7 @@ const ChatScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTap, 
               {msg.products && msg.products.length > 0 && (
                 <div className="mt-2 flex gap-2 overflow-x-auto no-scrollbar pb-1">
                   {msg.products.map((product) => {
-                    const priceEntries = Object.entries(product.prices).filter(([, p]) => (p as number) > 0).sort((a, b) => (a[1] as number) - (b[1] as number));
+                    const priceEntries = Object.entries(product.prices).filter(([store, p]) => (p as number) > 0 && store !== 'SPAR').sort((a, b) => (a[1] as number) - (b[1] as number));
                     if (priceEntries.length === 0) return null;
                     const isInBasket = basket.find(b => b.id === product.id);
                     return (
