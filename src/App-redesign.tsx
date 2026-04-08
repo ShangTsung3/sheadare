@@ -2749,6 +2749,12 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                   </svg>
                   Google-ით შესვლა
                 </button>
+                <p className="text-[10px] text-slate-400 text-center mb-2 leading-relaxed">
+                  Google-ით შესვლით ვეთანხმები{' '}
+                  <button type="button" onClick={(e) => { e.preventDefault(); setAuthShowTerms(true); setAuthTermsRead(false); }} className="text-[#108AB1] underline">მომსახურების პირობებს</button>
+                  {' '}და{' '}
+                  <button type="button" onClick={(e) => { e.preventDefault(); setAuthShowPrivacy(true); setAuthPrivacyRead(false); }} className="text-[#108AB1] underline">კონფიდენციალურობის პოლიტიკას</button>
+                </p>
 
                 <button onClick={() => setAuthMode(null)} className="w-full text-xs text-slate-400 py-2">გაუქმება</button>
               </>
