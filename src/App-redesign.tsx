@@ -597,15 +597,23 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   }, [voiceSearchQuery]);
 
   // Sync desktop header search → local search
+  // Sync desktop header search → local search (one-way only)
+  const prevDesktopQuery = useRef(desktopSearchQuery);
   useEffect(() => {
-    if (desktopSearchQuery !== undefined && desktopSearchQuery !== searchQuery) {
-      setSearchQuery(desktopSearchQuery);
+    if (desktopSearchQuery !== undefined && desktopSearchQuery !== prevDesktopQuery.current) {
+      prevDesktopQuery.current = desktopSearchQuery;
+      if (desktopSearchQuery !== searchQuery) {
+        setSearchQuery(desktopSearchQuery);
+      }
     }
   }, [desktopSearchQuery]);
 
-  // Sync local search → desktop header search
+  // Sync local search → desktop header (one-way, skip if desktop initiated)
   useEffect(() => {
-    setDesktopSearchQuery?.(searchQuery);
+    if (searchQuery !== prevDesktopQuery.current) {
+      prevDesktopQuery.current = searchQuery;
+      setDesktopSearchQuery?.(searchQuery);
+    }
   }, [searchQuery]);
 
   // Listen for voice category changes from App
