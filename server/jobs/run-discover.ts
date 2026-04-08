@@ -18,6 +18,7 @@ import { GoodbuildScraper } from '../scrapers/goodbuild-scraper.js';
 import { ImartScraper } from '../scrapers/imart-scraper.js';
 import { AgrohubScraper } from '../scrapers/agrohub-scraper.js';
 import { LibreScraper } from '../scrapers/libre-scraper.js';
+import { GeorgitaScraper } from '../scrapers/georgita-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -491,6 +492,28 @@ async function main() {
     });
     upsertAll();
     console.log(`Libre done. ${products.length} products saved.`);
+  }
+
+  if (store === 'georgita' || store === 'all') {
+    console.log('Running full Georgita scrape...');
+    const scraper = new GeorgitaScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Georgita] ${msg}`));
+
+    console.log(`Upserting ${products.length} Georgita products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          image_url: p.image_url,
+          source: 'georgita',
+        });
+        upsertOffer(productId, 'Georgita', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Georgita done. ${products.length} products saved.`);
   }
 
   // Clean up stale cross-store offers that violate the price threshold.
