@@ -2402,6 +2402,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
   const [authShowPassword, setAuthShowPassword] = useState(false);
   const [authCode, setAuthCode] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authRememberMe, setAuthRememberMe] = useState(true);
   const [authShowTerms, setAuthShowTerms] = useState(false);
   const [authShowPrivacy, setAuthShowPrivacy] = useState(false);
   const [authTermsRead, setAuthTermsRead] = useState(false);
@@ -2413,7 +2414,7 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
 
   // Check if logged in & fetch Google Client ID
   useEffect(() => {
-    const token = localStorage.getItem('pasebi-auth-token');
+    const token = localStorage.getItem('pasebi-auth-token') || sessionStorage.getItem('pasebi-auth-token');
     if (token) {
       fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
@@ -2451,7 +2452,11 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
       const data = await res.json();
       if (data.needsVerification) { setAuthMode('verify'); setAuthError(''); return; }
       if (!res.ok) { setAuthError(data.error); return; }
-      localStorage.setItem('pasebi-auth-token', data.token);
+      if (authRememberMe) {
+        localStorage.setItem('pasebi-auth-token', data.token);
+      } else {
+        sessionStorage.setItem('pasebi-auth-token', data.token);
+      }
       setAuthUser(data.user);
       setAuthMode(null);
     } catch { setAuthError('კავშირის შეცდომა'); }
@@ -2587,6 +2592,14 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                     {authShowPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+
+                {authMode === 'login' && (
+                  <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                    <input type="checkbox" checked={authRememberMe} onChange={e => setAuthRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-[#108AB1] focus:ring-[#108AB1]" />
+                    <span className="text-xs text-slate-500">დამიმახსოვრე</span>
+                  </label>
+                )}
 
                 {authMode === 'register' && authPassword && (
                   <div className="mb-3">
