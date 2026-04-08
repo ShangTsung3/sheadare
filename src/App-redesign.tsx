@@ -2475,30 +2475,34 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
     finally { setAuthLoading(false); }
   };
 
+  const googleInitRef = useRef(false);
   const handleGoogleSignIn = () => {
     const clientId = (window as any).__GOOGLE_CLIENT_ID;
     if (!clientId || !(window as any).google?.accounts?.id) {
       setAuthError('Google Sign-In არ არის ხელმისაწვდომი');
       return;
     }
-    (window as any).google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (response: { credential: string }) => {
-        setAuthError(''); setAuthLoading(true);
-        try {
-          const res = await fetch('/api/auth/google', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential: response.credential }),
-          });
-          const data = await res.json();
-          if (!res.ok) { setAuthError(data.error); return; }
-          localStorage.setItem('pasebi-auth-token', data.token);
-          setAuthUser(data.user);
-          setAuthMode(null);
-        } catch { setAuthError('კავშირის შეცდომა'); }
-        finally { setAuthLoading(false); }
-      },
-    });
+    if (!googleInitRef.current) {
+      (window as any).google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: { credential: string }) => {
+          setAuthError(''); setAuthLoading(true);
+          try {
+            const res = await fetch('/api/auth/google', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ credential: response.credential }),
+            });
+            const data = await res.json();
+            if (!res.ok) { setAuthError(data.error); return; }
+            localStorage.setItem('pasebi-auth-token', data.token);
+            setAuthUser(data.user);
+            setAuthMode(null);
+          } catch { setAuthError('კავშირის შეცდომა'); }
+          finally { setAuthLoading(false); }
+        },
+      });
+      googleInitRef.current = true;
+    }
     (window as any).google.accounts.id.prompt();
   };
 
