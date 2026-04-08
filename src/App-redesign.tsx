@@ -2401,6 +2401,10 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
   const [authShowPassword, setAuthShowPassword] = useState(false);
   const [authCode, setAuthCode] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authShowTerms, setAuthShowTerms] = useState(false);
+  const [authShowPrivacy, setAuthShowPrivacy] = useState(false);
+  const [authTermsRead, setAuthTermsRead] = useState(false);
+  const [authPrivacyRead, setAuthPrivacyRead] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -2609,17 +2613,103 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
                   </div>
                 )}
 
-                {authMode === 'register' && (
+                {authMode === 'register' && (<>
                   <label className="flex items-start gap-2 mb-3 cursor-pointer">
                     <input type="checkbox" id="age-confirm" className="mt-1 w-4 h-4 rounded border-slate-300 text-[#108AB1] focus:ring-[#108AB1]" />
                     <span className="text-[11px] text-slate-500 leading-relaxed">
                       ვადასტურებ რომ 16 წელს გადავცილდი და ვეთანხმები{' '}
-                      <a href="#" onClick={(e) => { e.preventDefault(); window.open('/terms', '_blank'); }} className="text-[#108AB1] underline">მომსახურების პირობებს</a>
+                      <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAuthShowTerms(true); setAuthTermsRead(false); }} className="text-[#108AB1] underline font-medium">მომსახურების პირობებს</button>
                       {' '}და{' '}
-                      <a href="#" onClick={(e) => { e.preventDefault(); window.open('/privacy', '_blank'); }} className="text-[#108AB1] underline">კონფიდენციალურობის პოლიტიკას</a>
+                      <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAuthShowPrivacy(true); setAuthPrivacyRead(false); }} className="text-[#108AB1] underline font-medium">კონფიდენციალურობის პოლიტიკას</button>
                     </span>
                   </label>
-                )}
+
+                  {/* Terms popup with scroll-to-read */}
+                  {authShowTerms && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                      <div className="relative bg-white rounded-2xl max-w-[92vw] sm:max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                        <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b border-slate-100">
+                          <h3 className="text-base font-bold text-slate-800">მომსახურების პირობები</h3>
+                        </div>
+                        <div className="px-4 sm:px-6 py-4 overflow-y-auto flex-1 text-sm text-slate-600 space-y-3 leading-relaxed"
+                          onScroll={(e) => {
+                            const el = e.currentTarget;
+                            if (el.scrollHeight - el.scrollTop - el.clientHeight < 30) setAuthTermsRead(true);
+                          }}>
+                          <p>შეადარე არის ფასების შედარების პლატფორმა.</p>
+                          <p>სერვისით სარგებლობით თქვენ ეთანხმებით შემდეგ პირობებს:</p>
+                          <p>• ფასები ინფორმაციული ხასიათისაა და შეიძლება განსხვავდებოდეს მაღაზიაში არსებული ფასებისგან.</p>
+                          <p>• მომხმარებელმა თავად უნდა გადაამოწმოს საბოლოო ფასი შეძენისას.</p>
+                          <p>• ფასები განახლდება ავტომატურად, ყოველ საათში.</p>
+                          <p>• პლატფორმა არ არის პასუხისმგებელი ფასების ცვლილებაზე, რომელიც მოხდა ბოლო განახლების შემდეგ.</p>
+                          <p>• პროდუქტების ანალიზი მოწოდებულია ხელოვნური ინტელექტის მეშვეობით და არ წარმოადგენს სამედიცინო რჩევას.</p>
+                          <p>• რეგისტრაციისთვის საჭიროა მინიმუმ 16 წლის ასაკი.</p>
+                          <p>• მომხმარებელი ვალდებულია მიუთითოს სწორი ელ-ფოსტის მისამართი.</p>
+                          <p>• აკრძალულია სერვისის ავტომატური (ბოტით) გამოყენება.</p>
+                          <p>• სერვისი მოწოდებულია „როგორც არის" პრინციპით, გარანტიების გარეშე.</p>
+                          <p>• პლატფორმა არ არის მაღაზია და არ ყიდის პროდუქტებს.</p>
+                          <p>• ჩვენ ვიტოვებთ უფლებას შევცვალოთ ეს პირობები წინასწარი შეტყობინებით.</p>
+                          <p>• ეს პირობები რეგულირდება საქართველოს კანონმდებლობით.</p>
+                        </div>
+                        <div className="px-4 sm:px-6 py-3 border-t border-slate-100">
+                          {!authTermsRead && <p className="text-[10px] text-amber-500 text-center mb-2">ჩამოსქროლეთ ბოლომდე წასაკითხად</p>}
+                          <button onClick={() => setAuthShowTerms(false)} disabled={!authTermsRead}
+                            className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all ${authTermsRead ? 'bg-[#108AB1] text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+                            {authTermsRead ? 'წავიკითხე, ვეთანხმები' : 'ჩამოსქროლეთ ბოლომდე...'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Privacy popup with scroll-to-read */}
+                  {authShowPrivacy && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                      <div className="relative bg-white rounded-2xl max-w-[92vw] sm:max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                        <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b border-slate-100">
+                          <h3 className="text-base font-bold text-slate-800">კონფიდენციალურობის პოლიტიკა</h3>
+                        </div>
+                        <div className="px-4 sm:px-6 py-4 overflow-y-auto flex-1 text-sm text-slate-600 space-y-3 leading-relaxed"
+                          onScroll={(e) => {
+                            const el = e.currentTarget;
+                            if (el.scrollHeight - el.scrollTop - el.clientHeight < 30) setAuthPrivacyRead(true);
+                          }}>
+                          <p>შეადარე პატივს სცემს თქვენს კონფიდენციალურობას და იცავს თქვენს პერსონალურ მონაცემებს.</p>
+                          <p><strong>რა მონაცემებს ვაგროვებთ:</strong></p>
+                          <p>• ელექტრონული ფოსტის მისამართი (email)</p>
+                          <p>• სახელი (არასავალდებულო)</p>
+                          <p>• პაროლი (დაშიფრული სახით)</p>
+                          <p>• საძიებო მოთხოვნები (ანონიმური სტატისტიკისთვის)</p>
+                          <p>• კალათაში დამატებული პროდუქტები</p>
+                          <p>• ფასების შეტყობინებები</p>
+                          <p><strong>როგორ ვიყენებთ:</strong></p>
+                          <p>• ანგარიშის შექმნა და ავტორიზაცია</p>
+                          <p>• ფასების შეტყობინებების გაგზავნა</p>
+                          <p>• სერვისის გაუმჯობესება</p>
+                          <p><strong>მონაცემების გაზიარება:</strong></p>
+                          <p>• ჩვენ არ ვყიდით და არ გადავცემთ თქვენს პერსონალურ მონაცემებს მესამე მხარეებს.</p>
+                          <p>• მონაცემები ინახება დაცულ სერვერზე.</p>
+                          <p>• პაროლები ინახება დაშიფრული სახით.</p>
+                          <p><strong>თქვენი უფლებები:</strong></p>
+                          <p>• ანგარიშის და ყველა მონაცემის წაშლა ნებისმიერ დროს</p>
+                          <p>• პერსონალური მონაცემების კორექცია</p>
+                          <p>• შეტყობინებების მიღების შეწყვეტა</p>
+                          <p>• საიტი იყენებს localStorage-ს სესიისა და პარამეტრების შესანახად.</p>
+                          <p>• სერვისით სარგებლობა დაშვებულია 16 წლის და უფროსი ასაკის პირებისთვის.</p>
+                        </div>
+                        <div className="px-4 sm:px-6 py-3 border-t border-slate-100">
+                          {!authPrivacyRead && <p className="text-[10px] text-amber-500 text-center mb-2">ჩამოსქროლეთ ბოლომდე წასაკითხად</p>}
+                          <button onClick={() => setAuthShowPrivacy(false)} disabled={!authPrivacyRead}
+                            className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all ${authPrivacyRead ? 'bg-[#108AB1] text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+                            {authPrivacyRead ? 'წავიკითხე, ვეთანხმები' : 'ჩამოსქროლეთ ბოლომდე...'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>)}
 
                 {authError && <p className="text-red-500 text-xs mb-3">{authError}</p>}
 
