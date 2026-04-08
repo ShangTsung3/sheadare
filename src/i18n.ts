@@ -4,8 +4,8 @@ export type Language = 'ka' | 'en';
 
 const translations = {
   // Splash & Onboarding
-  splash_subtitle: { ka: 'შეადარე ფასები', en: 'Compare Prices' },
-  onboarding_slide1_title: { ka: 'შეადარე ფასები', en: 'Compare Prices' },
+  splash_subtitle: { ka: 'გამიგე სად არის იაფი', en: 'Find the best prices' },
+  onboarding_slide1_title: { ka: 'გამიგე ფასები', en: 'Discover Prices' },
   onboarding_slide1_desc: { ka: 'ნახე სად ღირს ყველაზე იაფად', en: 'Find the cheapest store' },
   onboarding_slide2_title: { ka: 'შეინახე კალათაში', en: 'Save to Basket' },
   onboarding_slide2_desc: { ka: 'დაამატე პროდუქტები და ნახე ჯამი', en: 'Add products and see totals' },
@@ -31,7 +31,7 @@ const translations = {
   store_type_construction: { ka: 'სამშენებლო', en: 'Construction' },
 
   // Header
-  header_title: { ka: 'შეადარე', en: 'Compare' },
+  header_title: { ka: 'გამიგე', en: 'Gamige' },
 
   // Top savings
   top_savings_title: { ka: 'დღის დანაზოგი', en: "Today's Savings" },
@@ -184,7 +184,7 @@ const translations = {
 
   // Chat Screen
   chat_title: { ka: 'AI ასისტენტი', en: 'AI Assistant' },
-  chat_welcome: { ka: 'გამარჯობა! მე ვარ შეადარე-ს AI ასისტენტი. დამიწერე რა პროდუქტები გაინტერესებს და მოვძებნი საუკეთესო ფასებს! 🛒', en: "Hi! I'm the SHEADARE AI assistant. Tell me what products you're looking for and I'll find the best prices! 🛒" },
+  chat_welcome: { ka: 'გამარჯობა! მე ვარ გამიგე-ს AI ასისტენტი. დამიწერე რა პროდუქტები გაინტერესებს და მოვძებნი საუკეთესო ფასებს! 🛒', en: "Hi! I'm the GAMIGE AI assistant. Tell me what products you're looking for and I'll find the best prices! 🛒" },
   chat_placeholder: { ka: 'დაწერე რა გაინტერესებს...', en: 'What are you looking for...' },
   chat_image_search: { ka: 'ფოტოთი ძებნა', en: 'Search by Photo' },
   chat_in_basket: { ka: 'კალათაშია', en: 'In Basket' },
