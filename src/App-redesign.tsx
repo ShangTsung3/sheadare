@@ -502,15 +502,16 @@ const FALLBACK_PRODUCTS: Product[] = [
 
 const BasketToast = ({ productName }: { productName: string }) => {
   const { t } = useLanguage();
+  const isError = productName.includes('ვერ') || productName.includes('არ');
   return (
   <motion.div
     initial={{ opacity: 0, y: 30 }}
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: -10 }}
-    className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#073A4B] text-white px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2"
+    className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-50 text-white px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2 ${isError ? 'bg-red-500' : 'bg-[#073A4B]'}`}
   >
-    <ShoppingBasket size={14} strokeWidth={2.5} />
-    <span className="text-xs font-semibold">{t('toast_added_basket')}</span>
+    {isError ? <X size={14} strokeWidth={2.5} /> : <ShoppingBasket size={14} strokeWidth={2.5} />}
+    <span className="text-xs font-semibold">{isError ? productName : t('toast_added_basket')}</span>
   </motion.div>
   );
 };
