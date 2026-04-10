@@ -756,6 +756,12 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
 
   const addToBasketSwipe = (product: Product) => {
     if (!basket.find(item => item.id === product.id)) {
+      // Don't mix grocery and electronics
+      if (basket.length > 0) {
+        const basketIsElectronics = Object.keys(basket[0].prices).some(s => ['Zoomer','Alta','Kontakt','Megatechnica','MetroMart'].includes(s));
+        const productIsElectronics = Object.keys(product.prices).some(s => ['Zoomer','Alta','Kontakt','Megatechnica','MetroMart'].includes(s));
+        if (basketIsElectronics !== productIsElectronics) return;
+      }
       setBasket(prev => [...prev, product]);
       setToastProduct(product.name);
       setTimeout(() => setToastProduct(null), 2500);
@@ -767,6 +773,16 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
     if (basket.find(item => item.id === product.id)) {
       setBasket(basket.filter(item => item.id !== product.id));
     } else {
+      // Don't mix grocery and electronics in basket
+      if (basket.length > 0) {
+        const basketIsElectronics = Object.keys(basket[0].prices).some(s => ['Zoomer','Alta','Kontakt','Megatechnica','MetroMart'].includes(s));
+        const productIsElectronics = Object.keys(product.prices).some(s => ['Zoomer','Alta','Kontakt','Megatechnica','MetroMart'].includes(s));
+        if (basketIsElectronics !== productIsElectronics) {
+          setToastProduct(lang === 'ka' ? 'სასურსათო და ტექნიკა ერთ კალათაში ვერ იქნება' : 'Cannot mix grocery and electronics');
+          setTimeout(() => setToastProduct(null), 3000);
+          return;
+        }
+      }
       // Require auth for 3+ items
       if (basket.length >= 3 && !localStorage.getItem('pasebi-auth-token')) {
         window.dispatchEvent(new CustomEvent('auth-required', { detail: 'კალათაში 3-ზე მეტი პროდუქტის დასამატებლად გაიარეთ რეგისტრაცია' }));
