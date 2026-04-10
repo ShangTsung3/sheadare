@@ -808,7 +808,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
 
       {/* Store Type Tabs */}
       {!debouncedQuery && (
-        <div className="flex gap-2 mb-4 sticky top-0 lg:top-[4.2rem] z-20 bg-slate-50/95 backdrop-blur-sm py-2 -mx-5 px-5 md:-mx-8 md:px-8 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10">
+        <div className="flex gap-2 mb-4 relative z-10">
           {([
             { key: 'grocery' as const, label: lang === 'ka' ? '🛒 სასურსათო' : '🛒 Grocery', emoji: '🛒' },
             { key: 'electronics' as const, label: lang === 'ka' ? '📱 ტექნიკა' : '📱 Electronics', emoji: '📱' },
@@ -1094,7 +1094,21 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             <div className="lg:flex lg:gap-6 lg:items-start">
               {/* Sidebar — fixed on scroll */}
               <div className="hidden lg:block w-56 xl:w-64 shrink-0">
-                <div className="fixed top-[8rem] w-56 xl:w-64 max-h-[calc(100vh-8.5rem)] overflow-y-auto">
+                <div className="fixed top-[5rem] w-56 xl:w-64 max-h-[calc(100vh-5.5rem)] overflow-y-auto">
+                  {/* Store type tabs inside sidebar */}
+                  {!debouncedQuery && (
+                    <div className="flex gap-1.5 mb-2">
+                      {([
+                        { key: 'grocery' as const, label: '🛒 სასურსათო' },
+                        { key: 'electronics' as const, label: '📱 ტექნიკა' },
+                      ]).map(tab => (
+                        <button key={tab.key} onClick={() => { setStoreType(tab.key); setSelectedCategory('ყველა'); }}
+                          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${storeType === tab.key ? 'bg-[#108AB1] text-white shadow-sm' : 'bg-white text-slate-500 border border-slate-200'}`}>
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] overflow-hidden">
                     {/* Header */}
                     <div className="px-5 pt-5 pb-3">
