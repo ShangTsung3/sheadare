@@ -2054,7 +2054,8 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
         );
       })()}
 
-      {/* Analysis section */}
+      {/* Analysis section — only for grocery products */}
+      {!Object.keys(product.prices).some(s => ['Zoomer','Alta','Kontakt','Megatechnica','MetroMart'].includes(s)) && (
       <div className="mt-6">
         <button
           onClick={() => {
@@ -2253,6 +2254,7 @@ const CompareScreen = ({ selectedProduct, setScreen, darkMode, setDarkMode, aler
           )}
         </AnimatePresence>
       </div>
+      )}
 
       <div className="mt-4">
         <button
