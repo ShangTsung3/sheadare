@@ -151,66 +151,72 @@ async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T
   throw new Error('Unreachable');
 }
 
-// Strip conversational Georgian phrases, keeping only product-related terms
+// Strip ALL conversational words, keep only product-related terms
 function extractProductQuery(msg: string): string {
-  // Remove common Georgian question phrases using regex
-  let q = msg.trim();
-  // "რამდენი ღირს" (how much does it cost), "რამდენია" (how much is it)
-  q = q.replace(/\s*რამდენი\s+ღირს\s*/gi, ' ');
-  q = q.replace(/\s*რამდენია\s*/gi, ' ');
-  q = q.replace(/\s*რამდენი\s*/gi, ' ');
-  q = q.replace(/\s*რამდენად\s*/gi, ' ');
-  // "მიპოვე" (find me), "მოძებნე" (search for) — fuzzy: მომიძებნე, მომიძბნე, მომიძებნ, etc.
-  q = q.replace(/\s*მიპოვ\S*\s*/gi, ' ');
-  q = q.replace(/\s*მოძებნ\S*\s*/gi, ' ');
-  q = q.replace(/\s*მოიძი\S*\s*/gi, ' ');
-  // "ღირს" (costs), "ფასი" (price)
-  q = q.replace(/\s*ღირს\s*/gi, ' ');
-  q = q.replace(/\s*ფასი\s*/gi, ' ');
-  q = q.replace(/\s*ფასები\s*/gi, ' ');
-  // "მინდა" (I want), "მიჩვენე" (show me)
-  q = q.replace(/\s*მინდა\s*/gi, ' ');
-  q = q.replace(/\s*მიჩვენ\S*\s*/gi, ' ');
-  q = q.replace(/\s*აჩვენ\S*\s*/gi, ' ');
-  q = q.replace(/\s*მაჩვენ\S*\s*/gi, ' ');
-  // "ყველაზე იაფი" (cheapest)
-  q = q.replace(/\s*ყველაზე\s+იაფი\s*/gi, ' ');
-  q = q.replace(/\s*ყველაზე\s*/gi, ' ');
-  q = q.replace(/\s*იაფი\s*/gi, ' ');
-  // "სად არის" (where is)
-  q = q.replace(/\s*სად\s+არის\s*/gi, ' ');
-  q = q.replace(/\s*სად\s*/gi, ' ');
-  q = q.replace(/\s*არის\s*/gi, ' ');
-  // "ვიყიდი" (I'll buy), "ვიყიდო" (to buy)
-  q = q.replace(/\s*ვიყიდ\S*\s*/gi, ' ');
-  q = q.replace(/\s*ვიშოვ\S*\s*/gi, ' ');
-  // "მირჩიე/მირჩევ" (recommend)
-  q = q.replace(/\s*მირჩი\S*\s*/gi, ' ');
-  q = q.replace(/\s*მირჩევ\S*\s*/gi, ' ');
-  q = q.replace(/\s*რომელი\s+ჯობია\s*/gi, ' ');
-  q = q.replace(/\s*რომელი\s*/gi, ' ');
-  q = q.replace(/\s*ჯობია\s*/gi, ' ');
-  // "მაინტერესებს" (I'm interested)
-  q = q.replace(/\s*მაინტერესებ\S*\s*/gi, ' ');
-  q = q.replace(/\s*მომიძებნ\S*\s*/gi, ' ');
-  q = q.replace(/\s*მომიძბნ\S*\s*/gi, ' ');
-  q = q.replace(/\s*გამიგ\S*\s*/gi, ' ');
-  // Price-related
-  q = q.replace(/\s*ლარამდე\s*/gi, ' ');
-  q = q.replace(/\s*ლარი\s*/gi, ' ');
-  q = q.replace(/\s*იაფად\s*/gi, ' ');
-  q = q.replace(/\s*ძვირი\s*/gi, ' ');
-  q = q.replace(/\s*კარგი\s*/gi, ' ');
-  q = q.replace(/\s*საუკეთესო\s*/gi, ' ');
-  // Other common words
-  q = q.replace(/\s*შეადარე\s*/gi, ' ');
-  q = q.replace(/\s*შეამოწმე\s*/gi, ' ');
-  q = q.replace(/\s*გთხოვთ?\s*/gi, ' ');
-  q = q.replace(/\s*დამეხმარე\s*/gi, ' ');
-  q = q.replace(/\s*რა\s*/gi, ' ');
+  // Remove punctuation
+  let q = msg.replace(/[?!.,;:()\"']/g, ' ').trim();
 
-  q = q.replace(/[?!.,;:()\"']/g, '').trim().replace(/\s+/g, ' ');
-  return q || msg.trim();
+  // Giant list of conversational Georgian words/prefixes to remove
+  const stopWords = [
+    // Questions & requests
+    'რამდენი', 'რამდენია', 'რამდენად', 'ღირს', 'ფასი', 'ფასები', 'ფასია',
+    'მინდა', 'მინდოდა', 'ვინდა', 'უნდა',
+    'სად', 'არის', 'იყო', 'იქნება', 'არ', 'ვერ', 'ხო', 'რა', 'რომ', 'თუ', 'და', 'ან',
+    // Commands — any word starting with these prefixes will be removed
+    'მიპოვ', 'მოძებნ', 'მოიძი', 'მომიძებნ', 'მომიძბნ', 'მაპოვნინ', 'მაპოვე', 'მიშოვნინ',
+    'მიჩვენ', 'აჩვენ', 'მაჩვენ', 'დამანახ',
+    'მირჩი', 'მირჩევ', 'ურჩი', 'შემარჩი',
+    'მაინტერესებ', 'ინტერესებ',
+    'ვიყიდ', 'ვიშოვ', 'ვყიდულობ', 'შევიძინ',
+    'დამეხმარ', 'დაეხმარ',
+    'გამიგ', 'შეადარ', 'შეამოწმ',
+    // Price/quality adjectives
+    'ყველაზე', 'იაფი', 'იაფად', 'ძვირი', 'ძვირად', 'კარგი', 'საუკეთესო', 'უკეთესი',
+    'ნორმალურ', 'ხარისხიან', 'ბიუჯეტურ',
+    'ლარამდე', 'ლარი', 'ლარს', 'ლარით',
+    // Conversational
+    'გთხოვ', 'გეთაყვა', 'შეგიძლია', 'შეიძლება', 'გამარჯობა', 'მოგესალმები',
+    'ბატონო', 'გენაცვალე', 'რომელი', 'ჯობია', 'ჯობს', 'რას', 'როგორი', 'რომელ',
+    'აბა', 'ეხა', 'ახლა', 'მერე', 'კიდე', 'კიდევ', 'ისევ', 'უბრალოდ', 'ზოგადად',
+    'მაღაზიაში', 'მაღაზია', 'ონლაინ',
+  ];
+
+  // Remove stop words (prefix matching — removes word if it starts with any stop word)
+  const words = q.split(/\s+/);
+  const filtered = words.filter(word => {
+    const lower = word.toLowerCase();
+    return !stopWords.some(sw => lower.startsWith(sw) || lower === sw);
+  });
+
+  q = filtered.join(' ').trim();
+
+  // If nothing left, try extracting known product words from original
+  if (!q || q.length < 2) {
+    const productWords = [
+      'ტელეფონ', 'სმარტფონ', 'მობილურ', 'iphone', 'samsung', 'galaxy', 'xiaomi', 'pixel', 'huawei', 'poco', 'redmi', 'realme', 'oppo',
+      'ლეპტოპ', 'ნოუთბუქ', 'laptop', 'macbook', 'notebook', 'lenovo', 'asus', 'acer', 'dell',
+      'ტაბლეტ', 'ipad', 'tablet',
+      'ტელევიზორ', 'tv', 'მონიტორ', 'monitor',
+      'ყურსასმენ', 'airpod', 'buds', 'headphone',
+      'საათ', 'watch', 'სმარტ',
+      'gaming', 'გეიმინგ', 'playstation', 'xbox', 'ps5',
+      'პრინტერ', 'კლავიატურ', 'მაუს', 'დინამიკ', 'სპიკერ',
+      'მაცივარ', 'სარეცხ', 'მტვერსასრუტ',
+      'რძე', 'პური', 'ხორც', 'ყველი', 'კვერცხ', 'ზეთი', 'შაქარ', 'მაკარონ', 'ბრინჯ',
+      'წყალი', 'წვენი', 'ლუდი', 'ღვინო', 'ყავა', 'ჩაი', 'კოკა', 'პეპსი', 'ფანტა',
+      'შოკოლად', 'ტკბილეულ', 'ნაყინ', 'ჩიფს', 'ორცხობილ',
+      'სარეცხი', 'საპონი', 'შამპუნი', 'პასტა', 'ტუალეტ',
+    ];
+    const msgLower = msg.toLowerCase();
+    const found = productWords.filter(pw => msgLower.includes(pw));
+    if (found.length > 0) {
+      // Find the actual word in message that contains this product keyword
+      const msgWords = msg.replace(/[?!.,;:()\"']/g, ' ').split(/\s+/);
+      q = msgWords.filter(w => found.some(pw => w.toLowerCase().includes(pw))).join(' ');
+    }
+  }
+
+  return q || msg.replace(/[?!.,;:()\"']/g, '').trim();
 }
 
 // Detect if query is about electronics
