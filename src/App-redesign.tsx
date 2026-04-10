@@ -4804,8 +4804,64 @@ function AppInner() {
             {voiceToast && <VoiceToast text={voiceToast.text} type={voiceToast.type} />}
           </AnimatePresence>
 
-          {/* Floating buttons */}
-          {/* AI Chat and Voice mic floating buttons removed */}
+          {/* Floating AI Assistant Character */}
+          {currentScreen !== 'chat' && (
+            <div className="fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-40">
+              {/* Speech bubble */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ delay: 2, duration: 0.4 }}
+                className="absolute -top-16 right-0 bg-white rounded-2xl rounded-br-sm shadow-lg border border-slate-200 px-3 py-2 whitespace-nowrap"
+                style={{ animation: 'bubbleFade 8s ease-in-out infinite' }}
+              >
+                <p className="text-xs font-medium text-slate-700">რაში დაგეხმარო? 👋</p>
+              </motion.div>
+
+              {/* Character button */}
+              <motion.button
+                onClick={() => setScreen('chat')}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#108AB1] to-[#0d7a9e] shadow-lg shadow-[#108AB1]/30 flex items-center justify-center overflow-hidden group"
+                style={{ animation: 'assistantBounce 3s ease-in-out infinite' }}
+              >
+                {/* Shopping bag body */}
+                <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
+                  {/* Bag body */}
+                  <rect x="6" y="14" width="28" height="22" rx="4" fill="white" opacity="0.95"/>
+                  {/* Bag handles */}
+                  <path d="M14 14V10C14 7.8 15.8 6 18 6H22C24.2 6 26 7.8 26 10V14" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.6"/>
+                  {/* Eyes - magnifying glasses */}
+                  <circle cx="15" cy="23" r="3.5" stroke="#108AB1" strokeWidth="1.5" fill="white"/>
+                  <circle cx="25" cy="23" r="3.5" stroke="#108AB1" strokeWidth="1.5" fill="white"/>
+                  <circle cx="15" cy="23" r="1.5" fill="#108AB1"/>
+                  <circle cx="25" cy="23" r="1.5" fill="#108AB1"/>
+                  {/* Smile */}
+                  <path d="M15 29C15 29 17.5 32 20 32C22.5 32 25 29 25 29" stroke="#108AB1" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                  {/* Lari symbol on bag */}
+                  <text x="20" y="19" textAnchor="middle" fill="#06D7A0" fontSize="7" fontWeight="bold">₾</text>
+                </svg>
+
+                {/* Notification dot */}
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#06D7A0] rounded-full flex items-center justify-center">
+                  <span className="text-[8px] font-bold text-white">AI</span>
+                </div>
+              </motion.button>
+
+              <style>{`
+                @keyframes assistantBounce {
+                  0%, 100% { transform: translateY(0); }
+                  50% { transform: translateY(-6px); }
+                }
+                @keyframes bubbleFade {
+                  0%, 15% { opacity: 1; }
+                  20%, 80% { opacity: 0; }
+                  85%, 100% { opacity: 1; }
+                }
+              `}</style>
+            </div>
+          )}
 
           <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); if (q.length > 0 && currentScreen !== 'home') setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
 
