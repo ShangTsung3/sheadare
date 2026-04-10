@@ -800,7 +800,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
 
       {/* Store Type Tabs */}
       {!debouncedQuery && (
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 relative z-10">
           {([
             { key: 'grocery' as const, label: lang === 'ka' ? '🛒 სასურსათო' : '🛒 Grocery', emoji: '🛒' },
             { key: 'electronics' as const, label: lang === 'ka' ? '📱 ტექნიკა' : '📱 Electronics', emoji: '📱' },
