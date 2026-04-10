@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getDb } from '../db/connection.js';
+import { upsertProduct, upsertOffer } from '../services/product-service.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -103,6 +104,34 @@ router.get('/stats', (req: Request, res: Response) => {
     categories,
     priceStats,
   });
+});
+
+// === Import products from local scraper ===
+router.post('/import-products', (req: Request, res: Response) => {
+  const { store, source, products } = req.body;
+  if (!store || !products || !Array.isArray(products)) {
+    res.status(400).json({ error: 'Missing store or products' });
+    return;
+  }
+
+  const db = getDb();
+  let count = 0;
+  const tx = db.transaction(() => {
+    for (const p of products) {
+      const productId = upsertProduct({
+        external_id: p.external_id,
+        name: p.name,
+        image_url: p.image_url,
+        category: p.category,
+        source: source || store.toLowerCase(),
+        store_type: 'electronics',
+      });
+      upsertOffer(productId, store, p.price, p.url);
+      count++;
+    }
+  });
+  tx();
+  res.json({ success: true, imported: count });
 });
 
 // === Run scraper manually ===

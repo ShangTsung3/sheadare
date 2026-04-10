@@ -1,10 +1,8 @@
-import { execSync } from 'child_process';
 import { BaseScraper, ScrapedProduct } from './base-scraper.js';
 import { RateLimiter } from './rate-limiter.js';
 
 const ZOOMER_SITE = 'https://zoommer.ge';
 const ZOOMER_API = `${ZOOMER_SITE}/api/proxy/v1/Products/v3`;
-const ZOOMER_TOKEN_URL = `${ZOOMER_SITE}/api/proxy/connect/token`;
 
 interface ZoomerProduct {
   id: number;
@@ -17,9 +15,16 @@ interface ZoomerProduct {
   parentCategoryName: string;
   imageUrl: string | null;
   route: string | null;
+  routeGe: string | null;
   isInStock: boolean;
   hasDiscount: boolean;
   discountPercent: number;
+}
+
+interface ZoomerApiResponse {
+  products: ZoomerProduct[];
+  productsCount: number;
+  categories?: unknown[];
 }
 
 interface ZoomerCategory {
@@ -87,62 +92,103 @@ const CATEGORIES: ZoomerCategory[] = [
 ];
 
 const PAGE_SIZE = 28;
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 export class ZoomerScraper extends BaseScraper {
   readonly storeName = 'Zoomer';
-  private accessToken: string | null = null;
+  private cookieHeader: string | null = null;
 
   constructor(rateLimiter: RateLimiter) {
     super(rateLimiter);
   }
 
-  private getAccessToken(): string | null {
-    if (this.accessToken) return this.accessToken;
+  /**
+   * Fetch the homepage to obtain the session cookie (zoommer-access_token).
+   * The old /api/proxy/connect/token endpoint now returns CSRF errors,
+   * so we rely on the cookie that the site sets on the first HTML page load.
+   */
+  private async obtainSessionCookie(): Promise<string | null> {
+    if (this.cookieHeader) return this.cookieHeader;
     try {
-      const result = execSync(
-        `curl -sL -X POST "${ZOOMER_TOKEN_URL}" -H "Authorization: Basic Wm9vbWVyV2ViOmhlc295YW0=" -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=client_credentials&client_id=ZoomerWeb"`,
-        { timeout: 15000 },
-      ).toString();
-      const data = JSON.parse(result);
-      this.accessToken = data.access_token || null;
-      return this.accessToken;
+      const resp = await fetch(ZOOMER_SITE, {
+        headers: { 'User-Agent': UA, 'Accept': 'text/html', 'Accept-Language': 'ka,en;q=0.9' },
+        redirect: 'follow',
+      });
+      const setCookies = resp.headers.getSetCookie?.() || [];
+      // Extract all cookies and join them for the Cookie header
+      const cookies: string[] = [];
+      for (const sc of setCookies) {
+        const nameVal = sc.split(';')[0]; // e.g. "zoommer-access_token=..."
+        if (nameVal) cookies.push(nameVal);
+      }
+      if (cookies.length > 0) {
+        this.cookieHeader = cookies.join('; ');
+        return this.cookieHeader;
+      }
+      // Fallback: parse raw set-cookie from headers (for older Node.js)
+      const raw = resp.headers.get('set-cookie');
+      if (raw) {
+        const tokenMatch = raw.match(/zoommer-access_token=([^;]+)/);
+        if (tokenMatch) {
+          this.cookieHeader = `zoommer-access_token=${tokenMatch[1]}`;
+          return this.cookieHeader;
+        }
+      }
+      return null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch products from the Zoommer API proxy using cookie auth.
+   */
+  private async fetchApi(params: Record<string, string | number>): Promise<ZoomerApiResponse | null> {
+    const cookie = await this.obtainSessionCookie();
+    if (!cookie) return null;
+
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      qs.set(k, String(v));
+    }
+    const url = `${ZOOMER_API}?${qs.toString()}`;
+
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          'User-Agent': UA,
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'ka',
+          'os': 'web',
+          'Cookie': cookie,
+          'Referer': ZOOMER_SITE,
+        },
+      });
+      if (!resp.ok) return null;
+      const text = await resp.text();
+      if (!text) return null;
+      return JSON.parse(text) as ZoomerApiResponse;
     } catch {
       return null;
     }
   }
 
-  private fetchApi(categoryId: number, page: number): { products: ZoomerProduct[]; productsCount: number } | null {
-    const token = this.getAccessToken();
-    if (!token) return null;
+  /**
+   * Fallback: extract products from __NEXT_DATA__ in server-rendered HTML.
+   * Only gets the first page (28 products) per category.
+   */
+  private async fetchSsr(categorySlug: string): Promise<{ products: ZoomerProduct[]; productsCount: number } | null> {
     try {
-      const url = `${ZOOMER_API}?CategoryId=${categoryId}&Page=${page}&Limit=${PAGE_SIZE}`;
-      const result = execSync(
-        `curl -sL "${url}" -H "Authorization: Bearer ${token}" -H "accept-language: ka" -H "os: web" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"`,
-        { timeout: 30000, maxBuffer: 10 * 1024 * 1024 },
-      ).toString();
-      return JSON.parse(result);
-    } catch {
-      return null;
-    }
-  }
-
-  private fetchHtmlViaCurl(url: string): string | null {
-    try {
-      const html = execSync(
-        `curl -sL -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -H "Accept: text/html" -H "Accept-Language: ka,en;q=0.9" "${url}"`,
-        { timeout: 30000, maxBuffer: 10 * 1024 * 1024 },
-      ).toString();
-      return html;
-    } catch {
-      return null;
-    }
-  }
-
-  private extractNextData(html: string): any {
-    const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([^<]+)<\/script>/);
-    if (!match) return null;
-    try {
-      return JSON.parse(match[1]);
+      const resp = await fetch(`${ZOOMER_SITE}/${categorySlug}`, {
+        headers: { 'User-Agent': UA, 'Accept': 'text/html', 'Accept-Language': 'ka,en;q=0.9' },
+      });
+      const html = await resp.text();
+      const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([^<]+)<\/script>/);
+      if (!match) return null;
+      const data = JSON.parse(match[1]);
+      const fp = data.props?.pageProps?.initialFilteredProducts;
+      if (!fp) return null;
+      return { products: fp.products || [], productsCount: fp.productsCount || 0 };
     } catch {
       return null;
     }
@@ -150,14 +196,14 @@ export class ZoomerScraper extends BaseScraper {
 
   private toScrapedProduct(p: ZoomerProduct, categoryLabel: string): ScrapedProduct | null {
     if (p.price <= 0) return null;
-
+    const route = p.route || p.routeGe;
     return {
       external_id: `zoomer-${p.id}`,
       name: p.name,
       price: p.price,
       category: categoryLabel,
       image_url: p.imageUrl || undefined,
-      url: p.route ? `${ZOOMER_SITE}/${p.route}` : undefined,
+      url: route ? `${ZOOMER_SITE}/${route}` : undefined,
       in_stock: p.isInStock,
     };
   }
@@ -167,26 +213,27 @@ export class ZoomerScraper extends BaseScraper {
     const allProducts: ScrapedProduct[] = [];
     const seen = new Set<number>();
 
-    // Get auth token first
-    const token = this.getAccessToken();
-    if (!token) {
-      log('Failed to get access token, falling back to SSR scraping');
+    // Try to get session cookie for API access
+    const cookie = await this.obtainSessionCookie();
+    const useApi = !!cookie;
+
+    if (useApi) {
+      log('Got session cookie, using REST API with full pagination');
     } else {
-      log('Got access token, using REST API for full pagination');
+      log('Failed to get session cookie, falling back to SSR scraping (first page only)');
     }
 
     for (const cat of CATEGORIES) {
       log(`Category: ${cat.label} (${cat.slug})`);
 
-      if (token) {
-        // Use REST API for full pagination
+      if (useApi) {
         let page = 1;
         let totalCount = 0;
 
         while (true) {
           try {
             await this.rateLimiter.acquire();
-            const data = this.fetchApi(cat.id, page);
+            const data = await this.fetchApi({ CategoryId: cat.id, Page: page, Limit: PAGE_SIZE });
             if (!data || !data.products || data.products.length === 0) break;
 
             totalCount = data.productsCount;
@@ -215,18 +262,18 @@ export class ZoomerScraper extends BaseScraper {
         // Fallback: SSR first page only
         try {
           await this.rateLimiter.acquire();
-          const html = this.fetchHtmlViaCurl(`${ZOOMER_SITE}/${cat.slug}`);
-          if (!html) continue;
-          const nextData = this.extractNextData(html);
-          if (!nextData) continue;
+          const result = await this.fetchSsr(cat.slug);
+          if (!result) continue;
 
-          const products: ZoomerProduct[] = nextData.props?.pageProps?.initialFilteredProducts?.products || [];
           let newInPage = 0;
-          for (const p of products) {
+          for (const p of result.products) {
             if (seen.has(p.id)) continue;
             seen.add(p.id);
             const scraped = this.toScrapedProduct(p, cat.label);
-            if (scraped) { allProducts.push(scraped); newInPage++; }
+            if (scraped) {
+              allProducts.push(scraped);
+              newInPage++;
+            }
           }
           log(`  +${newInPage} products (SSR fallback, first page only)`);
         } catch (err) {
@@ -241,12 +288,23 @@ export class ZoomerScraper extends BaseScraper {
 
   async search(query: string): Promise<ScrapedProduct[]> {
     try {
-      const url = `${ZOOMER_SITE}/search?q=${encodeURIComponent(query)}`;
-      const html = this.fetchHtmlViaCurl(url);
-      if (!html) return [];
-      const nextData = this.extractNextData(html);
-      if (!nextData) return [];
+      // Try API first
+      const data = await this.fetchApi({ Name: query, Page: 1, Limit: PAGE_SIZE });
+      if (data?.products?.length) {
+        return data.products
+          .filter((p) => p.price > 0)
+          .map((p) => this.toScrapedProduct(p, p.parentCategoryName || ''))
+          .filter((p): p is ScrapedProduct => p !== null);
+      }
 
+      // Fallback to SSR search page
+      const resp = await fetch(`${ZOOMER_SITE}/search?q=${encodeURIComponent(query)}`, {
+        headers: { 'User-Agent': UA, 'Accept': 'text/html', 'Accept-Language': 'ka,en;q=0.9' },
+      });
+      const html = await resp.text();
+      const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([^<]+)<\/script>/);
+      if (!match) return [];
+      const nextData = JSON.parse(match[1]);
       const products: ZoomerProduct[] =
         nextData.props?.pageProps?.initialFilteredProducts?.products || [];
 
