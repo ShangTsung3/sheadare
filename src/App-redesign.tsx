@@ -1074,7 +1074,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             <div className="lg:flex lg:gap-6 lg:items-start">
               {/* Sidebar — fixed on scroll */}
               <div className="hidden lg:block w-56 xl:w-64 shrink-0">
-                <div className="fixed top-[5rem] w-56 xl:w-64 max-h-[calc(100vh-5.5rem)] overflow-y-auto">
+                <div className="fixed top-[8rem] w-56 xl:w-64 max-h-[calc(100vh-8.5rem)] overflow-y-auto">
                   <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] overflow-hidden">
                     {/* Header */}
                     <div className="px-5 pt-5 pb-3">
