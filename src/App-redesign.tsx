@@ -808,7 +808,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
 
       {/* Store Type Tabs */}
       {!debouncedQuery && (
-        <div className="flex gap-2 mb-4 relative z-10">
+        <div className="flex gap-2 mb-4 sticky top-0 lg:top-[4.2rem] z-20 bg-slate-50/95 backdrop-blur-sm py-2 -mx-5 px-5 md:-mx-8 md:px-8 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10">
           {([
             { key: 'grocery' as const, label: lang === 'ka' ? '🛒 სასურსათო' : '🛒 Grocery', emoji: '🛒' },
             { key: 'electronics' as const, label: lang === 'ka' ? '📱 ტექნიკა' : '📱 Electronics', emoji: '📱' },
