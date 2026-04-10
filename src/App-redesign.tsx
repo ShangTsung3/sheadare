@@ -558,11 +558,11 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
 
   // Fetch category counts
   useEffect(() => {
-    fetch('/api/search/category-counts')
+    fetch(`/api/search/category-counts?storeType=${storeType}`)
       .then(r => r.json())
       .then(data => { if (data.counts) setCategoryCounts(data.counts); })
       .catch(() => {});
-  }, []);
+  }, [storeType]);
 
   // Auto-refresh top savings every 30 minutes
   useEffect(() => {

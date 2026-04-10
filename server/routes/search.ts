@@ -16,29 +16,50 @@ router.get('/barcode/:code', (req: Request, res: Response) => {
   res.json({ product });
 });
 
-router.get('/category-counts', (_req: Request, res: Response) => {
+router.get('/category-counts', (req: Request, res: Response) => {
   const db = getDb();
-  const prefixes: Record<string, string[]> = {
-    'ყველა': [],
-    'რძის პროდუქტი': ['რძ', 'კვერცხი და რძ'],
-    'ხორცი': ['ხორც', 'ფრეშ ხორც'],
-    'პური': ['პურ', 'საცხობ', 'საკონდიტრ'],
-    'ხილი/ბოსტანი': ['ხილ', 'ბოსტ'],
-    'სასმელი': ['სასმელ', 'უალკოჰოლო', 'წვენ', 'გამაგრილ', 'წყალი'],
-    'ლუდი': ['ლუდი'],
-    'ტკბილეული': ['ტკბილ', 'კანფეტ', 'ორცხობილა', 'ნაყინ'],
-    'სნექი': ['სნექ', 'ჩიფს', 'ჩირ'],
-    'ყავა/ჩაი': ['ყავა', 'ჩაი'],
-    'ჰიგიენა': ['ჰიგიენ'],
+  const storeType = String(req.query.storeType || 'grocery');
+
+  const prefixMap: Record<string, Record<string, string[]>> = {
+    grocery: {
+      'ყველა': [],
+      'რძის პროდუქტი': ['რძ', 'კვერცხი და რძ'],
+      'ხორცი': ['ხორც', 'ფრეშ ხორც'],
+      'პური': ['პურ', 'საცხობ', 'საკონდიტრ'],
+      'ხილი/ბოსტანი': ['ხილ', 'ბოსტ'],
+      'სასმელი': ['სასმელ', 'უალკოჰოლო', 'წვენ', 'გამაგრილ', 'წყალი'],
+      'ლუდი': ['ლუდი'],
+      'ტკბილეული': ['ტკბილ', 'კანფეტ', 'ორცხობილა', 'ნაყინ'],
+      'სნექი': ['სნექ', 'ჩიფს', 'ჩირ'],
+      'ყავა/ჩაი': ['ყავა', 'ჩაი'],
+      'ჰიგიენა': ['ჰიგიენ'],
+    },
+    electronics: {
+      'ყველა': [],
+      'ტელეფონები': ['ტელეფონ', 'სმარტფონ', 'მობილურ', 'iPhone', 'Samsung Galaxy', 'Xiaomi', 'Phone'],
+      'ლეპტოპები': ['ლეპტოპ', 'ნოუთბუქ', 'Laptop', 'MacBook', 'Notebook'],
+      'ტაბლეტები': ['ტაბლეტ', 'iPad', 'Tablet'],
+      'ტელევიზორები': ['ტელევიზ', 'TV'],
+      'მონიტორები': ['მონიტორ', 'Monitor'],
+      'ყურსასმენები': ['ყურსასმენ', 'Headphone', 'Earphone', 'AirPod', 'Buds'],
+      'სმარტ საათები': ['სმარტ საათ', 'Watch', 'საათ'],
+      'გეიმინგი': ['გეიმინგ', 'Gaming', 'PlayStation', 'Xbox', 'Nintendo'],
+      'აუდიო': ['აუდიო', 'Audio', 'Speaker', 'დინამიკ'],
+      'სამზარეულო': ['სამზარეულო', 'Kitchen', 'მაცივარ', 'ღუმელ', 'სარეცხი'],
+    },
   };
+
+  const prefixes = prefixMap[storeType] || prefixMap.grocery;
+  const stType = storeType === 'electronics' ? 'electronics' : 'grocery';
+
   const counts: Record<string, number> = {};
   for (const [key, pxs] of Object.entries(prefixes)) {
     if (pxs.length === 0) {
-      counts[key] = (db.prepare("SELECT COUNT(DISTINCT p.id) as c FROM products p JOIN store_offers so ON so.product_id = p.id WHERE p.store_type = 'grocery' AND so.in_stock = 1 AND so.price > 0").get() as any).c;
+      counts[key] = (db.prepare(`SELECT COUNT(DISTINCT p.id) as c FROM products p JOIN store_offers so ON so.product_id = p.id WHERE (p.store_type = ? OR p.store_type IS NULL) AND so.in_stock = 1 AND so.price > 0`).get(stType) as any).c;
     } else {
       const where = pxs.map(() => 'p.category LIKE ?').join(' OR ');
-      const params = pxs.map(p => p + '%');
-      counts[key] = (db.prepare(`SELECT COUNT(DISTINCT p.id) as c FROM products p JOIN store_offers so ON so.product_id = p.id WHERE p.store_type = 'grocery' AND so.in_stock = 1 AND so.price > 0 AND (${where})`).get(...params) as any).c;
+      const params = pxs.map(p => '%' + p + '%');
+      counts[key] = (db.prepare(`SELECT COUNT(DISTINCT p.id) as c FROM products p JOIN store_offers so ON so.product_id = p.id WHERE (p.store_type = ? OR p.store_type IS NULL) AND so.in_stock = 1 AND so.price > 0 AND (${where})`).get(stType, ...params) as any).c;
     }
   }
   res.json({ counts });
