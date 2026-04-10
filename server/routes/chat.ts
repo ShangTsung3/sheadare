@@ -209,7 +209,7 @@ function extractProductQuery(msg: string): string {
   q = q.replace(/\s*დამეხმარე\s*/gi, ' ');
   q = q.replace(/\s*რა\s*/gi, ' ');
 
-  q = q.trim().replace(/\s+/g, ' ');
+  q = q.replace(/[?!.,;:()\"']/g, '').trim().replace(/\s+/g, ' ');
   return q || msg.trim();
 }
 
