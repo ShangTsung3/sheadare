@@ -516,7 +516,7 @@ const BasketToast = ({ productName }: { productName: string }) => {
 };
 
 const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, alertCount, onAlertTap, basket, setBasket, favorites, setFavorites, voiceSearchQuery, setVoiceSearchQuery, voiceCategory, setVoiceCategory, onProductsLoaded, desktopSearchQuery, setDesktopSearchQuery }: { setScreen: (s: Screen) => void, setSelectedProduct: (p: Product) => void, darkMode: boolean, setDarkMode: (v: boolean) => void, alertCount?: number, onAlertTap?: () => void, basket: Product[], setBasket: React.Dispatch<React.SetStateAction<Product[]>>, favorites: Product[], setFavorites: React.Dispatch<React.SetStateAction<Product[]>>, voiceSearchQuery?: string | null, setVoiceSearchQuery?: (q: string | null) => void, voiceCategory?: string | null, setVoiceCategory?: (c: string | null) => void, onProductsLoaded?: (p: Product[]) => void, desktopSearchQuery?: string, setDesktopSearchQuery?: (q: string) => void }) => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [storeType, setStoreType] = useState<'grocery' | 'electronics' | 'pharmacy' | 'construction'>('grocery');
   const [gridCols, setGridCols] = useState<3 | 4 | 5>(() => {
     try { const saved = Number(localStorage.getItem('pasebi-grid-cols')); return (saved === 3 || saved === 4 || saved === 5) ? saved : 3; } catch { return 3; }
@@ -798,7 +798,27 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
         <Header title={t('header_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
       </div>
 
-      {/* Store Type Tabs — დროებით მხოლოდ სასურსათო, დანარჩენი ტაბები დაბრუნდება მოგვიანებით */}
+      {/* Store Type Tabs */}
+      {!debouncedQuery && (
+        <div className="flex gap-2 mb-4">
+          {([
+            { key: 'grocery' as const, label: lang === 'ka' ? '🛒 სასურსათო' : '🛒 Grocery', emoji: '🛒' },
+            { key: 'electronics' as const, label: lang === 'ka' ? '📱 ტექნიკა' : '📱 Electronics', emoji: '📱' },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => { setStoreType(tab.key); setSelectedCategory('ყველა'); }}
+              className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                storeType === tab.key
+                  ? 'bg-[#108AB1] text-white shadow-md shadow-[#108AB1]/20'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Top Savings */}
       {/* დღის დანაზოგი დროებით გამორთული */}
