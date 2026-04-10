@@ -806,9 +806,9 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
         <Header title={t('header_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
       </div>
 
-      {/* Store Type Tabs */}
+      {/* Store Type Tabs — mobile only, desktop tabs are in sidebar */}
       {!debouncedQuery && (
-        <div className="flex gap-2 mb-4 relative z-10">
+        <div className="flex lg:hidden gap-2 mb-4 relative z-10">
           {([
             { key: 'grocery' as const, label: lang === 'ka' ? '🛒 სასურსათო' : '🛒 Grocery', emoji: '🛒' },
             { key: 'electronics' as const, label: lang === 'ka' ? '📱 ტექნიკა' : '📱 Electronics', emoji: '📱' },
