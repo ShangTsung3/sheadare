@@ -4520,6 +4520,91 @@ const CookieConsent = () => {
   );
 };
 
+const FloatingAssistant = () => {
+  const { lang } = useLanguage();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{id: string; role: 'user'|'assistant'; text: string}[]>([
+    { id: '0', role: 'assistant', text: lang === 'ka' ? 'გამარჯობა! მე ვარ გამიგე-ს AI ასისტენტი. დამიწერე რა პროდუქტი გაინტერესებს და მოვძებნი საუკეთესო ფასებს! 🛒' : "Hi! I'm the Gamige AI assistant. Tell me what you're looking for!" }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const sendChat = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    const msg = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: msg }]);
+    setChatLoading(true);
+    try {
+      const token = localStorage.getItem('pasebi-auth-token') || sessionStorage.getItem('pasebi-auth-token');
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ message: msg }),
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: data.reply || data.text || 'ვერ გავიგე, სცადე თავიდან.' }]);
+    } catch {
+      setChatMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: 'კავშირის შეცდომა, სცადე თავიდან.' }]);
+    }
+    setChatLoading(false);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  return (
+    <div className="fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-40">
+      <AnimatePresence>
+        {chatOpen && (
+          <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="absolute bottom-20 right-0 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col" style={{ maxHeight: '70vh' }}>
+            <div className="bg-gradient-to-r from-[#108AB1] to-[#0d7a9e] px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                  <svg width="18" height="18" viewBox="0 0 40 40" fill="none"><rect x="6" y="14" width="28" height="22" rx="4" fill="white" opacity="0.9"/><circle cx="15" cy="23" r="2" fill="#108AB1"/><circle cx="25" cy="23" r="2" fill="#108AB1"/><path d="M15 29C15 29 17.5 32 20 32C22.5 32 25 29 25 29" stroke="#108AB1" strokeWidth="1.5" strokeLinecap="round" fill="none"/></svg>
+                </div>
+                <div><p className="text-white text-sm font-semibold">გამიგე AI</p><p className="text-white/60 text-[10px]">ონლაინ</p></div>
+              </div>
+              <button onClick={() => setChatOpen(false)} className="text-white/70 hover:text-white p-1"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 bg-slate-50" style={{ minHeight: 200, maxHeight: '50vh' }}>
+              {chatMessages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-[#108AB1] text-white rounded-br-sm' : 'bg-white text-slate-700 border border-slate-200 rounded-bl-sm'}`}>{msg.text}</div>
+                </div>
+              ))}
+              {chatLoading && <div className="flex justify-start"><div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-2.5 flex gap-1"><div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}/><div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}/><div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}/></div></div>}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="px-3 py-2 border-t border-slate-100 bg-white flex gap-2">
+              <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendChat()} placeholder="დაწერე შეკითხვა..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#108AB1]/20" />
+              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} className="w-9 h-9 bg-[#108AB1] text-white rounded-xl flex items-center justify-center disabled:opacity-40"><Send size={16} /></button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {!chatOpen && <div className="absolute -top-14 right-0 bg-white rounded-2xl rounded-br-sm shadow-lg border border-slate-200 px-3 py-2 whitespace-nowrap cursor-pointer" style={{ animation: 'bubbleFade 5s ease-in-out infinite' }} onClick={() => setChatOpen(true)}><p className="text-xs font-medium text-slate-700">რაში დაგეხმარო? 👋</p></div>}
+
+      <motion.button onClick={() => setChatOpen(!chatOpen)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+        className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#108AB1] to-[#0d7a9e] shadow-lg shadow-[#108AB1]/30 flex items-center justify-center"
+        style={{ animation: chatOpen ? 'none' : 'assistantBounce 3s ease-in-out infinite' }}>
+        {chatOpen ? <X size={24} className="text-white" /> : (
+          <>
+            <svg width="36" height="36" viewBox="0 0 40 40" fill="none"><rect x="6" y="14" width="28" height="22" rx="4" fill="white" opacity="0.95"/><path d="M14 14V10C14 7.8 15.8 6 18 6H22C24.2 6 26 7.8 26 10V14" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.6"/><circle cx="15" cy="23" r="3.5" stroke="#108AB1" strokeWidth="1.5" fill="white"/><circle cx="25" cy="23" r="3.5" stroke="#108AB1" strokeWidth="1.5" fill="white"/><circle cx="15" cy="23" r="1.5" fill="#108AB1"/><circle cx="25" cy="23" r="1.5" fill="#108AB1"/><path d="M15 29C15 29 17.5 32 20 32C22.5 32 25 29 25 29" stroke="#108AB1" strokeWidth="1.5" strokeLinecap="round" fill="none"/><text x="20" y="19" textAnchor="middle" fill="#06D7A0" fontSize="7" fontWeight="bold">₾</text></svg>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#06D7A0] rounded-full flex items-center justify-center"><span className="text-[8px] font-bold text-white">AI</span></div>
+          </>
+        )}
+      </motion.button>
+
+      <style>{`
+        @keyframes assistantBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes bubbleFade { 0%, 30% { opacity: 1; } 35%, 65% { opacity: 0; } 70%, 100% { opacity: 1; } }
+      `}</style>
+    </div>
+  );
+};
+
 function AppInner() {
   const { t } = useLanguage();
   const [currentScreen, setScreen] = useState<Screen>('home');
@@ -4805,165 +4890,7 @@ function AppInner() {
           </AnimatePresence>
 
           {/* Floating AI Assistant Character */}
-          {currentScreen !== 'chat' && (() => {
-            const [chatOpen, setChatOpen] = useState(false);
-            const [chatMessages, setChatMessages] = useState<{id: string; role: 'user'|'assistant'; text: string}[]>([
-              { id: '0', role: 'assistant', text: lang === 'ka' ? 'გამარჯობა! მე ვარ გამიგე-ს AI ასისტენტი. დამიწერე რა პროდუქტი გაინტერესებს და მოვძებნი საუკეთესო ფასებს! 🛒' : 'Hi! I\'m the Gamige AI assistant. Tell me what you\'re looking for!' }
-            ]);
-            const [chatInput, setChatInput] = useState('');
-            const [chatLoading, setChatLoading] = useState(false);
-            const chatEndRef = useRef<HTMLDivElement>(null);
-
-            const sendChat = async () => {
-              if (!chatInput.trim() || chatLoading) return;
-              const msg = chatInput.trim();
-              setChatInput('');
-              setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: msg }]);
-              setChatLoading(true);
-              try {
-                const token = localStorage.getItem('pasebi-auth-token') || sessionStorage.getItem('pasebi-auth-token');
-                const res = await fetch('/api/chat', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                  body: JSON.stringify({ message: msg }),
-                });
-                const data = await res.json();
-                setChatMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: data.reply || data.text || 'ვერ გავიგე, სცადე თავიდან.' }]);
-              } catch {
-                setChatMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: 'კავშირის შეცდომა, სცადე თავიდან.' }]);
-              }
-              setChatLoading(false);
-              setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-            };
-
-            return (
-            <div className="fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-40">
-              {/* Chat popup */}
-              <AnimatePresence>
-                {chatOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="absolute bottom-20 right-0 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
-                    style={{ maxHeight: '70vh' }}
-                  >
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-[#108AB1] to-[#0d7a9e] px-4 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                          <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
-                            <rect x="6" y="14" width="28" height="22" rx="4" fill="white" opacity="0.9"/>
-                            <circle cx="15" cy="23" r="2" fill="#108AB1"/>
-                            <circle cx="25" cy="23" r="2" fill="#108AB1"/>
-                            <path d="M15 29C15 29 17.5 32 20 32C22.5 32 25 29 25 29" stroke="#108AB1" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-white text-sm font-semibold">გამიგე AI</p>
-                          <p className="text-white/60 text-[10px]">ონლაინ</p>
-                        </div>
-                      </div>
-                      <button onClick={() => setChatOpen(false)} className="text-white/70 hover:text-white p-1">
-                        <X size={18} />
-                      </button>
-                    </div>
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 bg-slate-50" style={{ minHeight: 200, maxHeight: '50vh' }}>
-                      {chatMessages.map(msg => (
-                        <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${
-                            msg.role === 'user'
-                              ? 'bg-[#108AB1] text-white rounded-br-sm'
-                              : 'bg-white text-slate-700 border border-slate-200 rounded-bl-sm'
-                          }`}>
-                            {msg.text}
-                          </div>
-                        </div>
-                      ))}
-                      {chatLoading && (
-                        <div className="flex justify-start">
-                          <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-2.5 flex gap-1">
-                            <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}/>
-                            <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}/>
-                            <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}/>
-                          </div>
-                        </div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-                    {/* Input */}
-                    <div className="px-3 py-2 border-t border-slate-100 bg-white flex gap-2">
-                      <input
-                        value={chatInput}
-                        onChange={e => setChatInput(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && sendChat()}
-                        placeholder="დაწერე შეკითხვა..."
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#108AB1]/20"
-                      />
-                      <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
-                        className="w-9 h-9 bg-[#108AB1] text-white rounded-xl flex items-center justify-center disabled:opacity-40">
-                        <Send size={16} />
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Speech bubble */}
-              {!chatOpen && (
-                <div
-                  className="absolute -top-14 right-0 bg-white rounded-2xl rounded-br-sm shadow-lg border border-slate-200 px-3 py-2 whitespace-nowrap cursor-pointer"
-                  style={{ animation: 'bubbleFade 5s ease-in-out infinite' }}
-                  onClick={() => setChatOpen(true)}
-                >
-                  <p className="text-xs font-medium text-slate-700">რაში დაგეხმარო? 👋</p>
-                </div>
-              )}
-
-              {/* Character button */}
-              <motion.button
-                onClick={() => setChatOpen(!chatOpen)}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#108AB1] to-[#0d7a9e] shadow-lg shadow-[#108AB1]/30 flex items-center justify-center"
-                style={{ animation: chatOpen ? 'none' : 'assistantBounce 3s ease-in-out infinite' }}
-              >
-                {chatOpen ? (
-                  <X size={24} className="text-white" />
-                ) : (
-                  <>
-                    <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
-                      <rect x="6" y="14" width="28" height="22" rx="4" fill="white" opacity="0.95"/>
-                      <path d="M14 14V10C14 7.8 15.8 6 18 6H22C24.2 6 26 7.8 26 10V14" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.6"/>
-                      <circle cx="15" cy="23" r="3.5" stroke="#108AB1" strokeWidth="1.5" fill="white"/>
-                      <circle cx="25" cy="23" r="3.5" stroke="#108AB1" strokeWidth="1.5" fill="white"/>
-                      <circle cx="15" cy="23" r="1.5" fill="#108AB1"/>
-                      <circle cx="25" cy="23" r="1.5" fill="#108AB1"/>
-                      <path d="M15 29C15 29 17.5 32 20 32C22.5 32 25 29 25 29" stroke="#108AB1" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-                      <text x="20" y="19" textAnchor="middle" fill="#06D7A0" fontSize="7" fontWeight="bold">₾</text>
-                    </svg>
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#06D7A0] rounded-full flex items-center justify-center">
-                      <span className="text-[8px] font-bold text-white">AI</span>
-                    </div>
-                  </>
-                )}
-              </motion.button>
-
-              <style>{`
-                @keyframes assistantBounce {
-                  0%, 100% { transform: translateY(0); }
-                  50% { transform: translateY(-6px); }
-                }
-                @keyframes bubbleFade {
-                  0%, 30% { opacity: 1; }
-                  35%, 65% { opacity: 0; }
-                  70%, 100% { opacity: 1; }
-                }
-              `}</style>
-            </div>
-            );
-          })()}
+          {currentScreen !== 'chat' && <FloatingAssistant />}
 
           <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); if (q.length > 0 && currentScreen !== 'home') setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
 
