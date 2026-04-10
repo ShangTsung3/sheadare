@@ -137,12 +137,12 @@ function buildBasket(budget: number) {
 }
 
 // Retry helper for Gemini API calls
-async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err: any) {
-      const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED');
+      const is429 = err.status === 429 || err.status === 503 || err.message?.includes('429') || err.message?.includes('503') || err.message?.includes('RESOURCE_EXHAUSTED') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand');
       if (!is429 || attempt === maxRetries) throw err;
       const delay = (attempt + 1) * 3000;
       await new Promise(r => setTimeout(r, delay));
