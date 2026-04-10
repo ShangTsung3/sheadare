@@ -4537,10 +4537,10 @@ const CookieConsent = () => {
   );
 };
 
-const FloatingAssistant = () => {
+const FloatingAssistant = ({ onProductClick }: { onProductClick?: (product: Product) => void }) => {
   const { lang } = useLanguage();
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{id: string; role: 'user'|'assistant'; text: string}[]>([
+  const [chatMessages, setChatMessages] = useState<{id: string; role: 'user'|'assistant'; text: string; products?: Product[]}[]>([
     { id: '0', role: 'assistant', text: lang === 'ka' ? 'გამარჯობა! მე ვარ გამიგე-ს AI ასისტენტი. დამიწერე რა პროდუქტი გაინტერესებს და მოვძებნი საუკეთესო ფასებს! 🛒' : "Hi! I'm the Gamige AI assistant. Tell me what you're looking for!" }
   ]);
   const [chatInput, setChatInput] = useState('');
@@ -4561,7 +4561,8 @@ const FloatingAssistant = () => {
         body: JSON.stringify({ message: msg }),
       });
       const data = await res.json();
-      setChatMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: data.reply || data.text || 'ვერ გავიგე, სცადე თავიდან.' }]);
+      const chatProducts = (data.products || []).map((p: any) => ({ id: p.id, name: p.name, size: p.size || '', category: p.category || '', prices: p.prices || {}, image: p.image || p.cheapest_image || '' }));
+      setChatMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: data.reply || data.text || 'ვერ გავიგე, სცადე თავიდან.', products: chatProducts.length > 0 ? chatProducts : undefined }]);
     } catch {
       setChatMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: 'კავშირის შეცდომა, სცადე თავიდან.' }]);
     }
@@ -4586,8 +4587,33 @@ const FloatingAssistant = () => {
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 bg-slate-50" style={{ minHeight: 200, maxHeight: '50vh' }}>
               {chatMessages.map(msg => (
-                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-[#108AB1] text-white rounded-br-sm' : 'bg-white text-slate-700 border border-slate-200 rounded-bl-sm'}`}>{msg.text}</div>
+                <div key={msg.id}>
+                  <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm whitespace-pre-line ${msg.role === 'user' ? 'bg-[#108AB1] text-white rounded-br-sm' : 'bg-white text-slate-700 border border-slate-200 rounded-bl-sm'}`}>{msg.text}</div>
+                  </div>
+                  {msg.products && msg.products.length > 0 && (
+                    <div className="mt-2 space-y-1.5 ml-1">
+                      {msg.products.slice(0, 5).map((p: Product) => {
+                        const prices = Object.entries(p.prices).filter(([,v]) => v > 0).sort((a,b) => a[1] - b[1]);
+                        if (prices.length === 0) return null;
+                        return (
+                          <button key={p.id} onClick={() => { onProductClick?.(p); setChatOpen(false); }}
+                            className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-2 hover:border-[#108AB1] hover:shadow-sm transition-all text-left">
+                            {p.image && <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-contain bg-slate-50 shrink-0" onError={e => (e.target as HTMLImageElement).style.display = 'none'} />}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-medium text-slate-800 line-clamp-1">{p.name}</p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="text-[12px] font-bold text-[#06D7A0]">{prices[0][1]}₾</span>
+                                <span className="text-[10px] text-slate-400">{prices[0][0]}</span>
+                                {prices.length > 1 && <span className="text-[10px] text-slate-300">+{prices.length - 1}</span>}
+                              </div>
+                            </div>
+                            <ChevronRight size={14} className="text-slate-300 shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
               {chatLoading && <div className="flex justify-start"><div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-2.5 flex gap-1"><div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}/><div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}/><div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}/></div></div>}
@@ -4907,7 +4933,7 @@ function AppInner() {
           </AnimatePresence>
 
           {/* Floating AI Assistant Character */}
-          {currentScreen !== 'chat' && <FloatingAssistant />}
+          {currentScreen !== 'chat' && <FloatingAssistant onProductClick={(p) => { setSelectedProduct(p); setScreen('compare'); }} />}
 
           <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); if (q.length > 0 && currentScreen !== 'home') setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
 
