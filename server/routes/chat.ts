@@ -160,19 +160,19 @@ function extractProductQuery(msg: string): string {
   q = q.replace(/\s*რამდენია\s*/gi, ' ');
   q = q.replace(/\s*რამდენი\s*/gi, ' ');
   q = q.replace(/\s*რამდენად\s*/gi, ' ');
-  // "მიპოვე" (find me), "მოძებნე" (search for)
-  q = q.replace(/\s*მიპოვე\s*/gi, ' ');
-  q = q.replace(/\s*მოძებნე\s*/gi, ' ');
-  q = q.replace(/\s*მოიძიე\s*/gi, ' ');
+  // "მიპოვე" (find me), "მოძებნე" (search for) — fuzzy: მომიძებნე, მომიძბნე, მომიძებნ, etc.
+  q = q.replace(/\s*მიპოვ\S*\s*/gi, ' ');
+  q = q.replace(/\s*მოძებნ\S*\s*/gi, ' ');
+  q = q.replace(/\s*მოიძი\S*\s*/gi, ' ');
   // "ღირს" (costs), "ფასი" (price)
   q = q.replace(/\s*ღირს\s*/gi, ' ');
   q = q.replace(/\s*ფასი\s*/gi, ' ');
   q = q.replace(/\s*ფასები\s*/gi, ' ');
   // "მინდა" (I want), "მიჩვენე" (show me)
   q = q.replace(/\s*მინდა\s*/gi, ' ');
-  q = q.replace(/\s*მიჩვენე\s*/gi, ' ');
-  q = q.replace(/\s*აჩვენე\s*/gi, ' ');
-  q = q.replace(/\s*მაჩვენე\s*/gi, ' ');
+  q = q.replace(/\s*მიჩვენ\S*\s*/gi, ' ');
+  q = q.replace(/\s*აჩვენ\S*\s*/gi, ' ');
+  q = q.replace(/\s*მაჩვენ\S*\s*/gi, ' ');
   // "ყველაზე იაფი" (cheapest)
   q = q.replace(/\s*ყველაზე\s+იაფი\s*/gi, ' ');
   q = q.replace(/\s*ყველაზე\s*/gi, ' ');
@@ -182,19 +182,19 @@ function extractProductQuery(msg: string): string {
   q = q.replace(/\s*სად\s*/gi, ' ');
   q = q.replace(/\s*არის\s*/gi, ' ');
   // "ვიყიდი" (I'll buy), "ვიყიდო" (to buy)
-  q = q.replace(/\s*ვიყიდი\s*/gi, ' ');
-  q = q.replace(/\s*ვიყიდო\s*/gi, ' ');
-  q = q.replace(/\s*ვიშოვო\s*/gi, ' ');
+  q = q.replace(/\s*ვიყიდ\S*\s*/gi, ' ');
+  q = q.replace(/\s*ვიშოვ\S*\s*/gi, ' ');
   // "მირჩიე/მირჩევ" (recommend)
-  q = q.replace(/\s*მირჩიე\s*/gi, ' ');
-  q = q.replace(/\s*მირჩევ\s*/gi, ' ');
+  q = q.replace(/\s*მირჩი\S*\s*/gi, ' ');
+  q = q.replace(/\s*მირჩევ\S*\s*/gi, ' ');
   q = q.replace(/\s*რომელი\s+ჯობია\s*/gi, ' ');
   q = q.replace(/\s*რომელი\s*/gi, ' ');
   q = q.replace(/\s*ჯობია\s*/gi, ' ');
   // "მაინტერესებს" (I'm interested)
-  q = q.replace(/\s*მაინტერესებს\s*/gi, ' ');
-  q = q.replace(/\s*მომიძებნე\s*/gi, ' ');
-  q = q.replace(/\s*გამიგე\s*/gi, ' ');
+  q = q.replace(/\s*მაინტერესებ\S*\s*/gi, ' ');
+  q = q.replace(/\s*მომიძებნ\S*\s*/gi, ' ');
+  q = q.replace(/\s*მომიძბნ\S*\s*/gi, ' ');
+  q = q.replace(/\s*გამიგ\S*\s*/gi, ' ');
   // Price-related
   q = q.replace(/\s*ლარამდე\s*/gi, ' ');
   q = q.replace(/\s*ლარი\s*/gi, ' ');
