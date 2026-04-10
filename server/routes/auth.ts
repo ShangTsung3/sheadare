@@ -13,9 +13,9 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
   }
   try {
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Pasebi <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM_EMAIL || 'Gamige <onboarding@resend.dev>',
       to: [email],
-      subject: 'ვერიფიკაციის კოდი — Pasebi.ge',
+      subject: 'ვერიფიკაციის კოდი — Gamige.com',
       html: `
 <!DOCTYPE html>
 <html lang="ka">
@@ -28,7 +28,7 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 40px;text-align:center;">
-              <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Pasebi.ge</h1>
+              <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Gamige.com</h1>
               <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">ფასების შედარება ერთ ადგილას</p>
             </td>
           </tr>
@@ -53,7 +53,7 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
           <tr>
             <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
               <p style="color:#9ca3af;font-size:12px;margin:0;">
-                &copy; ${new Date().getFullYear()} Pasebi.ge — ფასების შედარების პლატფორმა
+                &copy; ${new Date().getFullYear()} Gamige.com — ფასების შედარების პლატფორმა
               </p>
             </td>
           </tr>
