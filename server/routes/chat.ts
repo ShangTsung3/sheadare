@@ -319,11 +319,7 @@ ${skippedInfo}
       return res.json({ text: finalText, products, actions: [], basket: { total, remaining, budget } });
     }
 
-    // === REGULAR MODE: single product search (requires AI) ===
-    if (!ai) {
-      return res.status(503).json({ error: 'AI service unavailable' });
-    }
-
+    // === REGULAR MODE: product search ===
     // Step 1: Extract product query and search
     const searchQuery = extractProductQuery(message);
     const storeType = isElectronicsQuery(message) ? 'electronics' : 'grocery';
@@ -331,7 +327,11 @@ ${skippedInfo}
 
     // If no results in specific store type, try without filter
     if (products.length === 0) {
-      products = searchProductsForAI(searchQuery, undefined, undefined, 5);
+      products = searchProductsForAI(searchQuery, undefined, undefined, 10);
+    }
+    // Try original message if extraction removed too much
+    if (products.length === 0) {
+      products = searchProductsForAI(message.replace(/[?!.,]/g, '').trim(), undefined, undefined, 10);
     }
 
     // Step 2: Format product data for Gemini
@@ -354,25 +354,64 @@ ${skippedInfo}
       }
     }
 
-    const userPrompt = productInfo
-      ? `მომხმარებელი კითხულობს: "${message}"\n\nნაპოვნი პროდუქტები:\n${productInfo}\n\nამ მონაცემებით უპასუხე. აჩვენე ყველაზე იაფი ვარიანტები.`
-      : `მომხმარებელი წერს: "${message}"\n\nბაზაში ვერ მოიძებნა. უპასუხე ქართულად.`;
+    // Format fallback response without AI
+    const formatFallback = () => {
+      if (products.length === 0) return 'სამწუხაროდ, ვერ მოვძებნე "' + searchQuery + '". სცადე სხვა სახელით ძებნა.';
+      const sorted = [...products].sort((a, b) => {
+        const aMin = Math.min(...Object.values(a.prices).filter(v => v > 0));
+        const bMin = Math.min(...Object.values(b.prices).filter(v => v > 0));
+        return aMin - bMin;
+      });
+      let text = `ვიპოვე ${products.length} შედეგი "${searchQuery}"-ზე:\n\n`;
+      for (const p of sorted.slice(0, 8)) {
+        const prices = Object.entries(p.prices).filter(([,v]) => v > 0).sort((a,b) => a[1] - b[1]);
+        const cheapest = prices[0];
+        text += `📦 ${p.name}\n`;
+        for (const [store, price] of prices) {
+          text += `   ${store === cheapest[0] ? '✅' : '  '} ${store}: ${price}₾${store === cheapest[0] ? ' ← ყველაზე იაფი' : ''}\n`;
+        }
+        text += '\n';
+      }
+      const cheapestProduct = sorted[0];
+      const cheapestPrice = Math.min(...Object.values(cheapestProduct.prices).filter(v => v > 0));
+      const cheapestStore = Object.entries(cheapestProduct.prices).find(([,v]) => v === cheapestPrice)?.[0];
+      text += `💡 რეკომენდაცია: "${cheapestProduct.name}" ყველაზე იაფად ${cheapestStore}-ში — ${cheapestPrice}₾`;
+      return text;
+    };
 
-    contents.push({ role: 'user', parts: [{ text: userPrompt }] });
+    let finalText = '';
 
-    const response = await callWithRetry(() => ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents,
-      config: {
-        systemInstruction: CHAT_PROMPT,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }));
+    // Try AI first, fallback to local formatting
+    if (ai) {
+      try {
+        const userPrompt = productInfo
+          ? `მომხმარებელი კითხულობს: "${message}"\n\nნაპოვნი პროდუქტები:\n${productInfo}\n\nამ მონაცემებით უპასუხე. აჩვენე ყველაზე იაფი ვარიანტები.`
+          : `მომხმარებელი წერს: "${message}"\n\nბაზაში ვერ მოიძებნა. უპასუხე ქართულად.`;
 
-    const finalText = response.candidates?.[0]?.content?.parts
-      ?.filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join('\n') || 'ვერ მოვძებნე პასუხი';
+        contents.push({ role: 'user', parts: [{ text: userPrompt }] });
+
+        const response = await callWithRetry(() => ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents,
+          config: {
+            systemInstruction: CHAT_PROMPT,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }));
+
+        finalText = response.candidates?.[0]?.content?.parts
+          ?.filter((p: any) => p.text)
+          .map((p: any) => p.text)
+          .join('\n') || '';
+      } catch (aiErr) {
+        console.log('[Chat] Gemini failed, using fallback:', (aiErr as Error).message?.substring(0, 80));
+      }
+    }
+
+    // Fallback if AI failed or unavailable
+    if (!finalText) {
+      finalText = formatFallback();
+    }
 
     const actions = products.length > 0
       ? [{ type: 'add_to_basket' as const, label: 'კალათაში დამატება', product_ids: products.map(p => p.id) }]
@@ -380,12 +419,23 @@ ${skippedInfo}
 
     res.json({ text: finalText, products, actions });
   } catch (err: any) {
-    console.error('Chat error:', err);
-    const msg = err.message || '';
-    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
-      return res.status(429).json({ text: 'AI სერვისის ლიმიტი ამოიწურა. გთხოვთ სცადოთ რამდენიმე წუთში.', products: [], actions: [] });
-    }
-    res.status(500).json({ text: 'AI სერვისი დროებით მიუწვდომელია. სცადეთ მოგვიანებით.', products: [], actions: [] });
+    console.error('Chat error:', err?.message?.substring(0, 100));
+    // Try to still return search results even if something failed
+    try {
+      const sq = extractProductQuery(message);
+      const st = isElectronicsQuery(message) ? 'electronics' : undefined;
+      const fallbackProducts = searchProductsForAI(sq, undefined, st, 5);
+      if (fallbackProducts.length > 0) {
+        const sorted = fallbackProducts.sort((a, b) => Math.min(...Object.values(a.prices).filter(v => v > 0)) - Math.min(...Object.values(b.prices).filter(v => v > 0)));
+        let text = `ვიპოვე ${fallbackProducts.length} შედეგი:\n\n`;
+        for (const p of sorted) {
+          const prices = Object.entries(p.prices).filter(([,v]) => v > 0).sort((a,b) => a[1] - b[1]);
+          text += `📦 ${p.name} — ${prices.map(([s,pr]) => `${s}: ${pr}₾`).join(', ')}\n`;
+        }
+        return res.json({ text, products: fallbackProducts, actions: [] });
+      }
+    } catch {}
+    res.status(500).json({ text: 'სამწუხაროდ ვერ მოვძებნე. სცადე სხვა სიტყვით.', products: [], actions: [] });
   }
 });
 
