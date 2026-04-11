@@ -956,8 +956,8 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
             className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-[15px] font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:bg-white dark:focus:bg-slate-900 transition-all border-0"
           />
-          {searchFocused && !searchQuery && searchHistory.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg z-20 overflow-hidden max-h-[50vh] overflow-y-auto">
+          {!searchQuery && searchHistory.length > 0 && (
+            <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('search_history')}</span>
                 <button onClick={() => { setSearchHistory([]); localStorage.removeItem(`gamige-search-history-${storeType}`); }} className="text-[10px] font-medium text-slate-400 hover:text-red-400">{t('search_clear')}</button>
