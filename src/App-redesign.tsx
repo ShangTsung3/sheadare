@@ -70,6 +70,9 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'iMart': { color: 'bg-[#FF4500]', letter: 'i', filename: 'imart', logo: 'https://imart.ge/images/logos/405/%E1%83%90%E1%83%98%E1%83%9B%E1%83%90%E1%83%A0%E1%83%A2%E1%83%98%E1%83%A1-%E1%83%9A%E1%83%9D%E1%83%92%E1%83%9D11.png' },
   'Libre': { color: 'bg-[#D4145A]', letter: 'L', filename: 'libre', logo: 'https://libre.ge/storage/images/logolibre.svg' },
   'Georgita': { color: 'bg-[#C5AC71]', letter: 'G', filename: 'georgita', logo: '/logos/georgita.svg' },
+  'Nikora': { color: 'bg-[#E31E24]', letter: 'N', filename: 'nikora', logo: 'https://nikorasupermarket.ge/images/logo.svg' },
+  'Fresco': { color: 'bg-[#00A859]', letter: 'F', filename: 'fresco', logo: 'https://fresco.ge/images/logo.svg' },
+  'Magniti': { color: 'bg-[#FF6B00]', letter: 'M', filename: 'magniti', logo: 'https://magniti.ge/images/logo.png' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl, lazy }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string, lazy?: boolean }) => {
