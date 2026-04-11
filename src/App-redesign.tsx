@@ -306,8 +306,9 @@ const SwipeableProductCard = ({ product, children, onSwipeLeft, onSwipeRight }: 
   );
 };
 
-const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAlertTap, searchQuery, onSearchChange, onChatTap, onVoiceTap, voiceListening }: { active: Screen, setScreen: (s: Screen) => void, onMapTap?: () => void, basketCount: number, alertCount?: number, onAlertTap?: () => void, searchQuery?: string, onSearchChange?: (q: string) => void, onChatTap?: () => void, onVoiceTap?: () => void, voiceListening?: boolean }) => {
+const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAlertTap, searchQuery, onSearchChange, searchHistory, onChatTap, onVoiceTap, voiceListening }: { active: Screen, setScreen: (s: Screen) => void, onMapTap?: () => void, basketCount: number, alertCount?: number, onAlertTap?: () => void, searchQuery?: string, onSearchChange?: (q: string) => void, searchHistory?: string[], onChatTap?: () => void, onVoiceTap?: () => void, voiceListening?: boolean }) => {
   const { t } = useLanguage();
+  const [desktopSearchFocused, setDesktopSearchFocused] = useState(false);
   const navItems = [
     { id: 'home', icon: Home, label: t('nav_home') },
     { id: 'basket', icon: ShoppingBasket, label: t('nav_basket') },
@@ -376,8 +377,24 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
               placeholder={t('search_placeholder')}
               value={searchQuery || ''}
               onChange={(e) => onSearchChange?.(e.target.value)}
+              onFocus={() => setDesktopSearchFocused(true)}
+              onBlur={() => setTimeout(() => setDesktopSearchFocused(false), 200)}
               className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 pl-10 pr-4 text-[13px] font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-[#108AB1]/20 focus:border-[#108AB1]/30 focus:bg-white transition-all"
             />
+            {desktopSearchFocused && !searchQuery && searchHistory && searchHistory.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
+                <div className="px-3 pt-2 pb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('search_history')}</span>
+                </div>
+                {searchHistory.map((q, i) => (
+                  <button key={i} onMouseDown={() => onSearchChange?.(q)}
+                    className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 transition-colors">
+                    <Clock size={13} className="text-slate-300" />
+                    <span className="text-[13px] font-medium text-slate-600">{q}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -830,19 +847,6 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
       <div className="lg:hidden">
         <Header title={t('header_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
       </div>
-
-      {/* Desktop search history — below header search */}
-      {!debouncedQuery && searchHistory.length > 0 && (
-        <div className="hidden lg:flex gap-2 mb-3 items-center flex-wrap">
-          <Clock size={13} className="text-slate-300" />
-          {searchHistory.map((q, i) => (
-            <button key={i} onClick={() => { setSearchQuery(q); setDesktopSearchQuery?.(q); }}
-              className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-[12px] text-slate-500 hover:border-[#108AB1] hover:text-[#108AB1] hover:bg-[#108AB1]/5 transition-colors">
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Store Type Tabs — mobile only, desktop tabs are in sidebar */}
       {!debouncedQuery && (
@@ -5023,7 +5027,7 @@ function AppInner() {
           {/* Floating AI Assistant Character */}
           {currentScreen !== 'chat' && <FloatingAssistant onProductClick={(p) => { setSelectedProduct(p); setScreen('compare'); }} />}
 
-          <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); if (q.length > 0 && currentScreen !== 'home') setScreen('home'); }} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
+          <BottomNav active={currentScreen} setScreen={setScreen} onMapTap={() => setTargetStore(null)} basketCount={basket.length} alertCount={alertCount} onAlertTap={onAlertTap} searchQuery={desktopSearchQuery} onSearchChange={(q) => { setDesktopSearchQuery(q); if (q.length > 0 && currentScreen !== 'home') setScreen('home'); }} searchHistory={(() => { try { return JSON.parse(localStorage.getItem('gamige-search-history-grocery') || '[]'); } catch { return []; } })()} onChatTap={() => setScreen('chat')} onVoiceTap={startVoiceCommand} voiceListening={voiceListening} />
 
           {/* Auth prompt modal */}
           <AnimatePresence>
