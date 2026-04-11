@@ -181,6 +181,27 @@ export function searchProducts(query: string, category?: string, page = 1, limit
         relevance DESC
       ` : `
         relevance DESC,
+        CASE WHEN store_count >= 2 THEN 50 ELSE 0 END DESC,
+        CASE
+          WHEN p.name LIKE '%iPhone 17 Pro Max%' AND p.name NOT LIKE '%Case%' AND p.name NOT LIKE '%ქეისი%' THEN 200
+          WHEN p.name LIKE '%iPhone 17 Pro%' AND p.name NOT LIKE '%Max%' AND p.name NOT LIKE '%Case%' THEN 199
+          WHEN p.name LIKE '%iPhone 17%' AND p.name NOT LIKE '%Pro%' AND p.name NOT LIKE '%Case%' THEN 198
+          WHEN p.name LIKE '%Samsung%S26 Ultra%' OR p.name LIKE '%Galaxy S26 Ultra%' THEN 197
+          WHEN p.name LIKE '%Samsung%S25 Ultra%' OR p.name LIKE '%Galaxy S25 Ultra%' THEN 196
+          WHEN p.name LIKE '%Galaxy Z Fold%' OR p.name LIKE '%Galaxy Z Flip%' THEN 195
+          WHEN p.name LIKE '%MacBook Pro%' THEN 194
+          WHEN p.name LIKE '%MacBook Air%' THEN 193
+          WHEN p.name LIKE '%iPad Pro%' THEN 192
+          WHEN p.name LIKE '%AirPods Pro%' OR p.name LIKE '%AirPods Max%' THEN 191
+          WHEN p.name LIKE '%Apple Watch%' THEN 190
+          WHEN p.name LIKE '%iPhone%' AND p.name NOT LIKE '%Case%' AND p.name NOT LIKE '%ქეისი%' AND p.name NOT LIKE '%Silicone%' AND p.name NOT LIKE '%Clear%' AND p.name NOT LIKE '%TechWoven%' AND p.name NOT LIKE '%დამცავი%' THEN 189
+          WHEN p.name LIKE '%Galaxy S2%' THEN 188
+          WHEN p.name LIKE '%Pixel%' THEN 187
+          WHEN p.name LIKE '%PlayStation%' OR p.name LIKE '%PS5%' THEN 186
+          WHEN p.name LIKE '%Samsung%' THEN 185
+          WHEN p.name LIKE '%Xiaomi%' THEN 184
+          ELSE 0
+        END DESC,
         CASE WHEN EXISTS(SELECT 1 FROM store_offers so2 WHERE so2.product_id = p.id AND so2.store = '2 Nabiji' AND so2.in_stock = 1 AND so2.price > 0) THEN 50 ELSE 0 END DESC,
         CASE
           WHEN p.name_normalized LIKE '%ქათამ%' OR p.name_normalized LIKE '%ქათმის ფილე%' THEN 100
