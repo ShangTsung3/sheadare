@@ -383,8 +383,10 @@ const BottomNav = ({ active, setScreen, onMapTap, basketCount, alertCount, onAle
             />
             {desktopSearchFocused && !searchQuery && searchHistory && searchHistory.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                <div className="px-3 pt-2 pb-1">
+                <div className="px-3 pt-2 pb-1 flex items-center justify-between">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('search_history')}</span>
+                  <button onMouseDown={() => { localStorage.removeItem('gamige-search-history-grocery'); localStorage.removeItem('gamige-search-history-electronics'); }}
+                    className="text-[10px] text-slate-400 hover:text-red-400">{t('search_clear')}</button>
                 </div>
                 {searchHistory.map((q, i) => (
                   <button key={i} onMouseDown={() => onSearchChange?.(q)}
