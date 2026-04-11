@@ -726,6 +726,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
         .then(data => {
           const withPrices = (data.results || []).filter((p: Product) => Object.keys(p.prices).length > 0);
           setProducts(withPrices);
+          if (debouncedQuery && withPrices.length > 0) saveSearchHistory(debouncedQuery);
         })
         .catch(() => {});
     }
