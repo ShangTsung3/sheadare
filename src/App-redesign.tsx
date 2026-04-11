@@ -536,8 +536,12 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   const observerRef = useRef<HTMLDivElement>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-    try { const saved = localStorage.getItem('pasebi-search-history'); return saved ? JSON.parse(saved) : []; } catch { return []; }
+    try { const saved = localStorage.getItem(`gamige-search-history-${storeType}`); return saved ? JSON.parse(saved) : []; } catch { return []; }
   });
+  // Reload history when storeType changes
+  useEffect(() => {
+    try { const saved = localStorage.getItem(`gamige-search-history-${storeType}`); setSearchHistory(saved ? JSON.parse(saved) : []); } catch { setSearchHistory([]); }
+  }, [storeType]);
   const [topSavings, setTopSavings] = useState<Product[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -638,8 +642,8 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   useEffect(() => {
     if (debouncedQuery && debouncedQuery.length >= 2) {
       setSearchHistory(prev => {
-        const updated = [debouncedQuery, ...prev.filter(h => h !== debouncedQuery)].slice(0, 8);
-        localStorage.setItem('pasebi-search-history', JSON.stringify(updated));
+        const updated = [debouncedQuery, ...prev.filter(h => h !== debouncedQuery)].slice(0, 4);
+        localStorage.setItem(`gamige-search-history-${storeType}`, JSON.stringify(updated));
         return updated;
       });
     }
@@ -956,7 +960,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg z-20 overflow-hidden max-h-[50vh] overflow-y-auto">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('search_history')}</span>
-                <button onClick={() => { setSearchHistory([]); localStorage.removeItem('pasebi-search-history'); }} className="text-[10px] font-medium text-slate-400 hover:text-red-400">{t('search_clear')}</button>
+                <button onClick={() => { setSearchHistory([]); localStorage.removeItem(`gamige-search-history-${storeType}`); }} className="text-[10px] font-medium text-slate-400 hover:text-red-400">{t('search_clear')}</button>
               </div>
               {searchHistory.map((q, i) => (
                 <button
