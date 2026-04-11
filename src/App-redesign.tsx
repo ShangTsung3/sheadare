@@ -639,15 +639,14 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => {
-    if (debouncedQuery && debouncedQuery.length >= 2) {
-      setSearchHistory(prev => {
-        const updated = [debouncedQuery, ...prev.filter(h => h !== debouncedQuery)].slice(0, 4);
-        localStorage.setItem(`gamige-search-history-${storeType}`, JSON.stringify(updated));
-        return updated;
-      });
-    }
-  }, [debouncedQuery]);
+  const saveSearchHistory = useCallback((query: string) => {
+    if (!query || query.length < 2) return;
+    setSearchHistory(prev => {
+      const updated = [query, ...prev.filter(h => h !== query)].slice(0, 4);
+      localStorage.setItem(`gamige-search-history-${storeType}`, JSON.stringify(updated));
+      return updated;
+    });
+  }, [storeType]);
 
   const GROCERY_CATEGORY_MAP: Record<string, string> = {
     'რძე': 'რძ', 'რძის პროდუქტი': 'რძ', 'ხორცი': 'ხორც', 'პური': 'პურ', 'ხილი': 'ხილ', 'ხილი/ბოსტანი': 'ხილ',
@@ -952,6 +951,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             placeholder={t('search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) saveSearchHistory(searchQuery.trim()); }}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
             className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-[15px] font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:bg-white dark:focus:bg-slate-900 transition-all border-0"
@@ -1295,9 +1295,9 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
-                onClick={() => { setSelectedProduct(product); setScreen('compare'); }}
+                onClick={() => { if (searchQuery.trim()) saveSearchHistory(searchQuery.trim()); setSelectedProduct(product); setScreen('compare'); }}
                 tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProduct(product); setScreen('compare'); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (searchQuery.trim()) saveSearchHistory(searchQuery.trim()); setSelectedProduct(product); setScreen('compare'); } }}
                 role="button"
                 aria-label={product.name}
                 className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#108AB1]/50 flex flex-col h-full touch-manipulation"
