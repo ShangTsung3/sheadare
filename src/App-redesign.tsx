@@ -2885,9 +2885,9 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
         <div className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="space-y-3">
             {[
-              { icon: TrendingDown, color: 'text-green-500 bg-green-50', text: lang === 'ka' ? 'შეადარე ფასები ყველა მაღაზიაში' : 'Compare prices across stores' },
-              { icon: Zap, color: 'text-amber-500 bg-amber-50', text: lang === 'ka' ? 'AI ასისტენტი — იპოვე საუკეთესო ფასი' : 'AI assistant — find the best price' },
-              { icon: ScanLine, color: 'text-purple-500 bg-purple-50', text: lang === 'ka' ? 'დაასკანერე ბარკოდი ან გადაიღე ფოტო' : 'Scan barcode or take a photo' },
+              { icon: TrendingDown, color: 'text-green-500 bg-green-50', text: lang === 'ka' ? '💰 გამიგე სად არის იაფი' : '💰 Find where it\'s cheapest' },
+              { icon: Zap, color: 'text-amber-500 bg-amber-50', text: lang === 'ka' ? '⚡ მიწერე — AI წამში იპოვის' : '⚡ Ask — AI finds it instantly' },
+              { icon: ScanLine, color: 'text-purple-500 bg-purple-50', text: lang === 'ka' ? '📸 გადაიღე — დანარჩენი ჩვენზეა' : '📸 Snap a photo — we do the rest' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color.split(' ')[1]}`}>
