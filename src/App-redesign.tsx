@@ -4539,6 +4539,128 @@ const CookieConsent = () => {
   );
 };
 
+const InstallBanner = () => {
+  const [visible, setVisible] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const dismissCount = useRef(parseInt(localStorage.getItem('gamige-install-dismiss') || '0'));
+
+  useEffect(() => {
+    // Don't show if already installed, dismissed 3+ times, or on desktop
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone || dismissCount.current >= 3) return;
+    if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) return;
+
+    // Check iOS
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    setIsIOS(ios);
+
+    // Android: listen for install prompt
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setTimeout(() => setVisible(true), 4000);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+
+    // iOS: show after delay
+    if (ios) {
+      setTimeout(() => setVisible(true), 4000);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (isIOS) {
+      setShowIOSGuide(true);
+      return;
+    }
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const result = await deferredPrompt.userChoice;
+      if (result.outcome === 'accepted') {
+        localStorage.setItem('gamige-install-dismiss', '99');
+        setVisible(false);
+      }
+      setDeferredPrompt(null);
+    }
+  };
+
+  const handleDismiss = () => {
+    const count = dismissCount.current + 1;
+    localStorage.setItem('gamige-install-dismiss', String(count));
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 50 }}
+        className="fixed bottom-24 lg:bottom-20 left-3 right-3 z-[90] flex justify-center pointer-events-none"
+      >
+        <div className="bg-gradient-to-r from-[#108AB1] to-[#0d7a9e] rounded-2xl shadow-xl px-4 py-3 max-w-sm w-full pointer-events-auto flex items-center gap-3">
+          <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+            <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+              <rect x="6" y="14" width="28" height="22" rx="4" fill="white" opacity="0.9"/>
+              <circle cx="15" cy="23" r="2" fill="#108AB1"/>
+              <circle cx="25" cy="23" r="2" fill="#108AB1"/>
+              <path d="M15 29C15 29 17.5 32 20 32C22.5 32 25 29 25 29" stroke="#108AB1" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold">დააინსტალირე გამიგე 📱</p>
+            <p className="text-white/70 text-[11px]">აპივით იმუშავებს ტელეფონზე</p>
+          </div>
+          <button onClick={handleInstall} className="px-3 py-1.5 bg-white text-[#108AB1] text-xs font-bold rounded-lg shrink-0">
+            Install
+          </button>
+          <button onClick={handleDismiss} className="text-white/50 hover:text-white p-1 shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+      </motion.div>
+
+      {/* iOS Guide Modal */}
+      <AnimatePresence>
+        {showIOSGuide && (
+          <div className="fixed inset-0 z-[200] flex items-end justify-center">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowIOSGuide(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
+              className="relative bg-white rounded-t-2xl w-full max-w-md p-6 pb-10 shadow-2xl">
+              <h3 className="text-base font-bold text-slate-800 mb-4 text-center">როგორ დააინსტალირო iPhone-ზე</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#108AB1]/10 rounded-full flex items-center justify-center text-sm font-bold text-[#108AB1]">1</div>
+                  <p className="text-sm text-slate-600">დააჭირე <span className="font-semibold">Share</span> ღილაკს <span className="text-lg">⬆️</span> (ქვემოთ)</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#108AB1]/10 rounded-full flex items-center justify-center text-sm font-bold text-[#108AB1]">2</div>
+                  <p className="text-sm text-slate-600">აირჩიე <span className="font-semibold">"Add to Home Screen"</span> ➕</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#108AB1]/10 rounded-full flex items-center justify-center text-sm font-bold text-[#108AB1]">3</div>
+                  <p className="text-sm text-slate-600">დააჭირე <span className="font-semibold">"Add"</span> — მზადაა! 🎉</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowIOSGuide(false); handleDismiss(); }}
+                className="w-full mt-5 py-3 bg-[#108AB1] text-white rounded-xl font-semibold text-sm">
+                გასაგებია
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
 const FloatingAssistant = ({ onProductClick }: { onProductClick?: (product: Product) => void }) => {
   const { lang } = useLanguage();
   const [chatOpen, setChatOpen] = useState(false);
@@ -5033,6 +5155,7 @@ function AppInner() {
         </>
       )}
       <CookieConsent />
+      <InstallBanner />
     </div>
   );
 }
