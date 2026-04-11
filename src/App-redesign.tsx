@@ -2858,72 +2858,27 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
 
       {/* Why Register — only shown when not logged in */}
       {!authUser && !authMode && (
-        <>
-          {/* Stats banner */}
-          <div className="mb-4 bg-gradient-to-r from-[#108AB1] to-[#0d7a9e] rounded-2xl p-5 text-white">
-            <div className="flex items-center justify-around text-center">
-              <div>
-                <p className="text-2xl font-bold">7</p>
-                <p className="text-[11px] opacity-80">{lang === 'ka' ? 'მაღაზია' : 'Stores'}</p>
-              </div>
-              <div className="w-px h-8 bg-white/20" />
-              <div>
-                <p className="text-2xl font-bold">15K+</p>
-                <p className="text-[11px] opacity-80">{lang === 'ka' ? 'პროდუქტი' : 'Products'}</p>
-              </div>
-              <div className="w-px h-8 bg-white/20" />
-              <div>
-                <p className="text-2xl font-bold">0₾</p>
-                <p className="text-[11px] opacity-80">{lang === 'ka' ? 'უფასოდ' : 'Free'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Features list */}
-          <div className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-slate-800 mb-4">{lang === 'ka' ? 'რატომ გამიგე?' : 'Why Gamige?'}</h3>
-            <div className="space-y-3">
-              {[
-                { icon: TrendingDown, color: 'text-green-500 bg-green-50', text: lang === 'ka' ? 'შეადარე ფასები 7 მაღაზიაში ერთდროულად' : 'Compare prices across 7 stores at once' },
-                { icon: Bell, color: 'text-blue-500 bg-blue-50', text: lang === 'ka' ? 'მიიღე შეტყობინება როცა ფასი დაეცემა' : 'Get notified when prices drop' },
-                { icon: ScanLine, color: 'text-purple-500 bg-purple-50', text: lang === 'ka' ? 'დაასკანერე ბარკოდი და იპოვე იაფი ფასი' : 'Scan barcode to find cheapest price' },
-                { icon: BarChart3, color: 'text-orange-500 bg-orange-50', text: lang === 'ka' ? 'ნახე ფასების ისტორია და ტრენდი' : 'View price history and trends' },
-                { icon: Zap, color: 'text-amber-500 bg-amber-50', text: lang === 'ka' ? 'AI ანალიზი — შეაფასე პროდუქტის ხარისხი' : 'AI analysis — rate product quality' },
-                { icon: ShoppingBasket, color: 'text-teal-500 bg-teal-50', text: lang === 'ka' ? 'შეადარე კალათა — სად ჯობია ყიდვა' : 'Compare baskets — where to buy cheaper' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color.split(' ')[1]}`}>
-                    <item.icon size={18} className={item.color.split(' ')[0]} />
-                  </div>
-                  <p className="text-[13px] text-slate-600 leading-snug">{item.text}</p>
+        <div className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <div className="space-y-3">
+            {[
+              { icon: TrendingDown, color: 'text-green-500 bg-green-50', text: lang === 'ka' ? 'შეადარე ფასები ყველა მაღაზიაში' : 'Compare prices across stores' },
+              { icon: Zap, color: 'text-amber-500 bg-amber-50', text: lang === 'ka' ? 'AI ასისტენტი — იპოვე საუკეთესო ფასი' : 'AI assistant — find the best price' },
+              { icon: ScanLine, color: 'text-purple-500 bg-purple-50', text: lang === 'ka' ? 'დაასკანერე ბარკოდი ან გადაიღე ფოტო' : 'Scan barcode or take a photo' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color.split(' ')[1]}`}>
+                  <item.icon size={18} className={item.color.split(' ')[0]} />
                 </div>
-              ))}
-            </div>
-            <button onClick={() => setAuthMode('register')}
-              className="w-full mt-5 bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#0d7a9e] transition-colors">
-              {lang === 'ka' ? 'დარეგისტრირდი უფასოდ' : 'Register for Free'}
-            </button>
+                <p className="text-[13px] text-slate-600 leading-snug">{item.text}</p>
+              </div>
+            ))}
           </div>
-        </>
+          <button onClick={() => setAuthMode('register')}
+            className="w-full mt-4 bg-[#108AB1] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#0d7a9e] transition-colors">
+            {lang === 'ka' ? 'დარეგისტრირდი უფასოდ' : 'Register for Free'}
+          </button>
+        </div>
       )}
-
-      {/* Language Selection */}
-      <div className="mb-2 w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
-        <div className="flex items-center gap-3">
-          <Globe size={18} className="text-slate-400" />
-          <span className="font-medium text-slate-900 dark:text-white text-sm">{t('profile_language')}</span>
-        </div>
-        <div className="flex gap-1">
-          <button onClick={() => setLang('ka')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${lang === 'ka' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300'}`}>
-            ქარ
-          </button>
-          <button onClick={() => setLang('en')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${lang === 'en' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300'}`}>
-            Eng
-          </button>
-        </div>
-      </div>
 
       <div className="space-y-2">
         {[
@@ -2939,6 +2894,20 @@ const ProfileScreen = ({ setScreen, darkMode, setDarkMode, alertCount, onAlertTa
             <ChevronRight size={16} className="text-slate-300" />
           </button>
         ))}
+      </div>
+
+      {/* Language */}
+      <div className="mt-2 mb-2 w-full flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <Globe size={18} className="text-slate-400" />
+          <span className="font-medium text-slate-900 dark:text-white text-sm">{t('profile_language')}</span>
+        </div>
+        <div className="flex gap-1">
+          <button onClick={() => setLang('ka')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${lang === 'ka' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300'}`}>ქარ</button>
+          <button onClick={() => setLang('en')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${lang === 'en' ? 'bg-[#108AB1] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300'}`}>Eng</button>
+        </div>
       </div>
 
       {/* Legal & Account */}
