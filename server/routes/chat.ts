@@ -185,6 +185,7 @@ function extractProductQuery(msg: string): string {
   const words = q.split(/\s+/);
   const filtered = words.filter(word => {
     const lower = word.toLowerCase();
+    if (/^\d+$/.test(word)) return false; // Remove standalone numbers (prices)
     return !stopWords.some(sw => lower.startsWith(sw) || lower === sw);
   });
 
@@ -326,14 +327,66 @@ ${skippedInfo}
     }
 
     // === REGULAR MODE: product search ===
-    // Step 1: Extract product query and search
+    // Step 1: Extract price budget from message
+    const budgetMatch = message.match(/(\d+)\s*(?:ლარ|₾|lari)/i) || message.match(/(\d+)\s*-\s*(\d+)/) || message.match(/(\d+)\s*(?:მდე|ამდე|ფარგლ)/i);
+    const maxBudget = budgetMatch ? parseInt(budgetMatch[2] || budgetMatch[1]) : 0;
+
+    // Step 2: Extract product query and search
     const searchQuery = extractProductQuery(message);
     const storeType = isElectronicsQuery(message) ? 'electronics' : 'grocery';
-    let products = searchProductsForAI(searchQuery, undefined, storeType, 10);
+
+    // Map generic Georgian words to better search terms
+    const searchExpansions: Record<string, string[]> = {
+      'ტელეფონი': ['iPhone', 'Samsung Galaxy', 'Xiaomi', 'Pixel'],
+      'ტელეფონ': ['iPhone', 'Samsung Galaxy', 'Xiaomi', 'Pixel'],
+      'ლეპტოპი': ['MacBook', 'Lenovo', 'Asus', 'Acer', 'Dell'],
+      'ლეპტოპ': ['MacBook', 'Lenovo', 'Asus', 'Acer', 'Dell'],
+      'ყურსასმენი': ['AirPods', 'Galaxy Buds', 'JBL', 'Sony'],
+      'ყურსასმენ': ['AirPods', 'Galaxy Buds', 'JBL', 'Sony'],
+      'საათი': ['Apple Watch', 'Galaxy Watch', 'Xiaomi Watch'],
+      'საათ': ['Apple Watch', 'Galaxy Watch', 'Xiaomi Watch'],
+    };
+
+    let products = searchProductsForAI(searchQuery, undefined, storeType, maxBudget ? 30 : 10);
+
+    // If few results, try expanded search for generic terms
+    if (products.length < 5) {
+      const queryLower = searchQuery.toLowerCase();
+      for (const [key, expansions] of Object.entries(searchExpansions)) {
+        if (queryLower.includes(key)) {
+          for (const exp of expansions) {
+            const moreProducts = searchProductsForAI(exp, undefined, storeType, 10);
+            for (const p of moreProducts) {
+              if (!products.find(e => e.id === p.id)) products.push(p);
+            }
+          }
+          break;
+        }
+      }
+    }
 
     // If no results in specific store type, try without filter
     if (products.length === 0) {
-      products = searchProductsForAI(searchQuery, undefined, undefined, 10);
+      products = searchProductsForAI(searchQuery, undefined, undefined, maxBudget ? 30 : 10);
+    }
+    // Try original message if extraction removed too much
+    if (products.length === 0) {
+      products = searchProductsForAI(message.replace(/[?!.,]/g, '').trim(), undefined, undefined, 10);
+    }
+
+    // Filter by budget if specified
+    if (maxBudget > 0 && products.length > 0) {
+      products = products.filter(p => {
+        const minPrice = Math.min(...Object.values(p.prices).filter(v => v > 0));
+        return minPrice <= maxBudget;
+      });
+      // Sort by price ascending
+      products.sort((a, b) => {
+        const aMin = Math.min(...Object.values(a.prices).filter(v => v > 0));
+        const bMin = Math.min(...Object.values(b.prices).filter(v => v > 0));
+        return aMin - bMin;
+      });
+      products = products.slice(0, 10);
     }
     // Try original message if extraction removed too much
     if (products.length === 0) {
