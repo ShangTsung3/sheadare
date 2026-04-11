@@ -831,6 +831,22 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
         <Header title={t('header_title')} alertCount={alertCount} onAlertTap={onAlertTap} />
       </div>
 
+      {/* Desktop search history */}
+      {!debouncedQuery && searchHistory.length > 0 && (
+        <div className="hidden lg:flex gap-2 mb-4 items-center">
+          <span className="text-[10px] text-slate-400 shrink-0">{t('search_history')}:</span>
+          {searchHistory.map((q, i) => (
+            <button key={i} onClick={() => { setSearchQuery(q); setDesktopSearchQuery?.(q); }}
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs text-slate-600 hover:border-[#108AB1] hover:text-[#108AB1] transition-colors flex items-center gap-1.5">
+              <Clock size={12} className="text-slate-300" />
+              {q}
+            </button>
+          ))}
+          <button onClick={() => { setSearchHistory([]); localStorage.removeItem(`gamige-search-history-${storeType}`); }}
+            className="text-[10px] text-slate-300 hover:text-red-400 ml-1">✕</button>
+        </div>
+      )}
+
       {/* Store Type Tabs — mobile only, desktop tabs are in sidebar */}
       {!debouncedQuery && (
         <div className="flex lg:hidden gap-2 mb-4 relative z-10">
@@ -962,7 +978,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-[15px] font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:text-white focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:bg-white dark:focus:bg-slate-900 transition-all border-0"
           />
           {!searchQuery && searchHistory.length > 0 && (
-            <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div className="mt-2 lg:hidden bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('search_history')}</span>
                 <button onClick={() => { setSearchHistory([]); localStorage.removeItem(`gamige-search-history-${storeType}`); }} className="text-[10px] font-medium text-slate-400 hover:text-red-400">{t('search_clear')}</button>
