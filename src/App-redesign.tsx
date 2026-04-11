@@ -73,6 +73,8 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'Nikora': { color: 'bg-[#E31E24]', letter: 'N', filename: 'nikora', logo: 'https://nikorasupermarket.ge/images/logo.svg' },
   'Fresco': { color: 'bg-[#00A859]', letter: 'F', filename: 'fresco', logo: 'https://fresco.ge/images/logo.svg' },
   'Magniti': { color: 'bg-[#FF6B00]', letter: 'M', filename: 'magniti', logo: 'https://magniti.ge/images/logo.png' },
+  'Smart': { color: 'bg-[#2E86AB]', letter: 'S', filename: 'smart', logo: '' },
+  'Naturali': { color: 'bg-[#4CAF50]', letter: 'N', filename: 'naturali', logo: '' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl, lazy }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string, lazy?: boolean }) => {
