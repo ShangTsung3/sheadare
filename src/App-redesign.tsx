@@ -639,13 +639,17 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveSearchHistory = useCallback((query: string) => {
     if (!query || query.length < 2) return;
-    setSearchHistory(prev => {
-      const updated = [query, ...prev.filter(h => h !== query)].slice(0, 4);
-      localStorage.setItem(`gamige-search-history-${storeType}`, JSON.stringify(updated));
-      return updated;
-    });
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      setSearchHistory(prev => {
+        const updated = [query, ...prev.filter(h => h !== query)].slice(0, 4);
+        localStorage.setItem(`gamige-search-history-${storeType}`, JSON.stringify(updated));
+        return updated;
+      });
+    }, 1500);
   }, [storeType]);
 
   const GROCERY_CATEGORY_MAP: Record<string, string> = {
