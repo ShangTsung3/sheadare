@@ -99,32 +99,15 @@ const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, i
 
 // --- Components ---
 
-const PhotoScanOverlay = () => {
-  const { t } = useLanguage();
-  const [progress, setProgress] = useState(0);
-  useEffect(() => {
-    const steps = [
-      { target: 15, delay: 300 },
-      { target: 30, delay: 600 },
-      { target: 48, delay: 400 },
-      { target: 62, delay: 500 },
-      { target: 75, delay: 400 },
-      { target: 85, delay: 600 },
-      { target: 93, delay: 800 },
-      { target: 97, delay: 1000 },
-    ];
-    let i = 0;
-    const tick = () => {
-      if (i >= steps.length) return;
-      const step = steps[i];
-      setTimeout(() => {
-        setProgress(step.target);
-        i++;
-        tick();
-      }, step.delay);
-    };
-    tick();
-  }, []);
+const PhotoScanOverlay = ({ stage }: { stage: 'uploading' | 'analyzing' | 'searching' | 'done' }) => {
+  const { t, lang } = useLanguage();
+  const stageMap = {
+    uploading: { progress: 25, text: lang === 'ka' ? 'სურათი იტვირთება...' : 'Uploading image...' },
+    analyzing: { progress: 55, text: lang === 'ka' ? 'AI ანალიზი მიმდინარეობს...' : 'AI analyzing...' },
+    searching: { progress: 80, text: lang === 'ka' ? 'პროდუქტები იძებნება...' : 'Searching products...' },
+    done: { progress: 100, text: lang === 'ka' ? 'მზადაა!' : 'Done!' },
+  };
+  const { progress, text } = stageMap[stage];
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex flex-col items-center justify-center">
       <div className="relative mb-8">
@@ -135,10 +118,10 @@ const PhotoScanOverlay = () => {
         </div>
       </div>
       <div className="text-4xl font-bold text-white mb-2">{progress}%</div>
-      <div className="text-sm text-white/70 mb-6">{t('photo_scanning')}</div>
+      <div className="text-sm text-white/70 mb-6">{text}</div>
       <div className="w-72 h-2.5 bg-white/15 rounded-full overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-[#108AB1] to-[#06D7A0] rounded-full transition-all duration-500 ease-out"
+          className="h-full bg-gradient-to-r from-[#108AB1] to-[#06D7A0] rounded-full transition-all duration-700 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -566,7 +549,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
   const [refreshing, setRefreshing] = useState(false);
   const [pullDist, setPullDist] = useState(0);
   const [isAiResult, setIsAiResult] = useState(false);
-  const [photoScanning, setPhotoScanning] = useState(false);
+  const [photoScanning, setPhotoScanning] = useState<false | 'uploading' | 'analyzing' | 'searching' | 'done'>(false);
   const pullStartY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -1028,7 +1011,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
             const file = e.target.files?.[0];
             if (!file) return;
             // Reset all state for fresh search
-            setPhotoScanning(true);
+            setPhotoScanning('uploading');
             setLoading(true);
             setProducts([]);
             setSearchQuery('');
@@ -1047,16 +1030,19 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
               canvas.width = w; canvas.height = h;
               canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
               const base64 = canvas.toDataURL('image/jpeg', 0.9);
+              setPhotoScanning('uploading');
               fetch('/api/ai/image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: base64 }),
               })
                 .then(r => {
+                  setPhotoScanning('analyzing');
                   if (!r.ok) throw new Error(`HTTP ${r.status}`);
                   return r.json();
                 })
                 .then(data => {
+                  setPhotoScanning('searching');
                   if (data.error) {
                     alert(data.error);
                     return;
@@ -1081,7 +1067,7 @@ const HomeScreen = ({ setScreen, setSelectedProduct, darkMode, setDarkMode, aler
       </div>
 
       {/* Fullscreen photo scanning overlay */}
-      {photoScanning && <PhotoScanOverlay />}
+      {photoScanning && <PhotoScanOverlay stage={photoScanning} />}
 
       {/* Categories + Products layout */}
       {(() => {
