@@ -108,11 +108,15 @@ router.get('/stats', (req: Request, res: Response) => {
 
 // === Import products from local scraper ===
 router.post('/import-products', (req: Request, res: Response) => {
-  const { store, source, products } = req.body;
+  const { store, source, products, store_type } = req.body;
   if (!store || !products || !Array.isArray(products)) {
     res.status(400).json({ error: 'Missing store or products' });
     return;
   }
+
+  // Auto-detect store_type from store name
+  const electronicsStores = ['Zoomer', 'Alta', 'Kontakt', 'Megatechnica', 'MetroMart'];
+  const detectedType = store_type || (electronicsStores.includes(store) ? 'electronics' : 'grocery');
 
   const db = getDb();
   let count = 0;
@@ -124,7 +128,7 @@ router.post('/import-products', (req: Request, res: Response) => {
         image_url: p.image_url,
         category: p.category,
         source: source || store.toLowerCase(),
-        store_type: 'electronics',
+        store_type: detectedType,
       });
       upsertOffer(productId, store, p.price, p.url);
       count++;
