@@ -74,7 +74,7 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'Fresco': { color: 'bg-[#75B743]', letter: 'F', filename: 'fresco', logo: '/logos/fresco.svg' },
   'Magniti': { color: 'bg-[#E31E24]', letter: 'M', filename: 'magniti', logo: '/logos/magniti.jpg' },
   'Smart': { color: 'bg-[#F26B21]', letter: 'S', filename: 'smart', logo: '/logos/smart.png' },
-  'Naturali': { color: 'bg-[#4CAF50]', letter: 'N', filename: 'naturali', logo: '' },
+  'Naturali': { color: 'bg-[#F0C030]', letter: 'N', filename: 'naturali', logo: '/logos/naturali.png' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl, lazy }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string, lazy?: boolean }) => {
