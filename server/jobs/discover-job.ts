@@ -11,6 +11,12 @@ import { MegatechnicaScraper } from '../scrapers/megatechnica-scraper.js';
 import { AgrohubScraper } from '../scrapers/agrohub-scraper.js';
 import { LibreScraper } from '../scrapers/libre-scraper.js';
 import { GeorgitaScraper } from '../scrapers/georgita-scraper.js';
+import { TechnoBoomScraper } from '../scrapers/technoboom-scraper.js';
+import { ITechnicsScraper } from '../scrapers/itechnics-scraper.js';
+import { MyTechnicaScraper } from '../scrapers/mytechnica-scraper.js';
+import { AlneoScraper } from '../scrapers/alneo-scraper.js';
+import { GrandelScraper } from '../scrapers/grandel-scraper.js';
+import { EEScraper } from '../scrapers/ee-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 import { SCRAPER_RATE_LIMIT_MS } from '../config.js';
 import { BaseScraper, ScrapedProduct } from '../scrapers/base-scraper.js';
@@ -31,11 +37,18 @@ const STORES: StoreConfig[] = [
   { name: 'Agrohub', source: 'agrohub', storeType: 'grocery', createScraper: (rl) => new AgrohubScraper(rl, process.env.AGROHUB_TOKEN || '') },
   { name: 'Libre', source: 'libre', storeType: 'grocery', createScraper: (rl) => new LibreScraper(rl) },
   { name: 'Georgita', source: 'georgita', storeType: 'grocery', createScraper: (rl) => new GeorgitaScraper(rl) },
-  // ტექნიკა დროებით გამორთულია
+  // ტექნიკა — სერვერზე მუშაობს (Cloudflare-ის გარეშე)
+  { name: 'Kontakt', source: 'kontakt', storeType: 'electronics', createScraper: (rl) => new KontaktScraper(rl) },
+  { name: 'Megatechnica', source: 'megatechnica', storeType: 'electronics', createScraper: (rl) => new MegatechnicaScraper(rl) },
+  { name: 'TechnoBoom', source: 'technoboom', storeType: 'electronics', createScraper: (rl) => new TechnoBoomScraper(rl) },
+  { name: 'MyTechnica', source: 'mytechnica', storeType: 'electronics', createScraper: (rl) => new MyTechnicaScraper(rl) },
+  { name: 'Alneo', source: 'alneo', storeType: 'electronics', createScraper: (rl) => new AlneoScraper(rl) },
+  { name: 'Grandel', source: 'grandel', storeType: 'electronics', createScraper: (rl) => new GrandelScraper(rl) },
+  // iTechnics, EE, Zoomer, Alta — სერვერის IP-ს ბლოკავენ (403), ლოკალური Chrome სჭირდება
+  // { name: 'iTechnics', source: 'itechnics', storeType: 'electronics', createScraper: (rl) => new ITechnicsScraper(rl) },
+  // { name: 'EE', source: 'ee', storeType: 'electronics', createScraper: (rl) => new EEScraper(rl) },
   // { name: 'Zoomer', source: 'zoomer', storeType: 'electronics', createScraper: (rl) => new ZoomerScraper(rl) },
   // { name: 'Alta', source: 'alta', storeType: 'electronics', createScraper: (rl) => new AltaScraper(rl) },
-  // { name: 'Kontakt', source: 'kontakt', storeType: 'electronics', createScraper: (rl) => new KontaktScraper(rl) },
-  // { name: 'Megatechnica', source: 'megatechnica', storeType: 'electronics', createScraper: (rl) => new MegatechnicaScraper(rl) },
 ];
 
 export async function runDiscoverJob(): Promise<void> {

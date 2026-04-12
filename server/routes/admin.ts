@@ -115,7 +115,7 @@ router.post('/import-products', (req: Request, res: Response) => {
   }
 
   // Auto-detect store_type from store name
-  const electronicsStores = ['Zoomer', 'Alta', 'Kontakt', 'Megatechnica', 'MetroMart'];
+  const electronicsStores = ['Zoomer', 'Alta', 'Kontakt', 'Megatechnica', 'MetroMart', 'TechnoBoom', 'iTechnics', 'MyTechnica', 'Alneo', 'Grandel', 'EE'];
   const detectedType = store_type || (electronicsStores.includes(store) ? 'electronics' : 'grocery');
 
   const db = getDb();

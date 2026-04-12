@@ -75,6 +75,12 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'Magniti': { color: 'bg-[#E31E24]', letter: 'M', filename: 'magniti', logo: '/logos/magniti.jpg' },
   'Smart': { color: 'bg-[#F26B21]', letter: 'S', filename: 'smart', logo: '/logos/smart.png' },
   'Naturali': { color: 'bg-[#F0C030]', letter: 'N', filename: 'naturali', logo: '/logos/naturali.png' },
+  'TechnoBoom': { color: 'bg-[#1A1A2E]', letter: 'T', filename: 'technoboom', logo: '/logos/technoboom.png' },
+  'iTechnics': { color: 'bg-[#F5F5F5]', letter: 'i', filename: 'itechnics', logo: '/logos/itechnics.png' },
+  'MyTechnica': { color: 'bg-[#3949AB]', letter: 'M', filename: 'mytechnica', logo: '/logos/mytechnica.jpg' },
+  'Alneo': { color: 'bg-[#E21A22]', letter: 'A', filename: 'alneo', logo: '/logos/alneo.png' },
+  'Grandel': { color: 'bg-[#2196F3]', letter: 'G', filename: 'grandel', logo: '/logos/grandel.jpg' },
+  'EE': { color: 'bg-[#F94E5C]', letter: 'E', filename: 'ee', logo: '/logos/ee.png' },
 };
 
 const SmartImage = ({ filename, alt, className, fallbackLetter, fallbackColor, isLogo, storeName, imageUrl, lazy }: { filename: string, alt: string, className?: string, fallbackLetter?: string, fallbackColor?: string, isLogo?: boolean, storeName?: string, imageUrl?: string, lazy?: boolean }) => {

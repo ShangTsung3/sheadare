@@ -19,6 +19,12 @@ import { ImartScraper } from '../scrapers/imart-scraper.js';
 import { AgrohubScraper } from '../scrapers/agrohub-scraper.js';
 import { LibreScraper } from '../scrapers/libre-scraper.js';
 import { GeorgitaScraper } from '../scrapers/georgita-scraper.js';
+import { TechnoBoomScraper } from '../scrapers/technoboom-scraper.js';
+import { ITechnicsScraper } from '../scrapers/itechnics-scraper.js';
+import { MyTechnicaScraper } from '../scrapers/mytechnica-scraper.js';
+import { AlneoScraper } from '../scrapers/alneo-scraper.js';
+import { GrandelScraper } from '../scrapers/grandel-scraper.js';
+import { EEScraper } from '../scrapers/ee-scraper.js';
 import { upsertProduct, upsertOffer } from '../services/product-service.js';
 
 async function main() {
@@ -514,6 +520,156 @@ async function main() {
     });
     upsertAll();
     console.log(`Georgita done. ${products.length} products saved.`);
+  }
+
+  if (store === 'technoboom' || store === 'electronics' || store === 'all') {
+    console.log('Running full TechnoBoom scrape...');
+    const scraper = new TechnoBoomScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[TechnoBoom] ${msg}`));
+
+    console.log(`Upserting ${products.length} TechnoBoom products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'technoboom',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'TechnoBoom', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`TechnoBoom done. ${products.length} products saved.`);
+  }
+
+  if (store === 'itechnics' || store === 'electronics' || store === 'all') {
+    console.log('Running full iTechnics scrape...');
+    const scraper = new ITechnicsScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[iTechnics] ${msg}`));
+
+    console.log(`Upserting ${products.length} iTechnics products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'itechnics',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'iTechnics', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`iTechnics done. ${products.length} products saved.`);
+  }
+
+  if (store === 'mytechnica' || store === 'electronics' || store === 'all') {
+    console.log('Running full MyTechnica scrape...');
+    const scraper = new MyTechnicaScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[MyTechnica] ${msg}`));
+
+    console.log(`Upserting ${products.length} MyTechnica products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'mytechnica',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'MyTechnica', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`MyTechnica done. ${products.length} products saved.`);
+  }
+
+  if (store === 'alneo' || store === 'electronics' || store === 'all') {
+    console.log('Running full Alneo scrape...');
+    const scraper = new AlneoScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Alneo] ${msg}`));
+
+    console.log(`Upserting ${products.length} Alneo products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'alneo',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'Alneo', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Alneo done. ${products.length} products saved.`);
+  }
+
+  if (store === 'grandel' || store === 'electronics' || store === 'all') {
+    console.log('Running full Grandel scrape...');
+    const scraper = new GrandelScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[Grandel] ${msg}`));
+
+    console.log(`Upserting ${products.length} Grandel products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'grandel',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'Grandel', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`Grandel done. ${products.length} products saved.`);
+  }
+
+  if (store === 'ee' || store === 'electronics' || store === 'all') {
+    console.log('Running full EE (Elite Electronics) scrape...');
+    const scraper = new EEScraper(rateLimiter);
+    const products = await scraper.scrapeAll((msg) => console.log(`[EE] ${msg}`));
+
+    console.log(`Upserting ${products.length} EE products into DB...`);
+    const upsertAll = db.transaction(() => {
+      for (const p of products) {
+        const productId = upsertProduct({
+          external_id: p.external_id,
+          name: p.name,
+          size: p.size,
+          category: p.category,
+          image_url: p.image_url,
+          brand: p.brand,
+          source: 'ee',
+          store_type: 'electronics',
+        });
+        upsertOffer(productId, 'EE', p.price, p.url);
+      }
+    });
+    upsertAll();
+    console.log(`EE done. ${products.length} products saved.`);
   }
 
   // Clean up stale cross-store offers that violate the price threshold.
