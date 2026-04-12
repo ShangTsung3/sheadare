@@ -72,7 +72,7 @@ const STORE_CONFIG: Record<string, { color: string, letter: string, filename: st
   'Georgita': { color: 'bg-[#C5AC71]', letter: 'G', filename: 'georgita', logo: '/logos/georgita.svg' },
   'Nikora': { color: 'bg-[#E31E24]', letter: 'N', filename: 'nikora', logo: '/logos/nikora.png' },
   'Fresco': { color: 'bg-[#75B743]', letter: 'F', filename: 'fresco', logo: '/logos/fresco.svg' },
-  'Magniti': { color: 'bg-[#FF6B00]', letter: 'M', filename: 'magniti', logo: 'https://magniti.ge/images/logo.png' },
+  'Magniti': { color: 'bg-[#E31E24]', letter: 'M', filename: 'magniti', logo: '/logos/magniti.jpg' },
   'Smart': { color: 'bg-[#F26B21]', letter: 'S', filename: 'smart', logo: '/logos/smart.png' },
   'Naturali': { color: 'bg-[#4CAF50]', letter: 'N', filename: 'naturali', logo: '' },
 };
